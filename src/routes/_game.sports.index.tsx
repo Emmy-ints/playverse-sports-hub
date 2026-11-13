@@ -5,8 +5,8 @@ import { SPORTS } from "@/lib/sports";
 
 export const Route = createFileRoute("/_game/sports/")({
   head: () => ({ meta: [
-    { title: "Choose a sport — PLAYVERSE" }, { name: "description", content: "Tennis, Bowling, Golf, Racing and Athletics." },
-    { property: "og:title", content: "Choose a sport — PLAYVERSE" }, { property: "og:description", content: "Tennis, Bowling, Golf, Racing and Athletics." },
+    { title: "Choose a sport — PLAYVERSE" }, { name: "description", content: "Tennis, bowling, golf, racing, athletics and parkour." },
+    { property: "og:title", content: "Choose a sport — PLAYVERSE" }, { property: "og:description", content: "Tennis, bowling, golf, racing, athletics and parkour." },
   ] }),
   component: () => (
     <PageShell eyebrow="Play" title="Choose a sport">

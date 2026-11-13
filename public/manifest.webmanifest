@@ -1,7 +1,7 @@
 {
   "name": "PLAYVERSE",
   "short_name": "PLAYVERSE",
-  "description": "Four sports. One universe. Cross-platform multiplayer Tennis, Bowling, Golf and Racing.",
+  "description": "Four sports. One universe. Cross-platform multiplayer tennis, bowling, golf, racing, athletics and parkour.",
   "id": "/",
   "start_url": "/hub",
   "scope": "/",

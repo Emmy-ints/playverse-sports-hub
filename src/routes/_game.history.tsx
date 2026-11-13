@@ -14,9 +14,9 @@ export const Route = createFileRoute("/_game/history")({
   head: () => ({
     meta: [
       { title: "Match history — PLAYVERSE" },
-      { name: "description", content: "Every match you have played across all four sports." },
+      { name: "description", content: "Every match you have played across all six sports." },
       { property: "og:title", content: "Match history — PLAYVERSE" },
-      { property: "og:description", content: "Every match you have played across all four sports." },
+      { property: "og:description", content: "Every match you have played across all six sports." },
     ],
   }),
   component: Page,

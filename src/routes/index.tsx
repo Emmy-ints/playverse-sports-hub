@@ -11,10 +11,10 @@ import { SPORTS } from "@/lib/sports";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "PLAYVERSE — Four sports. One universe." },
-      { name: "description", content: "Tennis, Bowling, Golf and Racing in one cross-platform multiplayer sports universe. Create your player and challenge your friends." },
-      { property: "og:title", content: "PLAYVERSE — Four sports. One universe." },
-      { property: "og:description", content: "Tennis, Bowling, Golf and Racing in one cross-platform multiplayer sports universe." },
+      { title: "PLAYVERSE — Six sports. One universe." },
+      { name: "description", content: "Tennis, bowling, golf, racing, athletics and parkour in one cross-platform multiplayer sports universe. Create your player and challenge your friends." },
+      { property: "og:title", content: "PLAYVERSE — Six sports. One universe." },
+      { property: "og:description", content: "Tennis, bowling, golf, racing, athletics and parkour in one cross-platform multiplayer sports universe." },
     ],
   }),
   component: Welcome,
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/")({
 
 const STEPS = [
   { icon: UserRound, title: "Create your player", text: "Design your character in the studio." },
-  { icon: Gamepad2, title: "Pick your arena", text: "Tennis, Bowling, Golf or Racing." },
+  { icon: Gamepad2, title: "Pick your arena", text: "Tennis, bowling, golf, racing, athletics or parkour." },
   { icon: Swords, title: "Challenge friends", text: "Real-time matches on any device." },
 ];
 
@@ -38,7 +38,7 @@ function Welcome() {
       <div className="mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-8">
         <Logo />
         <main className="flex flex-1 flex-col justify-center py-10">
-          <p className="font-display text-sm font-bold uppercase tracking-[0.35em] text-accent animate-rise">Four sports · One universe</p>
+          <p className="font-display text-sm font-bold uppercase tracking-[0.35em] text-accent animate-rise">Six sports · One universe</p>
           <h1 className="mt-3 max-w-3xl font-display text-6xl font-black uppercase italic leading-[0.88] animate-rise sm:text-8xl">
             Welcome to <span className="text-gradient-gold">Playverse</span>
           </h1>

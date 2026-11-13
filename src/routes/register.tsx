@@ -53,7 +53,7 @@ function Register() {
   return (
     <AuthLayout
       title="Join Playverse"
-      subtitle="One account. Four sports. Any device."
+      subtitle="One account. Six sports. Any device."
       footer={<>Already have an account? <Link to="/login" className="font-semibold text-primary hover:underline">Log in</Link></>}
     >
       <form noValidate onSubmit={(e) => onSubmit(e, values)} className="space-y-4">
