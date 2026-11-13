@@ -175,6 +175,12 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
   sun.lookAt(new pc.Vec3(0.35, -0.8, -0.45).normalize());
   sun.rotateLocal(90, 0, 0);
   app.root.addChild(sun);
+  // Soft fill from the infield so the grandstand crowd under the roof is clearly lit.
+  const fill = new pc.Entity("fill");
+  fill.addComponent("light", { type: "directional", color: new pc.Color(1, 0.95, 0.88), intensity: 0.75, castShadows: false });
+  fill.lookAt(new pc.Vec3(0.1, -0.35, 1).normalize());
+  fill.rotateLocal(90, 0, 0);
+  app.root.addChild(fill);
 
   const add = (parent: pc.Entity, type: string, m: pc.Material, pos: [number, number, number], scale: [number, number, number], shadows = false, rot?: [number, number, number]) => {
     const e = new pc.Entity();
