@@ -112,7 +112,8 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Tennis venue: realistic crowd (24 athlete models baked once into a seated/cheering card atlas, ~1.5k fans in one draw call, cheering on points), seated umpire, crouching ball kids, line judges (high quality), deeper stands, concrete bowl, cantilevered roof with light strips, ball bounce marks (clay marks persist), clay dust, contact flash, proper racket frame/string bed.
 - Settings → Graphics: Realistic (default) / Classic. Falls back to classic characters if the models fail to load.
 - Asset pipeline (Node, no dependencies): `scripts/athlete/` (see its README); outputs `public/assets/athletes/` (~1.1 MB per body + 0.24 MB animations). Credits in `public/assets/athletes/CREDITS.txt`.
-- Next: user review of the benchmark, then roll out to racing, bowling, golf, athletics, parkour.
+- Bowling (done): the player's bowler and the neighbouring-lane bowlers are realistic athletes. `src/game/character/mirror.ts` copies the existing procedural bowling animation from the hidden classic rig onto the athlete every frame (per-limb direction correction, athlete sized to the rig so cameras and the held ball line up); the ball sits in the athlete's palm. Galleries and the lounge use the realistic crowd.
+- Next: golf, athletics, parkour (same mirror approach), racing (drivers/cars).
 
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
