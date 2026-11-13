@@ -71,6 +71,13 @@ export function useBowlingMatch(matchId: string) {
     },
   });
 
+  // Wake the server simulator as soon as the match opens so the first throw isn't delayed by a cold start.
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return;
+    void sb.functions.invoke("bowling-throw", { method: "GET" }).catch(() => undefined);
+  }, [matchId]);
+
   // Live updates: every throw updates the game row.
   useEffect(() => {
     const sb = getSupabase();

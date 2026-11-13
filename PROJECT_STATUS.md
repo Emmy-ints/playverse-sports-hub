@@ -1,6 +1,6 @@
 # PLAYVERSE — Project Status
 
-_Last updated: 2026-11-12 · Current milestone: **3 — Friends, challenges & lobby** (complete, pending two-player live test)_
+_Last updated: 2026-11-12 · Current milestone: **5 — Bowling** (playable: practice + server-authoritative online 1v1)_
 
 ## Completed features
 - Design system: navy/charcoal base, electric blue, orange and gold tokens; glass, gradient, glow and motion utilities (`src/styles.css`). Saira Condensed + Barlow fonts.
@@ -35,8 +35,15 @@ _Last updated: 2026-11-12 · Current milestone: **3 — Friends, challenges & lo
 - Pre-match lobby (`/lobby/$matchId`): both characters, names, levels, sport, format, agreed rules, per-player connection status, ready toggles, 5-second countdown only when both are connected and ready (cancels if either un-readies or drops), leave lobby (abandons match with no result). Private realtime channel restricted to the match's active participants.
 - Server (all as audited security-definer functions, rate limited): send/respond/cancel friend requests, remove friend, block/unblock, report, create/respond/cancel invitations, leave lobby, mark notifications read.
 
+### Milestone 5 — Bowling (first playable sport)
+- Regulation geometry (USBC lane, pin spots, pin profile, ball). Rapier rigid-body physics: oiled front / dry back end, hook from side spin, real pin-on-pin collisions, pit, kickbacks. Nothing scripted.
+- PlayCanvas alley: Poly Haven studio HDR lighting (CC0), lacquered maple lane with clear-coat oil sheen and targeting arrows, lathe-modelled pins from the USBC profile, resin-swirl ball with finger holes, gutters, neighbouring lanes, neon rails, PLAYVERSE masking signs, spot-lit pin deck with shadows, ACES tone mapping. Chase camera → pin cam with slow-motion at impact. Synthesised rolling/crash sounds.
+- Controls: swipe up to bowl (speed = power, direction = aim, curl = hook), hold-to-roll power meter, position/aim/hook sliders, keyboard (←/→, A/D, Q/E, Space). High / Lite graphics (auto Lite on phones).
+- Practice mode (`/play/bowling`): full 10-frame game, physics in the browser, not ranked.
+- Online 1v1 (`/match/bowling/$matchId`), 3/5/10 frames: lobby countdown starts the game; every throw is simulated **on the server** (`bowling-throw` edge function, Rapier in Deno) and recorded atomically with turn and sequence checks; the opponent sees each throw replayed live; final results, Elo ratings (bowling + overall), XP, coins, achievements and notifications are written by the server. Results screen with rematch.
+
 ## In progress
-- Nothing.
+- Visual polish still to come for bowling: animated bowler character, spectators, bloom/glow post-processing, planar lane reflections.
 
 ## Outstanding tasks
 - PNG app icons (192/512) for full Android installability → Milestone 10.
@@ -55,7 +62,9 @@ _Last updated: 2026-11-12 · Current milestone: **3 — Friends, challenges & lo
 - **Connected.** Supabase project `piayiahsdcwvtocggyer`. Schema + RLS applied and tested. Guests still use device-local storage.
 
 ## Multiplayer status
-- Lobby, presence and ready-check are live (Supabase Realtime). **Gameplay server not started** — after the countdown the lobby honestly says live gameplay arrives with the game server (Milestone 4: Colyseus on Render). No gameplay or results are simulated.
+- Lobby, presence and ready-check are live (Supabase Realtime).
+- **Bowling (turn-based) is fully online and server-authoritative** via the `bowling-throw` edge function — no separate game server needed.
+- Tennis and racing (simultaneous real-time play) will need the Colyseus game server (planned on Render).
 
 ## Test results
 - Added `src/test/schemas.test.ts` (avatar schema, register/login schemas, XP curve) alongside the existing routing test.
@@ -64,6 +73,9 @@ _Last updated: 2026-11-12 · Current milestone: **3 — Friends, challenges & lo
 - Supabase security advisor: only intentional findings (audit_logs has no client policies; username_available is public by design).
 - Milestone 3 database tests (SQL, rolled back, 3 test players): 18/18 passed — duplicate requests, challenging non-friends, invalid formats, double invitations, accepting your own invite, outsiders viewing private matches or leaving others' lobbies, blocked players re-requesting, and forged notifications are all rejected.
 - Bugs found and fixed during Milestone 3: infinite recursion between match and participant access policies; friendship deletes leaking through realtime (table removed from realtime).
+- Bowling scoring: 17/17 checks passed (perfect 300, all spares 150, gutter game, tenth-frame bonuses, 3- and 5-frame games, invalid rolls, throw validation).
+- Bowling server settlement test (SQL, rolled back): players can't call the scoring function or insert throws, replayed and out-of-turn throws rejected, winner/rating (+16/−16)/XP/coins/levels/stats/achievements/notifications correct.
+- Live browser tests (Chrome, preview): practice game — 3D scene renders, throws simulate and score correctly (strike, spare, pin action), single throw per press (double-throw bug found and fixed). Online — throw simulated on the server (sim 112 ms; cold start ~4 s, warm ~1 s), turn passes to the opponent, opponent's throw replays live with banner and scoreboard update. Test opponent and match deleted afterwards.
 - Added `src/test/match-config.test.ts` (formats, error mapping, time helpers).
 - Syntax check of all new files: passed.
 - `vitest run`, `tsc` and `vite build`: **not yet run** (dependencies could not be installed in the authoring environment). Run in Lovable / CI to confirm.
@@ -72,7 +84,7 @@ _Last updated: 2026-11-12 · Current milestone: **3 — Friends, challenges & lo
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- **Milestone 4 — Real-time multiplayer server**: Colyseus (Node/TypeScript) on Render, authenticated with Supabase JWTs, authoritative rooms created from accepted matches, reconnection, input validation, server-written results via the service role, two-client automated test.
+- Bowling polish (animated bowler, crowd, bloom) and match history page; then **Golf** (turn-based, same server-authoritative approach). Tennis and racing follow with the Colyseus real-time server on Render.
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
