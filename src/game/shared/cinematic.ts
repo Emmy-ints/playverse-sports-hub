@@ -42,8 +42,8 @@ export function applyCinematic(app: pc.AppBase, camera: pc.CameraComponent, qual
     set(f.bloom, "intensity", quality === "high" ? (o.bloom ?? 0.006) : 0);
     set(f.bloom, "blurLevel", 14);
     set(f.grading, "enabled", true);
-    set(f.grading, "saturation", o.saturation ?? 1.08);
-    set(f.grading, "contrast", o.contrast ?? 1.06);
+    set(f.grading, "saturation", o.saturation ?? 0.98);
+    set(f.grading, "contrast", o.contrast ?? 1.05);
     set(f.grading, "brightness", o.brightness ?? 1.0);
     set(f.vignette, "intensity", o.vignette ?? 0.35);
     set(f.vignette, "inner", 0.55);

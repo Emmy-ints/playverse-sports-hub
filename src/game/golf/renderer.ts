@@ -205,7 +205,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
   const camera = new pc.Entity("camera");
   camera.addComponent("camera", { fov: 55, nearClip: 0.1, farClip: 2500, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
   app.root.addChild(camera);
-  let fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.1 });
+  let fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.0 });
   const camPos = new pc.Vec3(0, 60, -200);
   const camTarget = new pc.Vec3(0, 0, 0);
   const desiredPos = new pc.Vec3();
@@ -459,7 +459,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
       device.maxPixelRatio = q === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25);
       if (hole) buildHole(hole);
       fx.destroy();
-      fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.1 });
+      fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.0 });
       resize();
     },
     destroy() {
