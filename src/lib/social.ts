@@ -10,6 +10,13 @@ export type PlayerSummary = Pick<PlayerProfile, "id" | "username" | "display_nam
 const SUMMARY_COLS = "id, username, display_name, public_id, level, avatar_config";
 
 const ERRORS: Record<string, string> = {
+  INVALID_SIZE: "Tournaments have 4 or 8 players.",
+  INVALID_NAME: "Give the tournament a name (3–40 characters).",
+  TOO_MANY_TOURNAMENTS: "You can run up to 3 tournaments at once.",
+  TOURNAMENT_CLOSED: "That tournament has already started or ended.",
+  TOURNAMENT_FULL: "That tournament is full.",
+  NOT_FULL: "Wait until every spot is filled.",
+  NOT_ALLOWED: "Only the host can do that.",
   NOT_AUTHENTICATED: "Please log in again.",
   ACCOUNT_RESTRICTED: "Your account is currently restricted.",
   CANNOT_ADD_SELF: "You can't add yourself.",
@@ -47,7 +54,7 @@ function sb() {
   return c;
 }
 
-async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+export async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const { data, error } = await sb().rpc(fn, args);
   if (error) throw new SocialError(friendlyError(error));
   return data as T;

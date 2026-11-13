@@ -108,8 +108,22 @@ function describe(n: NotificationView): { text: string; action?: React.ReactNode
       return {
         text: `${draw ? "Draw" : won ? "You won" : "You lost"} your ${sportName} match ${String(score)}–${String(opp)}.`,
         action: matchId && sport === "bowling" ? <GameButton asChild size="sm" variant="primary"><Link to="/match/bowling/$matchId" params={{ matchId }}>View</Link></GameButton>
-          : matchId && sport === "golf" ? <GameButton asChild size="sm" variant="primary"><Link to="/match/golf/$matchId" params={{ matchId }}>View</Link></GameButton> : undefined,
+          : matchId && sport === "golf" ? <GameButton asChild size="sm" variant="primary"><Link to="/match/golf/$matchId" params={{ matchId }}>View</Link></GameButton>
+          : <GameButton asChild size="sm" variant="glass"><Link to="/history">History</Link></GameButton>,
       };
+    }
+    case "tournament_joined": {
+      const id = n.payload["tournament_id"] as string;
+      return { text: `${from(n)} joined your tournament “${String(n.payload["name"] ?? "")}”.`, action: <GameButton asChild size="sm" variant="primary"><Link to="/tournament/$tournamentId" params={{ tournamentId: id }}>View</Link></GameButton> };
+    }
+    case "tournament_match": {
+      const matchId = n.payload["match_id"] as string;
+      return { text: `Tournament “${String(n.payload["name"] ?? "")}”: your round ${String(n.payload["round"] ?? "")} match vs ${from(n)} is ready.`, action: <GameButton asChild size="sm" variant="hot"><Link to="/lobby/$matchId" params={{ matchId }}>Play</Link></GameButton> };
+    }
+    case "tournament_finished": {
+      const id = n.payload["tournament_id"] as string;
+      const w = n.payload["winner"] as { display_name?: string } | undefined;
+      return { text: n.payload["won"] === true ? `You won the tournament “${String(n.payload["name"] ?? "")}”! 🏆` : `“${String(n.payload["name"] ?? "")}” is over — ${w?.display_name ?? "a friend"} is champion.`, action: <GameButton asChild size="sm" variant="primary"><Link to="/tournament/$tournamentId" params={{ tournamentId: id }}>Bracket</Link></GameButton> };
     }
     case "achievement":
       return { text: `Achievement unlocked: ${String(n.payload["achievement"] ?? "").replace(/_/g, " ")}!`, action: <GameButton asChild size="sm" variant="glass"><Link to="/achievements">See all</Link></GameButton> };
