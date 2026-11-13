@@ -22,6 +22,8 @@ export interface BowlingView {
   setBowler(avatar: AvatarConfig | null): void;
   /** Animate the delivery, then replay a simulated throw. Resolves after the bowler's reaction. */
   play(result: SimResult, opts?: { onImpact?: () => void; onRelease?: () => void; reaction?: Reaction }): Promise<void>;
+  /** Start the run-up immediately (online: the server result arrives during the approach). */
+  beginApproach(startX: number): void;
   setQuality(q: Quality): void;
   resize(): void;
   destroy(): void;
@@ -424,6 +426,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     } else e.setRotation(q1);
   };
 
+  let earlyApproach = false;
   app.on("update", (dt: number) => {
     bowler.update(dt);
     crowd.update(dt);
@@ -431,7 +434,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       bowler.ballPosition(handBall);
       ball.setPosition(handBall);
     }
-    if (playback && !playback.started) {
+    if ((playback && !playback.started) || (!playback && earlyApproach)) {
       // Approach: the camera tracks the bowler from behind.
       mode = "approach";
       const bp = bowler.position;
@@ -510,6 +513,8 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       });
     },
     setAim(aim, visible) {
+      earlyApproach = false;
+      bowler.holdAtRelease = false;
       ball.enabled = true;
       ball.setEulerAngles(0, 0, 0);
       bowler.ready(aim.x);
@@ -526,13 +531,27 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     setBowler(avatar) {
       bowlerHumanoid.apply(avatar);
     },
+    beginApproach(startX) {
+      guide.enabled = false;
+      bowler.ready(startX);
+      bowler.holdAtRelease = true;
+      bowler.onRelease = null;
+      bowler.start();
+      // Camera follows the run-up straight away.
+      playback = null;
+      earlyApproach = true;
+    },
     play(result, opts) {
       guide.enabled = false;
       const pinEntities = result.pins.map((id) => pins[id - 1]!);
       pins.forEach((p, i) => (p.enabled = result.pins.includes(i + 1)));
-      // Stand the bowler where this ball was released from, then run the approach.
+      // Stand the bowler where this ball was released from, then run the approach
+      // (or continue the run-up that already started when the player let go).
       const startX = result.frames[0]?.[0] ?? 0;
-      bowler.ready(startX);
+      const continuing = earlyApproach && bowler.approaching;
+      earlyApproach = false;
+      bowler.holdAtRelease = false;
+      if (!continuing) bowler.ready(startX);
       return new Promise<void>((resolve) => {
         const pb = {
           result,
@@ -550,7 +569,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
           pb.started = true;
           opts?.onRelease?.();
         };
-        bowler.start();
+        if (!continuing) bowler.start();
       });
     },
     setQuality(q) {

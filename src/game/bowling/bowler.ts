@@ -21,6 +21,8 @@ export class BowlerAnimator {
   private baseX = 0;
   private released = false;
   onRelease: (() => void) | null = null;
+  /** While the server is still simulating the throw, pause the swing just before release. */
+  holdAtRelease = false;
 
   constructor(private h: Humanoid) {}
 
@@ -41,6 +43,10 @@ export class BowlerAnimator {
     this.mode = "approach";
     this.t = 0;
     this.released = false;
+  }
+
+  get approaching() {
+    return this.mode === "approach" && !this.released;
   }
 
   react(r: Reaction) {
@@ -68,7 +74,9 @@ export class BowlerAnimator {
 
   update(dt: number) {
     if (this.mode === "approach") {
-      this.t += dt;
+      // Waiting for the result: slow right down at the top of the backswing instead of releasing.
+      this.t += this.holdAtRelease && this.t > RELEASE_T - 0.55 ? dt * 0.06 : dt;
+      if (this.holdAtRelease && this.t > RELEASE_T - 0.02) this.t = RELEASE_T - 0.02;
       this.pose(this.t);
       if (!this.released && this.t >= RELEASE_T) {
         this.released = true;

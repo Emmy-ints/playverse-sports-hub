@@ -99,13 +99,13 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
     if (phase !== "rolling") viewRef.current?.setBowler(avatar ?? null);
   }, [avatar, phase]);
 
-  const playResult = useCallback(async (result: SimResult, who: AvatarConfig | null | undefined) => {
+  const playResult = useCallback(async (result: SimResult, who: AvatarConfig | null | undefined, keepBowler = false) => {
     const view = viewRef.current;
     const audio = audioRef.current;
     if (!view) return;
     if (audio) audio.enabled = settingsStore.read().sound;
     setPhase("rolling");
-    view.setBowler(who ?? null);
+    if (!keepBowler) view.setBowler(who ?? null);
     await view.play(result, {
       reaction: reactionFor(result),
       onRelease: () => audio?.startRoll(),
@@ -120,10 +120,13 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
       throwing.current = true;
       console.info("[bowling] throw", JSON.stringify(input));
       setPhase("rolling");
+      // Instant response: the bowler starts the run-up now; the server's result arrives during it.
+      viewRef.current?.setBowler(avatar ?? null);
+      viewRef.current?.beginApproach(input.x);
       try {
         const result = await onThrow(input);
         console.info("[bowling] result", JSON.stringify({ knocked: result.knocked, standing: result.standing, gutter: result.gutter, frames: result.frames.length }));
-        await playResult(result, avatar);
+        await playResult(result, avatar, true);
         onThrowShown?.(result);
       } catch (e) {
         setError(e instanceof Error ? e.message : "That throw couldn't be processed.");

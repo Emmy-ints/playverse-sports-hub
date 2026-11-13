@@ -112,7 +112,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
     v.setAddress(ball, aim, club, preview);
   }, [phase, hole, ball, aim, club, preview, avatar]);
 
-  const play = useCallback(async (result: ShotResult, input: ShotInput, who: AvatarConfig | null | undefined, from: { x: number; z: number }) => {
+  const play = useCallback(async (result: ShotResult, input: ShotInput, who: AvatarConfig | null | undefined, from: { x: number; z: number }, continuing = false) => {
     const v = viewRef.current;
     if (!v) return;
     setPhase("playing");
@@ -120,8 +120,10 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
       v.loadHole(hole);
       loadedHole.current = hole.index;
     }
-    v.setGolfer(who ?? null);
-    v.setAddress(from, input.aim, input.club, null);
+    if (!continuing) {
+      v.setGolfer(who ?? null);
+      v.setAddress(from, input.aim, input.club, null);
+    }
     await v.playShot(result, { power: input.power, happy: result.outcome === "holed" || (result.outcome === "rest" && (result.end.lie === "green" || result.end.lie === "fairway")) });
   }, [hole]);
 
@@ -131,8 +133,11 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
     setError(null);
     try {
       const from = { x: ball.x, z: ball.z };
+      // Instant response: the swing starts now; the server's ball flight arrives during the backswing.
+      setPhase("playing");
+      viewRef.current?.beginSwing(input.power);
       const result = await onShot(input);
-      await play(result, input, avatar, from);
+      await play(result, input, avatar, from, true);
       onShotShown?.(result, input);
     } catch (e) {
       setError(e instanceof Error ? e.message : "That shot couldn't be processed.");

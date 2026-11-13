@@ -15,6 +15,8 @@ export class GolferAnimator {
   private happy = false;
   private impacted = false;
   onImpact: (() => void) | null = null;
+  /** Online: hold at the top of the backswing until the server's shot result arrives. */
+  holdAtTop = false;
   private clubEntity: pc.Entity;
   private shaft: pc.Entity;
   private head: pc.Entity;
@@ -54,6 +56,10 @@ export class GolferAnimator {
     this.pose(0);
   }
 
+  get swinging() {
+    return this.mode === "swing" && !this.impacted;
+  }
+
   swing(power: number) {
     this.power = Math.max(0.05, Math.min(1, power));
     this.mode = "swing";
@@ -69,7 +75,8 @@ export class GolferAnimator {
 
   update(dt: number) {
     if (this.mode === "swing") {
-      this.t += dt;
+      this.t += this.holdAtTop && this.t > 0.8 ? dt * 0.05 : dt;
+      if (this.holdAtTop && this.t > 0.95) this.t = 0.95;
       this.pose(this.t);
       if (!this.impacted && this.t >= IMPACT_T) {
         this.impacted = true;

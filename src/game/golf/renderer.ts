@@ -18,6 +18,8 @@ export interface GolfView {
   setAddress(ball: { x: number; z: number }, aim: number, club: ClubId, preview: number[][] | null): void;
   setGolfer(avatar: AvatarConfig | null): void;
   playShot(result: ShotResult, opts: { power: number; onImpact?: () => void; onLand?: () => void; happy?: boolean }): Promise<void>;
+  /** Start the swing immediately; playShot() continues it when the result arrives. */
+  beginSwing(power: number): void;
   setQuality(q: Quality): void;
   destroy(): void;
 }
@@ -213,6 +215,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
   let preview: number[][] | null = null;
   let playback: { result: ShotResult; t: number; started: boolean; resolve: () => void; onLand?: () => void; landed: boolean; endWait: number; happy: boolean } | null = null;
   const tracer: pc.Vec3[] = [];
+  let earlySwing = false;
 
   const placeGolfer = () => {
     if (!hole) return;
@@ -428,6 +431,8 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
       ball.setPosition(b.x, ballY(b.x, b.z), b.z);
       golfer.setClub(club);
       placeGolfer();
+      golfer.holdAtTop = false;
+      earlySwing = false;
       golfer.address();
       addressCamera();
       if (!playback) tracer.length = 0;
@@ -436,9 +441,19 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
     setGolfer(avatar) {
       golferH.apply(avatar);
     },
+    beginSwing(power) {
+      preview = null;
+      golfer.onImpact = null;
+      golfer.holdAtTop = true;
+      golfer.swing(power);
+      earlySwing = true;
+    },
     playShot(result, opts) {
       preview = null;
       tracer.length = 0;
+      const continuing = earlySwing && golfer.swinging;
+      earlySwing = false;
+      golfer.holdAtTop = false;
       return new Promise<void>((resolve) => {
         const pb = { result, t: 0, started: false, resolve, landed: false, endWait: 0, happy: !!opts.happy, ...(opts.onLand ? { onLand: opts.onLand } : {}) };
         playback = pb;
@@ -446,7 +461,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
           pb.started = true;
           opts.onImpact?.();
         };
-        golfer.swing(opts.power);
+        if (!continuing) golfer.swing(opts.power);
         void IMPACT_T;
       });
     },
