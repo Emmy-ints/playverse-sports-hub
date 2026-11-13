@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, RotateCcw, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GameButton } from "@/components/game/GameButton";
@@ -37,7 +38,7 @@ interface Setup { theme: CourtTheme; level: (typeof LEVELS)[number]; bestOf: 1 |
 function TennisPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
   if (!setup) return <SetupScreen onStart={setSetup} />;
-  return <Match key={setup.key} setup={setup} onRematch={() => setSetup({ ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)} />;
+  return <ControlsGate key={setup.key} sport="tennis"><Match setup={setup} onRematch={() => setSetup({ ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)} /></ControlsGate>;
 }
 
 function Choice<T extends string | number>({ label, options, value, onChange }: { label: string; options: { id: T; name: string; hint?: string }[]; value: T; onChange: (v: T) => void }) {

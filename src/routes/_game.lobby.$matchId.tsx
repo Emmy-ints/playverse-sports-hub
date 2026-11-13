@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, LogOut, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AvatarPreview } from "@/components/game/AvatarPreview";
+import { ControlsCard } from "@/components/game/ControlsGuide";
 import { EmptyState } from "@/components/game/EmptyState";
 import { GameButton } from "@/components/game/GameButton";
 import { GlassPanel } from "@/components/game/GlassPanel";
@@ -328,6 +329,15 @@ function Lobby({ matchId }: { matchId: string }) {
           </>
         )}
       </div>
+
+      {!closed && isGuideSport(data.sport) && (
+        <ControlsCard className="mx-auto mt-6 max-w-2xl" sport={data.sport}
+          events={data.sport === "athletics" ? (data.config.mode === "championship" ? undefined : [String(data.config.mode)]) : undefined} />
+      )}
     </PageShell>
   );
+}
+
+function isGuideSport(s: string): s is "tennis" | "racing" | "bowling" | "golf" | "athletics" {
+  return s === "tennis" || s === "racing" || s === "bowling" || s === "golf" || s === "athletics";
 }

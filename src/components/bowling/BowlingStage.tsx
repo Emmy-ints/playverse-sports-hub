@@ -1,4 +1,5 @@
 import { Loader2, Monitor, Smartphone } from "lucide-react";
+import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AlleyAudio } from "@/game/bowling/audio";
 import { THROW_LIMITS, type ThrowInput } from "@/game/bowling/constants";
@@ -287,6 +288,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
 
       {phase !== "loading" && phase !== "error" && (
         <>
+          <ControlsHelpButton sport="bowling" className="absolute left-3 top-[calc(var(--safe-top)+5.5rem)]" />
           <button
             type="button"
             onClick={toggleQuality}

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, Flag, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { GolfStage } from "@/components/golf/GolfStage";
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/play/golf")({
 function GolfPractice() {
   const [setup, setSetup] = useState<{ theme: CourseTheme; holes: number; seed: number } | null>(null);
   if (!setup) return <Setup onStart={setSetup} />;
-  return <Round key={setup.seed} theme={setup.theme} holeCount={setup.holes} seed={setup.seed} onRestart={() => setSetup(null)} />;
+  return <ControlsGate key={setup.seed} sport="golf"><Round theme={setup.theme} holeCount={setup.holes} seed={setup.seed} onRestart={() => setSetup(null)} /></ControlsGate>;
 }
 
 function Setup({ onStart }: { onStart: (s: { theme: CourseTheme; holes: number; seed: number }) => void }) {

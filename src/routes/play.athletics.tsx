@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, Medal, Play, RotateCcw, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GameButton } from "@/components/game/GameButton";
@@ -32,7 +33,7 @@ interface Setup { events: EventId[]; rivals: number; level: (typeof LEVELS)[numb
 function AthleticsPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
   if (!setup) return <SetupScreen onStart={setSetup} />;
-  return <Championship key={setup.key} setup={setup} onExit={() => setSetup(null)} onRestart={() => setSetup({ ...setup, key: Date.now() })} />;
+  return <ControlsGate key={setup.key} sport="athletics" events={setup.events}><Championship setup={setup} onExit={() => setSetup(null)} onRestart={() => setSetup({ ...setup, key: Date.now() })} /></ControlsGate>;
 }
 
 function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {

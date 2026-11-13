@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Loader2, Monitor, Smartphone, Volume2, VolumeX } from "lucide-react";
+import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { StadiumAudio } from "@/game/athletics/audio";
 import type { AthleticsDriver } from "@/game/athletics/driver";
@@ -308,6 +309,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
       <div className="absolute right-3 top-3 flex gap-2 pt-safe">
         <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
         <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
+        <ControlsHelpButton sport="athletics" events={[event]} />
         {topRight}
       </div>
 

@@ -1,4 +1,5 @@
 import { ChevronLeft, ChevronRight, Loader2, Monitor, Smartphone, Wind } from "lucide-react";
+import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { distanceToCup, type CourseTheme, type Hole, type Surface } from "@/game/golf/course";
 import type { GolfView, Quality } from "@/game/golf/renderer";
@@ -299,6 +300,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
               <span aria-hidden className="inline-block text-base leading-none" style={{ transform: `rotate(${(windRel * 180) / Math.PI}deg)` }}>↑</span>
             </p>
           </div>
+          <ControlsHelpButton sport="golf" className="absolute right-3 top-[calc(var(--safe-top)+8rem)]" />
           <button
             type="button"
             onClick={toggleQuality}

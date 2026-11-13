@@ -1,4 +1,5 @@
 import { Loader2, Monitor, Smartphone, Volume2, VolumeX, Zap } from "lucide-react";
+import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { SHOT_KEYS, toFrame, type TennisDriver } from "@/game/tennis/driver";
 import type { Quality, TennisView } from "@/game/tennis/renderer";
@@ -360,6 +361,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
         <button type="button" onClick={() => setAssist((v) => !v)} aria-pressed={assist} className={cn("glass rounded-full px-3 py-2 text-xs font-bold text-white", assist && "ring-2 ring-[#d9f23a]")}>
           Auto-run {assist ? "on" : "off"}
         </button>
+        <ControlsHelpButton sport="tennis" />
         {topRight}
       </div>
 

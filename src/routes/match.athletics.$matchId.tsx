@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AthleticsStage } from "@/components/athletics/AthleticsStage";
+import { ControlsCard } from "@/components/game/ControlsGuide";
 import { GameButton } from "@/components/game/GameButton";
 import { RequireAccount } from "@/components/game/RequireAccount";
 import { HUMANS, FIELD_SIZE, type AthleticsMeta } from "@/game/athletics/net";
@@ -83,9 +84,12 @@ function OnlineAthletics({ matchId }: { matchId: string }) {
   const event = (meta?.events[idx] ?? "sprint100") as EventId;
   if (!driver || !meta || !ready || !driver.state()) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center text-white" role="status">
-        <Loader2 className="size-8 animate-spin" aria-hidden />
-        <p className="max-w-sm text-sm text-white/80">{status}</p>
+      <div className="flex h-full flex-col items-center justify-center gap-3 overflow-y-auto p-4 text-center text-white sm:p-6">
+        <div role="status" className="flex flex-col items-center gap-2">
+          <Loader2 className="size-8 animate-spin" aria-hidden />
+          <p className="max-w-sm text-sm text-white/80">{status}</p>
+        </div>
+        <ControlsCard className="w-full max-w-lg" sport="athletics" events={meta?.events} />
       </div>
     );
   }

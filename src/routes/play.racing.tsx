@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, Flag, RotateCcw, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { GameButton } from "@/components/game/GameButton";
@@ -33,7 +34,7 @@ interface Setup { track: TrackDef["id"]; laps: number; opponents: number; level:
 function RacingPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
   if (!setup) return <SetupScreen onStart={setSetup} />;
-  return <Race key={setup.key} setup={setup} onRestart={() => setSetup({ ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)} />;
+  return <ControlsGate key={setup.key} sport="racing"><Race setup={setup} onRestart={() => setSetup({ ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)} /></ControlsGate>;
 }
 
 function Pick<T extends string | number>({ label, value, onChange, options, cols = 3 }: { label: string; value: T; onChange: (v: T) => void; options: { id: T; name: string; hint?: string }[]; cols?: number }) {

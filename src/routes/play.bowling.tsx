@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { BowlingStage } from "@/components/bowling/BowlingStage";
@@ -18,7 +19,7 @@ export const Route = createFileRoute("/play/bowling")({
       { property: "og:description", content: "Practice ten-pin bowling with real 3D physics." },
     ],
   }),
-  component: BowlingPractice,
+  component: () => <ControlsGate sport="bowling"><BowlingPractice /></ControlsGate>,
 });
 
 const ALL = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];

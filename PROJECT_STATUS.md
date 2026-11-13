@@ -81,6 +81,16 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Match history (`/history`), rankings (`/rankings`, global/friends, per sport + overall), friend tournaments (`/tournaments`, `/tournament/$id`: 4/8-player knockout brackets, auto-advance on results), installable app (PNG/maskable icons, service worker, install button). Tournament flow tested in SQL (rolled back): brackets, advancement, draw tie-break by seed, champion and positions.
 - Known gap: if a player leaves a tournament match lobby, that bracket match is abandoned and the bracket waits (host can't reassign yet).
 
+### Milestone 9 — Athletics (new sport)
+- Original athletes (no licensed characters) in a full stadium: oval track, grandstand crowds, floodlights, scoreboard, TV-style cameras, stadium audio (gun, crowd, footsteps, sand, announcer).
+- Events: 100m, 110m hurdles, long jump, javelin — single events or a four-event championship with points (10/8/6/5/4/3).
+- Controls: alternate left/right in rhythm to run (lit-arrow prompt), Space/button to jump or throw, angle meter for the field events, false starts, fouls, three attempts.
+- Practice against 1–5 AI rivals; **live 1v1 online** on the real-time server (two players + four AI lanes), instant local response with server reconciliation, server-settled results/ratings/XP, `athletics_gold` achievement, rankings scope.
+
+### Controls guide (all games)
+- Before every practice game starts, a "How to play" screen shows the goal and controls (Keyboard / Touch tabs, auto-picked by device); Enter/Space or the button starts the game.
+- Online: the guide is shown in the match lobby and on the "waiting for opponent" screen; a ? button in every game opens it any time (it doesn't pause online play).
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 
@@ -107,7 +117,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - **Golf (turn-based) is fully online and server-authoritative** via the `golf-shot` edge function.
 - **Tennis is fully online** on the real-time game server (Render).
 - **Racing is fully online** on the same server.
-- Online tennis has no client-side prediction of your own movement yet: with ~300 ms latency your player responds a beat late. Auto-run and armed shots keep it playable.
+- **Athletics is fully online** on the same server (2 players + 4 AI lanes).
 
 ## Test results
 - Added `src/test/schemas.test.ts` (avatar schema, register/login schemas, XP curve) alongside the existing routing test.
@@ -128,6 +138,8 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Live test against Render + Supabase (Chrome, preview): lowlog vs a temporary QA bot — server welcomed both, points played (aces, winners), scoreboard and umpire calls updated, the bot disconnected, after 30 s the server settled a forfeit win: match completed, verified_by `server:realtime`, rating +16/−16, `tennis_ace` granted. QA user, match and all stat changes removed afterwards.
 - Racing: track and AI-field tests (`src/test/racing.test.ts`) — every circuit finishes, lap times 30–40 s, no impossible corners, malformed input rejected. Racing server self-test (`server/realtime/selftest-racing.ts`): two clients race a full lap over WebSockets, the faster driver is settled as the winner.
 - Live racing test against Render + Supabase: lowlog vs a temporary QA bot on Neon City — countdown, driving at 115 km/h online, bot disconnected, forfeit win settled (rating +16/−16, `racing_podium`, stats). QA user, match and stat changes removed afterwards.
+- Athletics: sim tests (`src/test/athletics.test.ts`); server self-test (`server/realtime/selftest-athletics.ts`): two clients run a 100m over WebSockets, the faster player wins and the result is saved.
+- Live athletics test against Render + Supabase: lowlog connected, stadium and field rendered, the absent QA opponent forfeited and the server settled the result (rating +16/−16, XP, `athletics_gold`).
 - Syntax check of all new files: passed.
 - `vitest run`, `tsc` and `vite build`: **not yet run** (dependencies could not be installed in the authoring environment). Run in Lovable / CI to confirm.
 
@@ -135,7 +147,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- New games (original athletics events and a parkour runner, inspired by the user's research notes), each with practice + live online multiplayer on the real-time server.
+- Parkour runner (second new game), practice + live online.
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
