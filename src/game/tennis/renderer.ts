@@ -367,18 +367,50 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     sideStand.setLocalPosition(0, 1.1, 0);
     root.addChild(sideStand);
     const seatMat = mat({ color: "#1b2540", gloss: 0.35 });
-    if (atlas) crowd.push(new RealCrowd(sideStand, atlas, device, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: sideTiers + 2, spacing: hi ? 0.6 : 0.75, fill: 0.9, seats: seatMat }));
+    const rSide = hi ? 13 : 8, rEnd = hi ? 10 : 6; // realistic stands are deeper (cards are cheap)
+    if (atlas) crowd.push(new RealCrowd(sideStand, atlas, device, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: rSide, spacing: hi ? 0.6 : 0.75, fill: 0.9, seats: seatMat }));
     else crowd.push(new Crowd(sideStand, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: sideTiers, spacing: hi ? 0.62 : 0.85, fill: 0.85, shadows: false }));
     const endStand = new pc.Entity("end-stands");
     endStand.setLocalPosition(0, 1.1, 0);
     endStand.setLocalEulerAngles(0, 90, 0);
     root.addChild(endStand);
-    if (atlas) crowd.push(new RealCrowd(endStand, atlas, device, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers + 2, spacing: hi ? 0.6 : 0.75, fill: 0.85, seats: seatMat, seed: 9 }));
+    if (atlas) crowd.push(new RealCrowd(endStand, atlas, device, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: rEnd, spacing: hi ? 0.6 : 0.75, fill: 0.85, seats: seatMat, seed: 9 }));
     else crowd.push(new Crowd(endStand, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers, spacing: hi ? 0.62 : 0.85, fill: 0.8, shadows: false }));
     // Stadium bowl walls behind the crowd.
     for (const s of [1, -1]) {
-      add(root, "box", M.dark, [s * (11.6 + sideTiers * 0.55 + 0.6), 3, 0], [0.6, 6 + sideTiers * 0.4, 46], false);
-      add(root, "box", M.dark, [0, 3, s * (23.9 + endTiers * 0.55 + 0.6)], [34, 6 + endTiers * 0.4, 0.6], false);
+      if (!atlas) {
+        add(root, "box", M.dark, [s * (11.6 + sideTiers * 0.55 + 0.6), 3, 0], [0.6, 6 + sideTiers * 0.4, 46], false);
+        add(root, "box", M.dark, [0, 3, s * (23.9 + endTiers * 0.55 + 0.6)], [34, 6 + endTiers * 0.4, 0.6], false);
+      }
+    }
+    if (atlas) {
+      // Stadium bowl: back walls, corner blocks, a cantilevered roof with light strips, and gantry trusses.
+      const concrete = mat({ color: theme.night || theme.roof ? "#2a2f3a" : "#9aa1ab", gloss: 0.18 });
+      const steel = mat({ color: "#d9dde3", metal: 0.6, gloss: 0.55 });
+      const under = mat({ color: "#1a1e27", gloss: 0.2, noEnv: true });
+      const strip = mat({ color: "#ffffff", emissive: theme.night || theme.roof ? "#fff3d6" : "#bfc6d0" });
+      const sideBack = 11.2 + rSide * 0.6 + 0.4, endBack = 23.5 + rEnd * 0.6 + 0.4;
+      const sideH = 1.1 + rSide * 0.42 + 2.2, endH = 1.1 + rEnd * 0.42 + 2.2;
+      for (const s of [1, -1]) {
+        add(root, "box", concrete, [s * sideBack, sideH / 2, 0], [0.8, sideH, 2 * endBack], false);
+        add(root, "box", concrete, [0, endH / 2, s * endBack], [2 * sideBack, endH, 0.8], false);
+        // corner fill between the side and end stands
+        for (const t of [1, -1]) add(root, "box", concrete, [s * (sideBack + 11.2) / 2, endH * 0.45, t * (endBack + 17.5) / 2], [sideBack - 11.2, endH * 0.9, endBack - 17.5], false);
+        if (!theme.roof) {
+          const roofY = Math.max(sideH, endH) + 2.2;
+          const span = 9;
+          const r = add(root, "box", under, [s * (sideBack - span / 2 + 0.6), roofY, 0], [span, 0.35, 2 * endBack + 2], false, [0, 0, s * 4]);
+          void r;
+          add(root, "box", steel, [s * (sideBack - span + 0.7), roofY - 0.1 + 0.32, 0], [0.25, 0.5, 2 * endBack + 2], false);
+          add(root, "box", strip, [s * (sideBack - span + 1.2), roofY - 0.28 + 0.32, 0], [0.18, 0.06, 2 * endBack - 2], false);
+          // trusses tying the roof back to the wall
+          for (let z = -endBack + 3; z <= endBack - 3; z += 6) add(root, "box", steel, [s * (sideBack - 0.2), (sideH + roofY) / 2, z], [0.22, roofY - sideH + 0.5, 0.22], false);
+          const er = add(root, "box", under, [0, roofY, s * (endBack - span / 2 + 0.6)], [2 * sideBack, 0.35, span], false, [-s * 4, 0, 0]);
+          void er;
+          add(root, "box", steel, [0, roofY + 0.22, s * (endBack - span + 0.7)], [2 * sideBack - 2, 0.5, 0.25], false);
+          add(root, "box", strip, [0, roofY + 0.04, s * (endBack - span + 1.2)], [2 * sideBack - 4, 0.06, 0.18], false);
+        }
+      }
     }
 
     // Umpire's chair (with an umpire) and players' benches.
@@ -422,9 +454,11 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     for (const s of [1, -1]) add(root, "box", M.chair, [ux - 0.6, 0.45, s * 2.6], [0.5, 0.9, 1.6]);
 
     // Big scoreboard over the far end (drawn per viewer).
-    const sb = add(root, "box", sbMat, [0, 6.2, -(24.2 + endTiers * 0.55)], [7.2, 3.1, 0.15], false);
+    const sbZ = atlas ? 23.5 + (hi ? 10 : 6) * 0.6 + 0.05 : 24.2 + endTiers * 0.55;
+    const sbY = atlas ? 1.1 + (hi ? 10 : 6) * 0.42 + 0.6 + 1.55 : 6.2;
+    const sb = add(root, "box", sbMat, [0, sbY, -sbZ], [7.2, 3.1, 0.15], false);
     sb.name = "scoreboard";
-    const sb2 = add(root, "box", sbMat, [0, 6.2, 24.2 + endTiers * 0.55], [7.2, 3.1, 0.15], false, [0, 180, 0]);
+    const sb2 = add(root, "box", sbMat, [0, sbY, sbZ], [7.2, 3.1, 0.15], false, [0, 180, 0]);
     sb2.name = "scoreboard2";
 
     // Floodlights for night sessions / indoor ceiling.
