@@ -121,7 +121,8 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
           touch: [
             { keys: ["Drag"], action: "Drag the view to aim (or use the ◀ ▶ buttons)" },
             { keys: ["Clubs"], action: "Tap a club; the game suggests one for the distance" },
-            { keys: ["Hold Swing"], action: "Build power, release, then tap again on the gold line" },
+            { keys: ["Pull & flick"], action: "On the Swing button: pull down to load power, then flick up. A straight flick is pure; drifting left/right draws or fades." },
+            { keys: ["Hold Swing"], action: "Or hold to build power, release, then tap again on the gold line" },
           ],
         }],
         tips: ["Watch the wind arrow, and use the putter on the green."],

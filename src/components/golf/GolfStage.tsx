@@ -8,7 +8,7 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
-import { useGameSettings } from "@/lib/game-settings";
+import { getGameSettings, useGameSettings } from "@/lib/game-settings";
 
 export interface GolfReplay { id: string; result: ShotResult; input: ShotInput; from: { x: number; z: number; lie: Surface }; avatar?: AvatarConfig | null }
 
@@ -222,6 +222,47 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
     setPhase("accuracy");
   };
 
+  // Pull-and-release swing on the Swing button: drag down to load power, then flick up to strike.
+  // A straight flick is pure; drifting left/right as you flick draws or fades (same as an early/late tap).
+  const pull = useRef<{ id: number; y0: number; pulling: boolean; pts: { x: number; t: number }[] } | null>(null);
+  const onSwingDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pull.current = phase === "ready" ? { id: e.pointerId, y0: e.clientY, pulling: false, pts: [] } : null;
+    pressSwing();
+  };
+  const onSwingMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const p = pull.current;
+    if (!p || p.id !== e.pointerId || phase !== "power") return;
+    const dy = e.clientY - p.y0;
+    if (!p.pulling && dy > 12) p.pulling = true;
+    if (p.pulling) {
+      const pw = Math.max(0.02, Math.min(1, dy / (150 * getGameSettings().buttonScale)));
+      // Keep the meter in step with the pull.
+      meterStart.current = performance.now() - pw * 1100;
+      p.pts.push({ x: e.clientX, t: performance.now() });
+      if (p.pts.length > 30) p.pts.shift();
+    }
+  };
+  const onSwingUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const p = pull.current;
+    pull.current = null;
+    if (!p?.pulling || phase !== "power" || meterStart.current === null) return releaseSwing();
+    lockedPower.current = Math.max(0.02, Math.min(1, (performance.now() - meterStart.current) / 1100));
+    if (club === "putter") {
+      meterStart.current = null;
+      lastPower.current = lockedPower.current;
+      void shoot({ club, aim, power: lockedPower.current, accuracy: 0 });
+      return;
+    }
+    const now = performance.now();
+    const recent = p.pts.filter((q) => now - q.t < 140);
+    const dx = recent.length > 1 ? e.clientX - recent[0]!.x : 0;
+    const acc = Math.abs(dx) < 12 ? 0 : Math.max(-1, Math.min(1, dx / 90));
+    finish(acc);
+  };
+
   // Keyboard: ←/→ aim, ↑/↓ club, Space swing.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -281,7 +322,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
         onPointerMove={(e) => {
           if (!drag.current) return;
           const w = (e.currentTarget as HTMLElement).clientWidth;
-          setAim(drag.current.aim + ((e.clientX - drag.current.x) / w) * (club === "putter" ? 0.6 : 1.2));
+          setAim(drag.current.aim + ((e.clientX - drag.current.x) / w) * (club === "putter" ? 0.6 : 1.2) * (0.5 + getGameSettings().camSensitivity));
         }}
         onPointerUp={() => (drag.current = null)}
       />
@@ -307,7 +348,8 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
               <span aria-hidden className="inline-block text-base leading-none" style={{ transform: `rotate(${(windRel * 180) / Math.PI}deg)` }}>↑</span>
             </p>
           </div>
-          <div className="absolute right-3 top-[calc(var(--safe-top)+8rem)] flex gap-2">
+          <div className="absolute right-safe top-[calc(var(--safe-top)+8rem)] flex gap-2">
+            <GameSettingsButton />
             <FullscreenButton />
             <ControlsHelpButton sport="golf" />
           </div>
@@ -364,15 +406,17 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
                   <button
                     type="button"
                     disabled={phase === "playing"}
-                    onPointerDown={(e) => { e.stopPropagation(); pressSwing(); }}
-                    onPointerUp={(e) => { e.stopPropagation(); releaseSwing(); }}
+                    onPointerDown={onSwingDown}
+                    onPointerMove={onSwingMove}
+                    onPointerUp={onSwingUp}
+                    style={{ touchAction: "none" }}
                     className={cn("h-12 rounded-xl px-5 font-display text-lg font-black uppercase text-accent-foreground shadow-hot", phase === "accuracy" ? "bg-gold" : "bg-gradient-hot")}
                   >
                     {phase === "accuracy" ? "Tap!" : phase === "power" ? "Release" : club === "putter" ? "Putt" : "Swing"}
                   </button>
                 </div>
                 <p className="mt-1.5 text-center text-[11px] text-white/70">
-                  Drag the view to aim · hold Swing for power, release, then tap as the needle crosses the gold line (early hooks, late slices) · ←/→ aim · ↑/↓ club · Space
+                  Drag the view to aim · on Swing: pull down then flick up, or hold, release and tap on the gold line (early hooks, late slices) · ←/→ aim · ↑/↓ club · Space
                 </p>
               </div>
             ) : (
