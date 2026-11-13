@@ -6,6 +6,10 @@ import * as pc from "playcanvas";
 import { BALL, GUTTER_OUTER, HALF_LANE, HEAD_PIN_Z, LANE, PIN_PROFILE, PIN_SPOTS, PIT_EDGE_Z, type ThrowInput } from "./constants.ts";
 import type { SimResult } from "./sim.ts";
 import { ballSwirl, carpet, laneGloss, laneWood, maskingSign, maskingSignEmissive, pinDecal } from "./textures.ts";
+import type { AvatarConfig } from "@/lib/avatar";
+import { createHumanoid } from "../character/humanoid.ts";
+import { BowlerAnimator, START_Z, type Reaction } from "./bowler.ts";
+import { Crowd } from "./crowd.ts";
 
 export type Quality = "high" | "low";
 
@@ -14,8 +18,10 @@ export interface BowlingView {
   setRack(standing: readonly number[]): void;
   /** Place the ball at the foul line and show the aim guide for a throw. */
   setAim(aim: Pick<ThrowInput, "x" | "angle" | "spin">, visible: boolean): void;
-  /** Replay a simulated throw. Resolves when the pins have settled. */
-  play(result: SimResult, hooks?: { onImpact?: () => void }): Promise<void>;
+  /** Dress the bowler in a player's character (null = default look). */
+  setBowler(avatar: AvatarConfig | null): void;
+  /** Animate the delivery, then replay a simulated throw. Resolves after the bowler's reaction. */
+  play(result: SimResult, opts?: { onImpact?: () => void; onRelease?: () => void; reaction?: Reaction }): Promise<void>;
   setQuality(q: Quality): void;
   resize(): void;
   destroy(): void;
@@ -318,6 +324,33 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   }
   const pins = PIN_SPOTS.map((_, i) => add(`pin-${i + 1}`, root, { mesh: pinMesh, material: pinMat, shadows: true }));
 
+  // Ball-return machines between the lanes, each with a rack of house balls.
+  const returnMat = std({ diffuse: hex("#121628"), metalness: 0.4, gloss: 0.75, clearCoat: 0.6 });
+  const houseBalls = ["#e0307a", "#2fbf71", "#f2c230", "#8b5cf6", "#ff7a1a", "#0ea5e9"].map((c) => std({ diffuse: hex(c), gloss: 0.9, clearCoat: 1, clearCoatGloss: 0.95 }));
+  const smallBall = sphereMesh(device, BALL.radius, 20, 28);
+  for (let i = -decoCount(); i <= decoCount() - 1; i++) {
+    const x = (i + 0.5) * laneSpacing;
+    add("ball-return", root, { material: returnMat, pos: [x, 0.32, 2.6], scale: [0.42, 0.64, 1.1], shadows: true });
+    add("ball-return-hood", root, { material: neonBlue, pos: [x, 0.65, 2.6], scale: [0.44, 0.02, 1.12] });
+    for (let b = 0; b < 3; b++) add("house-ball", root, { mesh: smallBall, material: houseBalls[(b + i + 6) % houseBalls.length]!, pos: [x, 0.66 + BALL.radius, 2.25 + b * 0.24], shadows: true });
+  }
+
+  // Spectator stands along both walls.
+  const crowd = new Crowd(root, {
+    innerX: hallWidth / 2 - 1.45,
+    zFrom: 4,
+    zTo: -9,
+    tiers: quality === "high" ? 3 : 2,
+    spacing: quality === "high" ? 0.62 : 0.95,
+    fill: quality === "high" ? 0.8 : 0.6,
+    shadows: false,
+  });
+
+  // The bowler: the player's own character.
+  const bowlerHumanoid = createHumanoid(root, null, { shadows: true });
+  const bowler = new BowlerAnimator(bowlerHumanoid);
+  bowler.ready(0);
+
   // Aim guide.
   const guide = add("aim-guide", root, { material: neonBlue, scale: [0.01, 0.002, 6] });
 
@@ -332,16 +365,54 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     gammaCorrection: pc.GAMMA_SRGB,
   });
   root.addChild(camera);
-  const camPos = new pc.Vec3(0, 1.45, 3.2);
-  const camTarget = new pc.Vec3(0, 0.2, -10);
+
+  // Glow (bloom) on capable devices, when this engine version provides CameraFrame.
+  let cameraFrame: { destroy?: () => void } | null = null;
+  const enableGlow = (on: boolean) => {
+    try {
+      cameraFrame?.destroy?.();
+      cameraFrame = null;
+      const CF = (pc as unknown as Record<string, unknown>)["CameraFrame"] as (new (a: pc.AppBase, c: pc.CameraComponent) => {
+        rendering: Record<string, unknown>;
+        bloom: Record<string, unknown>;
+        update: () => void;
+        destroy?: () => void;
+      }) | undefined;
+      if (!on || !CF || !camera.camera) return;
+      const cf = new CF(app, camera.camera);
+      cf.rendering["toneMapping"] = pc.TONEMAP_ACES;
+      cf.rendering["samples"] = 4;
+      cf.bloom["intensity"] = 0.025;
+      cf.bloom["blurLevel"] = 14;
+      cf.update();
+      cameraFrame = cf;
+    } catch (e) {
+      console.warn("[bowling] glow unavailable", e);
+      cameraFrame = null;
+    }
+  };
+  enableGlow(quality === "high");
+  const camPos = new pc.Vec3(0.4, 1.95, START_Z + 2.7);
+  const camTarget = new pc.Vec3(0, 0.45, -12);
   const desiredPos = camPos.clone();
   const desiredTarget = camTarget.clone();
   camera.setPosition(camPos);
   camera.lookAt(camTarget);
 
-  type Mode = "aim" | "follow" | "pins";
+  type Mode = "aim" | "approach" | "follow" | "pins" | "react";
   let mode: Mode = "aim";
-  let playback: { result: SimResult; t: number; resolve: () => void; onImpact?: () => void; impacted: boolean; pinEntities: pc.Entity[] } | null = null;
+  let playback: {
+    result: SimResult;
+    t: number;
+    started: boolean;
+    resolve: () => void;
+    onImpact?: () => void;
+    reaction: Reaction;
+    impacted: boolean;
+    finishedAt: number | null;
+    pinEntities: pc.Entity[];
+  } | null = null;
+  const handBall = new pc.Vec3();
 
   const setPose = (e: pc.Entity, f: number[], o: number, g: number[] | undefined, a: number) => {
     const lerp = (i: number) => (g ? f[o + i]! + (g[o + i]! - f[o + i]!) * a : f[o + i]!);
@@ -354,7 +425,31 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   };
 
   app.on("update", (dt: number) => {
-    if (playback) {
+    bowler.update(dt);
+    crowd.update(dt);
+    if (bowler.isHoldingBall) {
+      bowler.ballPosition(handBall);
+      ball.setPosition(handBall);
+    }
+    if (playback && !playback.started) {
+      // Approach: the camera tracks the bowler from behind.
+      mode = "approach";
+      const bp = bowler.position;
+      desiredPos.set(bp.x * 0.5 + 0.35, 1.75, bp.z + 2.5);
+      desiredTarget.set(bp.x * 0.3, 0.45, bp.z - 12);
+    } else if (playback && playback.finishedAt !== null) {
+      // After the pins settle, show the bowler's reaction.
+      mode = "react";
+      const bp = bowler.position;
+      desiredPos.set(bp.x - 1.6, 1.35, bp.z - 2.4);
+      desiredTarget.set(bp.x, 1.1, bp.z);
+      playback.finishedAt += dt;
+      if (playback.finishedAt > 1.9) {
+        const done = playback.resolve;
+        playback = null;
+        done();
+      }
+    } else if (playback) {
       const { result } = playback;
       const slow = result.impactFrame >= 0 && playback.t * result.fps >= result.impactFrame && playback.t * result.fps < result.impactFrame + result.fps * 0.8;
       playback.t += dt * (slow ? 0.55 : 1);
@@ -382,12 +477,13 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
         desiredTarget.set(0, 0.15, HEAD_PIN_Z - 0.45);
       }
       if (i >= result.frames.length - 1) {
-        const done = playback.resolve;
-        playback = null;
-        setTimeout(done, 900);
+        playback.finishedAt = 0;
+        bowler.react(playback.reaction);
+        if (playback.reaction === "strike") crowd.cheer(1);
+        else if (playback.reaction === "spare") crowd.cheer(0.55);
       }
     }
-    const k = 1 - Math.exp(-dt * (mode === "follow" ? 6 : 3));
+    const k = 1 - Math.exp(-dt * (mode === "follow" ? 6 : mode === "approach" ? 5 : 3));
     camPos.lerp(camPos, desiredPos, k);
     camTarget.lerp(camTarget, desiredTarget, k);
     camera.setPosition(camPos);
@@ -415,22 +511,46 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     },
     setAim(aim, visible) {
       ball.enabled = true;
-      ball.setPosition(aim.x, BALL.radius, 0.3);
       ball.setEulerAngles(0, 0, 0);
+      bowler.ready(aim.x);
+      bowler.ballPosition(handBall);
+      ball.setPosition(handBall);
       guide.enabled = visible;
       const len = 6;
       guide.setPosition(aim.x + Math.sin(aim.angle) * (len / 2 + 0.3), 0.002, -Math.cos(aim.angle) * (len / 2 + 0.3) + 0.3);
       guide.setEulerAngles(0, -(aim.angle * 180) / Math.PI, 0);
       mode = "aim";
-      desiredPos.set(aim.x * 0.6, 1.45, 3.2);
-      desiredTarget.set(aim.x * 0.2, 0.2, -10);
+      desiredPos.set(aim.x * 0.5 + 0.4, 1.95, START_Z + 2.7);
+      desiredTarget.set(aim.x * 0.2, 0.45, -12);
     },
-    play(result, hooks) {
+    setBowler(avatar) {
+      bowlerHumanoid.apply(avatar);
+    },
+    play(result, opts) {
       guide.enabled = false;
       const pinEntities = result.pins.map((id) => pins[id - 1]!);
       pins.forEach((p, i) => (p.enabled = result.pins.includes(i + 1)));
+      // Stand the bowler where this ball was released from, then run the approach.
+      const startX = result.frames[0]?.[0] ?? 0;
+      bowler.ready(startX);
       return new Promise<void>((resolve) => {
-        playback = { result, t: 0, resolve, impacted: false, pinEntities, ...(hooks?.onImpact ? { onImpact: hooks.onImpact } : {}) };
+        const pb = {
+          result,
+          t: 0,
+          started: false,
+          resolve,
+          reaction: opts?.reaction ?? null,
+          impacted: false,
+          finishedAt: null as number | null,
+          pinEntities,
+          ...(opts?.onImpact ? { onImpact: opts.onImpact } : {}),
+        };
+        playback = pb;
+        bowler.onRelease = () => {
+          pb.started = true;
+          opts?.onRelease?.();
+        };
+        bowler.start();
       });
     },
     setQuality(q) {
@@ -438,11 +558,14 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       quality = q;
       device.maxPixelRatio = q === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25);
       rebuildDeco();
+      enableGlow(q === "high");
       resize();
     },
     resize,
     destroy() {
       ro.disconnect();
+      crowd.destroy();
+      cameraFrame?.destroy?.();
       app.destroy();
     },
   };

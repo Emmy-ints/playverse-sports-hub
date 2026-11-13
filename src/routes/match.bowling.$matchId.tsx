@@ -78,9 +78,9 @@ function OnlineBowling({ matchId }: { matchId: string }) {
     seen.current = id;
     void fetchThrow(id).then((t) => {
       if (!t || t.player_id === me) return;
-      setReplay({ id: String(id), result: t.result });
+      setReplay({ id: String(id), result: t.result, avatar: data?.players.find((p) => p.id === t.player_id)?.avatar_config ?? null });
     });
-  }, [game, me]);
+  }, [game, me, data?.players]);
 
   const onThrow = useCallback(
     async (input: ThrowInput): Promise<SimResult> => {
@@ -138,6 +138,7 @@ function OnlineBowling({ matchId }: { matchId: string }) {
       onThrow={onThrow}
       onThrowShown={onThrowShown}
       replay={replay}
+      avatar={data.players.find((p) => p.id === (game.current_player ?? me))?.avatar_config ?? null}
       onReplayShown={(id) => {
         onReplayShown();
         const t = replay?.id === id ? replay.result : null;

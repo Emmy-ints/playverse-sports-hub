@@ -79,7 +79,7 @@ function BowlingPractice() {
 
   return (
     <div className="fixed inset-0 bg-black">
-      <BowlingStage rack={rack} canThrow={!game.complete} onThrow={onThrow} onThrowShown={onThrowShown} waitingLabel="Game over">
+      <BowlingStage rack={rack} canThrow={!game.complete} onThrow={onThrow} onThrowShown={onThrowShown} avatar={player.avatar} waitingLabel="Game over">
         <div className="flex items-start gap-2 px-2 pt-2">
           <Link to="/hub" className="pointer-events-auto glass flex size-10 shrink-0 items-center justify-center rounded-full" aria-label="Leave practice">
             <ArrowLeft className="size-5" aria-hidden />

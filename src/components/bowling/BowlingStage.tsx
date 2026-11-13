@@ -5,10 +5,22 @@ import { THROW_LIMITS, type ThrowInput } from "@/game/bowling/constants";
 import { clamp, powerAt, powerToSpeed, swipeToThrow, type SwipeSample } from "@/game/bowling/controls";
 import type { BowlingView, Quality } from "@/game/bowling/renderer";
 import type { SimResult } from "@/game/bowling/sim";
+import type { Reaction } from "@/game/bowling/bowler";
+import type { AvatarConfig } from "@/lib/avatar";
 import { settingsStore } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
-export interface StageReplay { id: string; result: SimResult }
+export interface StageReplay { id: string; result: SimResult; avatar?: AvatarConfig | null }
+
+/** How the bowler and crowd react to a ball, from pins standing before vs. knocked down. */
+export function reactionFor(result: SimResult): Reaction {
+  const before = result.pins.length;
+  const k = result.knocked.length;
+  if (before === 10 && k === 10) return "strike";
+  if (before < 10 && k === before) return "spare";
+  if (k >= 7) return "good";
+  return "miss";
+}
 
 interface Props {
   /** Pins shown standing while waiting for the next ball. */
@@ -22,6 +34,8 @@ interface Props {
   /** An external replay to show (the opponent's throw). Played once per id. */
   replay?: StageReplay | null;
   onReplayShown?: (id: string) => void;
+  /** Character of whoever is bowling now (shown on the approach). */
+  avatar?: AvatarConfig | null;
   /** Status line shown when the player can't throw. */
   waitingLabel?: string;
   /** Scoreboard and other overlays. */
@@ -30,7 +44,7 @@ interface Props {
 
 type Phase = "loading" | "error" | "ready" | "charging" | "rolling";
 
-export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, onReplayShown, waitingLabel, children }: Props) {
+export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, onReplayShown, avatar, waitingLabel, children }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<BowlingView | null>(null);
   const audioRef = useRef<AlleyAudio | null>(null);
@@ -81,15 +95,22 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   useEffect(() => {
     if (phase === "ready" || phase === "charging") viewRef.current?.setAim(aim, canThrow);
   }, [aim, canThrow, phase]);
+  useEffect(() => {
+    if (phase !== "rolling") viewRef.current?.setBowler(avatar ?? null);
+  }, [avatar, phase]);
 
-  const playResult = useCallback(async (result: SimResult) => {
+  const playResult = useCallback(async (result: SimResult, who: AvatarConfig | null | undefined) => {
     const view = viewRef.current;
     const audio = audioRef.current;
     if (!view) return;
     if (audio) audio.enabled = settingsStore.read().sound;
     setPhase("rolling");
-    audio?.startRoll();
-    await view.play(result, { onImpact: () => audio?.crash(Math.min(1, 0.3 + result.knocked.length / 10)) });
+    view.setBowler(who ?? null);
+    await view.play(result, {
+      reaction: reactionFor(result),
+      onRelease: () => audio?.startRoll(),
+      onImpact: () => audio?.crash(Math.min(1, 0.3 + result.knocked.length / 10)),
+    });
     audio?.stopRoll();
   }, []);
 
@@ -102,7 +123,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
       try {
         const result = await onThrow(input);
         console.info("[bowling] result", JSON.stringify({ knocked: result.knocked, standing: result.standing, gutter: result.gutter, frames: result.frames.length }));
-        await playResult(result);
+        await playResult(result, avatar);
         onThrowShown?.(result);
       } catch (e) {
         setError(e instanceof Error ? e.message : "That throw couldn't be processed.");
@@ -112,7 +133,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
         setPower(0);
       }
     },
-    [busy, canThrow, onThrow, onThrowShown, playResult],
+    [avatar, busy, canThrow, onThrow, onThrowShown, playResult],
   );
 
   // Play an opponent's throw when it arrives.
@@ -120,7 +141,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
     if (!replay || phase !== "ready" || playedReplays.current.has(replay.id)) return;
     playedReplays.current.add(replay.id);
     void (async () => {
-      await playResult(replay.result);
+      await playResult(replay.result, replay.avatar);
       setPhase("ready");
       onReplayShown?.(replay.id);
     })();
