@@ -3,6 +3,7 @@
  * frames (from the browser in practice, or from the server in online matches). It never decides scores.
  */
 import * as pc from "playcanvas";
+import { getGameSettings } from "@/lib/game-settings";
 import { BALL, GUTTER_OUTER, HALF_LANE, HEAD_PIN_Z, LANE, PIN_PROFILE, PIN_SPOTS, PIT_EDGE_Z, type ThrowInput } from "./constants.ts";
 import type { SimResult } from "./sim.ts";
 import { ballSwirl, carpet, laneGloss, laneWood, maskingSign, maskingSignEmissive, pinDecal } from "./textures.ts";
@@ -454,6 +455,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
 
   type Mode = "aim" | "approach" | "follow" | "pins" | "react";
   let mode: Mode = "aim";
+  let pinClock = 0;
   let playback: {
     result: SimResult;
     t: number;
@@ -577,8 +579,11 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
         desiredTarget.set(bp.x * 0.3, 0.1, bp.z - 6);
       } else {
         mode = "pins";
-        desiredPos.set(0, 1.0, HEAD_PIN_Z + 3.0);
-        desiredTarget.set(0, 0.15, HEAD_PIN_Z - 0.45);
+        // Impact: drop to pin level for the hit, then ease back to a wider view of the deck.
+        const since = playback.impacted ? (pinClock += dt) : (pinClock = 0);
+        const low = getGameSettings().camMode === "steady" ? 0 : Math.max(0, 1 - Math.max(0, since - 0.9) / 0.8);
+        desiredPos.set(0, 1.0 - low * 0.55, HEAD_PIN_Z + 3.0 - low * 0.8 + (1 - low) * (playback.impacted ? 1.2 : 0));
+        desiredTarget.set(0, 0.15 + (1 - low) * 0.05, HEAD_PIN_Z - 0.45);
       }
       if (i >= result.frames.length - 1) {
         playback.finishedAt = 0;

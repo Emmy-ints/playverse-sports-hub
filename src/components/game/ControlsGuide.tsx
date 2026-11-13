@@ -99,8 +99,9 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
             { keys: ["Hold Space"], action: "Charge power, then release to bowl" },
           ],
           touch: [
-            { keys: ["Swipe up"], action: "Swipe up on the lane to bowl. A faster swipe gives more speed." },
-            { keys: ["Curve"], action: "Curve your swipe to add hook" },
+            { keys: ["Drag sideways"], action: "Drag left or right on the lane to move your aim (the blue guide line shows the path)" },
+            { keys: ["Pull back, swipe up"], action: "Drag down to pull back, then flick up to bowl. A faster flick gives more speed." },
+            { keys: ["Curve"], action: "Curl the end of your flick to add hook" },
             { keys: ["Bowl button"], action: "Or hold the button to charge, then release" },
           ],
         }],

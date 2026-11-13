@@ -12,7 +12,7 @@ import { settingsStore } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
-import { useGameSettings } from "@/lib/game-settings";
+import { getGameSettings, useGameSettings } from "@/lib/game-settings";
 
 export interface StageReplay { id: string; result: SimResult; avatar?: AvatarConfig | null }
 
@@ -226,22 +226,45 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
     };
   });
 
-  // Swipe-to-bowl on the lane.
+  // Lane gestures: drag sideways to aim (move your start spot); pull back (drag down) then swipe
+  // forward (up) to bowl — swipe speed sets power, curling the end of the swipe adds hook.
+  const gesture = useRef<{ mode: "undecided" | "aim" | "throw"; x0: number; aimX0: number; pulled: number } | null>(null);
+  const [pullHint, setPullHint] = useState(0);
   const onPointerDown = (e: React.PointerEvent) => {
     if (!canThrow || phase !== "ready") return;
     swipe.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
+    gesture.current = { mode: "undecided", x0: e.clientX, aimX0: aim.x, pulled: 0 };
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
-    if (swipe.current) swipe.current.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    const path = swipe.current, g = gesture.current;
+    if (!path || !g) return;
+    path.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    const first = path[0]!;
+    const dx = e.clientX - first.x, dy = e.clientY - first.y;
+    if (g.mode === "undecided" && Math.hypot(dx, dy) > 14) g.mode = Math.abs(dx) > Math.abs(dy) * 1.3 ? "aim" : "throw";
+    if (g.mode === "aim") {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const sens = 0.6 + getGameSettings().camSensitivity * 0.8;
+      const x = clamp(g.aimX0 + ((e.clientX - g.x0) / rect.width) * THROW_LIMITS.maxStartX * 2.4 * sens, -THROW_LIMITS.maxStartX, THROW_LIMITS.maxStartX);
+      setAim((a) => ({ ...a, x }));
+    } else if (g.mode === "throw") {
+      g.pulled = Math.max(g.pulled, dy);
+      setPullHint(Math.min(1, g.pulled / 90));
+    }
   };
   const onPointerUp = (e: React.PointerEvent) => {
-    const path = swipe.current;
+    const path = swipe.current, g = gesture.current;
     swipe.current = null;
-    if (!path) return;
+    gesture.current = null;
+    setPullHint(0);
+    if (!path || !g || g.mode === "aim") return;
     path.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    // The throw starts at the bottom of the pull-back (the lowest point), like a real backswing.
+    let low = 0;
+    for (let k = 1; k < path.length; k++) if (path[k]!.y > path[low]!.y) low = k;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const t = swipeToThrow(path, { width: rect.width, height: rect.height }, aim.x);
+    const t = swipeToThrow(path.slice(low), { width: rect.width, height: rect.height }, aim.x);
     if (t) {
       setAim((a) => ({ ...a, angle: t.angle, spin: t.spin }));
       void doThrow(t);
@@ -274,9 +297,15 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={() => (swipe.current = null)}
-        aria-label="Lane. Swipe up to bowl."
+        aria-label="Lane. Drag sideways to aim; pull back and swipe up to bowl."
         role="application"
       />
+      {pullHint > 0 && (
+        <div className="pointer-events-none absolute inset-x-0 top-[38%] flex flex-col items-center text-white" aria-live="polite">
+          <p className="rounded-full bg-black/55 px-4 py-1.5 font-display text-lg font-black uppercase">{pullHint < 0.5 ? "Pull back…" : "Now swipe up!"}</p>
+          <div className="mt-2 h-2 w-40 overflow-hidden rounded-full bg-black/50"><div className="h-full rounded-full bg-gradient-to-r from-[#3ef0ff] to-[#ff7a1a]" style={{ width: `${pullHint * 100}%` }} /></div>
+        </div>
+      )}
 
       {phase === "loading" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#03040a]" role="status">
@@ -295,7 +324,8 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
 
       {phase !== "loading" && phase !== "error" && (
         <>
-          <div className="absolute left-3 top-[calc(var(--safe-top)+5.5rem)] flex gap-2">
+          <div className="absolute left-safe top-[calc(var(--safe-top)+5.5rem)] flex gap-2">
+            <GameSettingsButton />
             <ControlsHelpButton sport="bowling" />
             <FullscreenButton />
           </div>
@@ -335,7 +365,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
                   </button>
                 </div>
                 <p className="mt-1.5 text-center text-[11px] text-white/60">
-                  Swipe up on the lane to bowl (curl the swipe for hook) · or hold the button / Space · ←/→ move · A/D aim · Q/E hook
+                  Drag sideways to aim · pull back then swipe up to bowl (curl the swipe for hook) · or hold the button / Space · ←/→ move · A/D aim · Q/E hook
                 </p>
               </div>
             ) : (
