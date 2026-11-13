@@ -251,11 +251,11 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
     <div className="relative h-full w-full select-none overflow-hidden bg-[#03040a] touch-none">
       <canvas ref={canvasRef} className="block h-full w-full" />
       {banner && (
-        <div key={banner.id} className="pointer-events-none absolute inset-x-0 top-[24%] z-10 flex justify-center" aria-live="assertive">
+        <div key={banner.id} className="pointer-events-none absolute inset-x-0 top-[40%] z-10 flex justify-center" aria-live="assertive">
           <span className={cn("animate-rise font-display font-black italic uppercase tracking-wide drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]",
             banner.kind === "strike" ? "bg-gradient-to-b from-[#fff3b0] via-[#ffd23f] to-[#ff7a1a] bg-clip-text text-7xl text-transparent sm:text-9xl"
               : banner.kind === "spare" ? "bg-gradient-to-b from-white to-[#20e3ff] bg-clip-text text-6xl text-transparent sm:text-8xl"
-              : "text-4xl text-white/90 sm:text-6xl")}>
+              : "rounded-2xl bg-black/55 px-6 py-1 text-4xl text-white sm:text-6xl")}>
             {banner.text}
           </span>
         </div>
