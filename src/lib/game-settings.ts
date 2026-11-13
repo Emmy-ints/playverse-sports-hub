@@ -24,7 +24,10 @@ export interface GameSettings {
   landscapeHint: boolean;
   /** Tilt steering feels reversed on some phones. */
   tiltInvert: boolean;
+  /** Realistic motion-captured athletes (arenas that support them) or the classic characters. */
+  graphics: Graphics;
 }
+export type Graphics = "realistic" | "classic";
 
 export const DEFAULT_SETTINGS: GameSettings = {
   buttonScale: 1,
@@ -36,6 +39,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   raceView: "chase",
   landscapeHint: true,
   tiltInvert: false,
+  graphics: "realistic",
 };
 
 const KEY = "pv.gameSettings.v1";
@@ -58,6 +62,7 @@ function load(): GameSettings {
   if (!["right", "left"].includes(s.hand)) s.hand = "right";
   if (!["wheel", "buttons", "tilt"].includes(s.steering)) s.steering = "wheel";
   if (!["chase", "close", "bonnet", "cockpit"].includes(s.raceView)) s.raceView = "chase";
+  if (!["realistic", "classic"].includes(s.graphics)) s.graphics = "realistic";
   current = s;
   return s;
 }

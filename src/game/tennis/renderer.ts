@@ -5,11 +5,13 @@
  * simulation decides everything; this just draws the latest state each frame.
  */
 import * as pc from "playcanvas";
-import { camLiveliness } from "@/lib/game-settings";
+import { camLiveliness, getGameSettings } from "@/lib/game-settings";
 import type { AvatarConfig } from "@/lib/avatar";
 import { Crowd } from "../bowling/crowd.ts";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
 import { TennisPlayerAnimator } from "./player-anim.ts";
+import { Athlete, athleteBody, loadAthleteAssets, type AthleteAssets } from "../character/athlete.ts";
+import { TennisAthleteAnimator } from "./athlete-anim.ts";
 import { COURT } from "./sim.ts";
 import type { CourtTheme } from "./themes.ts";
 
@@ -426,6 +428,34 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   // Players, ball and shadow.
   const humans: [Humanoid, Humanoid] = [createHumanoid(app.root, null, { shadows: true }), createHumanoid(app.root, null, { shadows: true })];
   const anims = humans.map((h) => new TennisPlayerAnimator(h, { frame: M.frame, strings: M.strings, grip: M.grip })) as [TennisPlayerAnimator, TennisPlayerAnimator];
+  // Realistic athletes replace the classic characters once their models have loaded.
+  let avatars: [AvatarConfig | null, AvatarConfig | null] = [null, null];
+  let realAssets: AthleteAssets | null = null;
+  const real: [{ ath: Athlete; anim: TennisAthleteAnimator } | null, { ath: Athlete; anim: TennisAthleteAnimator } | null] = [null, null];
+  let destroyed = false;
+  const makeReal = (p: 0 | 1) => {
+    if (!realAssets) return;
+    const cur = real[p];
+    if (cur && cur.ath.body === athleteBody(avatars[p])) {
+      cur.ath.apply(avatars[p]);
+      return;
+    }
+    cur?.anim.destroy();
+    cur?.ath.destroy();
+    const ath = new Athlete(realAssets, app.root, avatars[p], { shadows: true });
+    real[p] = { ath, anim: new TennisAthleteAnimator(ath, realAssets, { frame: M.frame, strings: M.strings, grip: M.grip }) };
+    humans[p].root.enabled = false;
+  };
+  if (getGameSettings().graphics === "realistic")
+    loadAthleteAssets(app)
+      .then((as) => {
+        if (destroyed) return;
+        realAssets = as;
+        makeReal(0);
+        makeReal(1);
+      })
+      .catch((e) => console.warn("[tennis] realistic athletes unavailable, using classic", e));
+
   const BALL_D = 0.067 * 1.5; // drawn a little larger than real so it reads on small screens
   const ball = add(app.root, "sphere", M.ball, [0, 1, 0], [BALL_D, BALL_D, BALL_D], true);
   const shadow = add(app.root, "cylinder", M.shadow, [0, 0.005, 0], [0.12, 0.002, 0.12], false);
@@ -452,7 +482,10 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const f = frame;
     for (const p of [0, 1] as const) {
       const pl = f.players[p];
-      anims[p].update({ ...pl, serving: f.phase === "serve" && f.server === p, facing: p === 0 ? -1 : 1 }, f.t, dt);
+      const inp = { ...pl, serving: f.phase === "serve" && f.server === p, facing: (p === 0 ? -1 : 1) as 1 | -1 };
+      const r = real[p];
+      if (r) r.anim.update({ ...inp, ballX: f.ball.x, ballZ: f.ball.z }, f.t, dt);
+      else anims[p].update(inp, f.t, dt);
     }
     const b = f.ball;
     ball.setPosition(b.x, b.y, b.z);
@@ -512,8 +545,11 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
       viewer = p;
     },
     setAvatars(a) {
+      avatars = a;
       humans[0].apply(a[0]);
       humans[1].apply(a[1]);
+      makeReal(0);
+      makeReal(1);
     },
     setScoreboard(d) {
       drawScoreboard(sbCanvas, d);
@@ -530,6 +566,7 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
       resize();
     },
     destroy() {
+      destroyed = true;
       ro.disconnect();
       crowd.forEach((c) => c.destroy());
       app.destroy();
