@@ -254,7 +254,8 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
         }
       }
       // Score changes (after events so the spoken call follows the line call).
-      if (s.score !== lastScore) {
+      const key = (x: Score) => `${x.points}|${x.games}|${x.sets}|${x.tiebreak}|${x.winner}`;
+      if (key(s.score) !== key(lastScore)) {
         const prev = lastScore;
         lastScore = s.score;
         setScore(s.score);
