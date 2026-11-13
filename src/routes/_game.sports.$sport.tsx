@@ -1,5 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ComingSoon } from "@/components/game/ComingSoon";
+import { GameButton } from "@/components/game/GameButton";
 import { PageShell } from "@/components/game/PageShell";
 import { getSport } from "@/lib/sports";
 
@@ -17,9 +19,24 @@ function SportPage() {
   return (
     <PageShell eyebrow={s.name} title={s.venue} description={s.tagline}>
       <img src={s.image} alt="" width={1024} height={768} className="mb-6 h-56 w-full rounded-3xl object-cover sm:h-80" />
-      <div className="grid gap-4 sm:grid-cols-3">
-        {s.modes.map((m) => <ComingSoon key={m} feature={m} detail="3D gameplay arrives in a later update." />)}
-      </div>
+      {s.id === "bowling" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-2xl font-bold uppercase">Practice</h2>
+            <p className="mt-1 text-sm text-muted-foreground">A full ten-frame game with real 3D physics. Not ranked.</p>
+            <GameButton asChild variant="hot" className="mt-4"><Link to="/play/bowling">Play practice</Link></GameButton>
+          </div>
+          <div className="glass rounded-2xl p-6">
+            <h2 className="text-2xl font-bold uppercase">1v1 Online</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Challenge a friend. Every throw is simulated and scored on the server.</p>
+            <GameButton asChild variant="primary" className="mt-4"><Link to="/friends">Challenge a friend</Link></GameButton>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {s.modes.map((m) => <ComingSoon key={m} feature={m} detail="3D gameplay arrives in a later update." />)}
+        </div>
+      )}
     </PageShell>
   );
 }

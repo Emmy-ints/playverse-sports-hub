@@ -17,6 +17,7 @@
     "rolldown": "1.2.1"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "0.14.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -57,6 +58,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
+    "playcanvas": "^2.4.0",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
