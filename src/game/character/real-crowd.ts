@@ -22,7 +22,10 @@ export interface CrowdAtlas {
 }
 
 function rng(seed: number) {
-  let s = seed >>> 0;
+  // mix the seed first so nearby seeds give unrelated sequences
+  let s = Math.imul((seed ^ 0x9e3779b9) >>> 0, 0x85ebca6b) >>> 0;
+  s = Math.imul(s ^ (s >>> 13), 0xc2b2ae35) >>> 0;
+  s ^= s >>> 16;
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
 }
 
