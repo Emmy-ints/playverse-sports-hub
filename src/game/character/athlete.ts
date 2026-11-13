@@ -11,7 +11,7 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 
-const VERSION = 1;
+const VERSION = 2;
 const BASE = "/assets/athletes";
 
 export type ClipName = "idle" | "run" | "walk" | "fh" | "bh" | "serve" | "cheer" | "sad";
