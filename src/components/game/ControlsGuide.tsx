@@ -247,9 +247,17 @@ export function ControlsHelpButton({ sport, events, className }: { sport: GuideS
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
-    const on = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", on);
-    return () => window.removeEventListener("keydown", on);
+    // Capture phase: keys go to the guide, not the game underneath.
+    const on = (e: KeyboardEvent) => {
+      e.stopImmediatePropagation();
+      if (e.type === "keydown" && e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", on, true);
+    window.addEventListener("keyup", on, true);
+    return () => {
+      window.removeEventListener("keydown", on, true);
+      window.removeEventListener("keyup", on, true);
+    };
   }, [open]);
   return (
     <>
