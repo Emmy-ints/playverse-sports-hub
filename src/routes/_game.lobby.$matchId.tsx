@@ -144,7 +144,7 @@ function Lobby({ matchId }: { matchId: string }) {
   const { conn, peers, ready, setReady } = useLobbyChannel(matchId, me, !!data && isLive);
   // Wake the real-time game server early (the free plan sleeps when idle).
   useEffect(() => {
-    if (data?.sport === "tennis" && isLive) warmRealtimeServer();
+    if ((data?.sport === "tennis" || data?.sport === "racing") && isLive) warmRealtimeServer();
   }, [data?.sport, isLive]);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
@@ -189,7 +189,7 @@ function Lobby({ matchId }: { matchId: string }) {
   // Bowling is playable online: when the countdown ends, start the server game and go to the lane.
   const [startError, setStartError] = useState<string | null>(null);
   useEffect(() => {
-    if (countdown !== 0 || (data?.sport !== "bowling" && data?.sport !== "golf" && data?.sport !== "tennis")) return;
+    if (countdown !== 0 || (data?.sport !== "bowling" && data?.sport !== "golf" && data?.sport !== "tennis" && data?.sport !== "racing")) return;
     let cancelled = false;
     const start = data.sport === "bowling" ? startBowlingMatch(matchId) : data.sport === "golf" ? startGolfMatch(matchId) : startRealtimeMatch(matchId);
     start
@@ -197,7 +197,8 @@ function Lobby({ matchId }: { matchId: string }) {
         if (cancelled) return;
         if (data.sport === "bowling") navigate({ to: "/match/bowling/$matchId", params: { matchId } });
         else if (data.sport === "golf") navigate({ to: "/match/golf/$matchId", params: { matchId } });
-        else navigate({ to: "/match/tennis/$matchId", params: { matchId } });
+        else if (data.sport === "tennis") navigate({ to: "/match/tennis/$matchId", params: { matchId } });
+        else navigate({ to: "/match/racing/$matchId", params: { matchId } });
       })
       .catch((e) => !cancelled && setStartError(friendlyError(e)));
     return () => {
@@ -286,12 +287,14 @@ function Lobby({ matchId }: { matchId: string }) {
             <p className="text-sm text-muted-foreground">
               {data.status === "abandoned" ? "A player left before the match started. No result or rating change was recorded." : data.status === "in_progress" ? "This match is underway." : `Match status: ${data.status}.`}
             </p>
-            {(data.sport === "bowling" || data.sport === "golf" || data.sport === "tennis") && (data.status === "in_progress" || data.status === "completed") && (
+            {(data.sport === "bowling" || data.sport === "golf" || data.sport === "tennis" || data.sport === "racing") && (data.status === "in_progress" || data.status === "completed") && (
               <GameButton asChild variant="hot" className="mt-3">
                 {data.sport === "bowling" ? (
                   <Link to="/match/bowling/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link>
                 ) : data.sport === "tennis" ? (
                   <Link to="/match/tennis/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link>
+                ) : data.sport === "racing" ? (
+                  <Link to="/match/racing/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin race" : "View result"}</Link>
                 ) : (
                   <Link to="/match/golf/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link>
                 )}
@@ -300,9 +303,9 @@ function Lobby({ matchId }: { matchId: string }) {
           </GlassPanel>
         ) : countdown !== null && countdown > 0 ? (
           <div role="timer" aria-live="assertive" className="font-display text-8xl font-black text-gradient-gold">{countdown}</div>
-        ) : countdown === 0 && (data.sport === "bowling" || data.sport === "golf" || data.sport === "tennis") ? (
+        ) : countdown === 0 && (data.sport === "bowling" || data.sport === "golf" || data.sport === "tennis" || data.sport === "racing") ? (
           <GlassPanel>
-            {startError ? <p role="alert" className="text-destructive">{startError}</p> : <p className="font-display text-2xl font-bold uppercase">{data.sport === "bowling" ? "Heading to the lane…" : data.sport === "golf" ? "Heading to the first tee…" : "Walking on court…"}</p>}
+            {startError ? <p role="alert" className="text-destructive">{startError}</p> : <p className="font-display text-2xl font-bold uppercase">{data.sport === "bowling" ? "Heading to the lane…" : data.sport === "golf" ? "Heading to the first tee…" : data.sport === "tennis" ? "Walking on court…" : "Rolling to the grid…"}</p>}
           </GlassPanel>
         ) : countdown === 0 ? (
           <GlassPanel>

@@ -1,18 +1,21 @@
 /**
- * PLAYVERSE real-time game server (tennis now; racing next). Plain Node — run with
+ * PLAYVERSE real-time game server: live tennis and racing. Plain Node — run with
  *   node --experimental-strip-types server/realtime/main.ts
  * Env: PORT, SUPABASE_URL, SUPABASE_ANON_KEY, REALTIME_SECRET, ALLOWED_ORIGINS (comma-separated; suffix match).
  */
 import { createServer } from "node:http";
 import { supabaseBackend, type Backend } from "./backend.ts";
+import { RaceRoom } from "./race-room.ts";
 import { TennisRoom } from "./tennis-room.ts";
+
+type Room = TennisRoom | RaceRoom;
 import { accept, type Socket } from "./ws.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function startServer(opts: { port: number; backend: Backend; allowedOrigins: string[] }) {
-  const rooms = new Map<string, TennisRoom>();
-  const opening = new Map<string, Promise<TennisRoom | null>>();
+  const rooms = new Map<string, Room>();
+  const opening = new Map<string, Promise<Room | null>>();
   const perIp = new Map<string, number>();
 
   const allowOrigin = (origin: string | undefined) => {
@@ -25,15 +28,15 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
     }
   };
 
-  const roomFor = (matchId: string): Promise<TennisRoom | null> => {
+  const roomFor = (matchId: string): Promise<Room | null> => {
     const existing = rooms.get(matchId);
     if (existing) return Promise.resolve(existing);
     let p = opening.get(matchId);
     if (!p) {
       p = (async () => {
         const info = await opts.backend.matchInfo(matchId);
-        if (!info || info.sport !== "tennis" || info.status !== "in_progress" || info.players.length !== 2) return null;
-        const room = new TennisRoom(info, opts.backend);
+        if (!info || (info.sport !== "tennis" && info.sport !== "racing") || info.status !== "in_progress" || info.players.length !== 2) return null;
+        const room: Room = info.sport === "tennis" ? new TennisRoom(info, opts.backend) : new RaceRoom(info, opts.backend);
         room.onDispose = () => rooms.delete(matchId);
         rooms.set(matchId, room);
         return room;
@@ -72,7 +75,8 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
       return socket.close(4403, "not in match");
     }
     if (socket.closed) return;
-    room.join(seat, socket);
+    if (room instanceof TennisRoom) room.join(seat as 0 | 1, socket);
+    else room.join(seat, socket);
   };
 
   const server = createServer((req, res) => {

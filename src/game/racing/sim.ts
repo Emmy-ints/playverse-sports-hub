@@ -330,3 +330,13 @@ export function takeRaceEvents(s: RaceState): RaceEvent[] {
   s.events = [];
   return e;
 }
+
+/** End the race now (time limit or forfeit): unfinished cars are classified by distance covered. */
+export function forceFinish(s: RaceState, loser?: number) {
+  if (s.phase === "finished") return;
+  const rest = s.cars.map((c, i) => ({ c, i })).filter(({ i }) => !s.finishOrder.includes(i));
+  rest.sort((a, b) => (a.i === loser ? 1 : b.i === loser ? -1 : b.c.progress - a.c.progress));
+  for (const { i } of rest) s.finishOrder.push(i);
+  s.phase = "finished";
+  s.events.push({ t: s.t, kind: "finish", detail: loser !== undefined ? "forfeit" : "time" });
+}
