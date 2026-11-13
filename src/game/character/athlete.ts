@@ -124,7 +124,7 @@ export function athleteBody(cfg: AvatarConfig | null): "m" | "f" {
 export class Athlete {
   readonly root: pc.Entity;
   readonly body: "m" | "f";
-  private model: pc.Entity;
+  readonly model: pc.Entity;
   private boneEnts: (pc.Entity | null)[] = [];
   private rootBone: pc.Entity | null = null;
   private byName = new Map<string, pc.Entity>();

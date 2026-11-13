@@ -11,6 +11,10 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid } from "../character/humanoid.ts";
 import { BowlerAnimator, START_Z, type Reaction } from "./bowler.ts";
 import { Crowd } from "./crowd.ts";
+import { Athlete, athleteBody, loadAthleteAssets, type AthleteAssets } from "../character/athlete.ts";
+import { HumanoidMirror } from "../character/mirror.ts";
+import { RealCrowd, bakeCrowdAtlas, type CrowdAtlas } from "../character/real-crowd.ts";
+import type { Humanoid } from "../character/humanoid.ts";
 
 export type Quality = "high" | "low";
 
@@ -370,7 +374,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
 
   // Spectators: tiered galleries along both side walls (visible beside the lanes) and a lounge
   // behind the approach with people sitting at the tables watching.
-  const crowd = new Crowd(root, {
+  const crowdOpts = () => ({
     innerX: laneSpacing * 2.5 + 0.9,
     zFrom: 5,
     zTo: -10,
@@ -379,13 +383,14 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     fill: quality === "high" ? 0.85 : 0.65,
     shadows: false,
   });
+  let crowd: Crowd | RealCrowd = new Crowd(root, crowdOpts());
   const lounge = new pc.Entity("lounge");
   lounge.setLocalPosition(0, 0, 0);
   lounge.setLocalEulerAngles(0, 90, 0);
   root.addChild(lounge);
-  const loungeCrowd = new Crowd(lounge, { innerX: 6.4, zFrom: hallWidth / 2 - 1, zTo: -hallWidth / 2 + 1, tiers: 2, spacing: quality === "high" ? 0.7 : 1, fill: 0.7, shadows: false, sides: [-1], seed: 7 });
+  let loungeCrowd: Crowd | RealCrowd = new Crowd(lounge, { innerX: 6.4, zFrom: hallWidth / 2 - 1, zTo: -hallWidth / 2 + 1, tiers: 2, spacing: quality === "high" ? 0.7 : 1, fill: 0.7, shadows: false, sides: [-1], seed: 7 });
   // Neighbouring lanes: other bowlers waiting their turn and occasionally bowling.
-  const neighbours: { anim: BowlerAnimator; next: number; resetAt: number }[] = [];
+  const neighbours: { anim: BowlerAnimator; next: number; resetAt: number; h: Humanoid; look: AvatarConfig; mirror?: HumanoidMirror }[] = [];
   const neighbourLooks: AvatarConfig[] = [
     { version: 1, nickname: "Mara", genderPresentation: "feminine", skinTone: "#eac0a0", face: "smile", hairstyle: "ponytail", hairColor: "#8a5a2b", outfit: "polo", outfitColor: "#e0307a", shoes: "runner", shoeColor: "#e8eaf0", accessory: "none" },
     { version: 1, nickname: "Deji", genderPresentation: "masculine", skinTone: "#7a4b2e", face: "focused", hairstyle: "buzz", hairColor: "#1b1410", outfit: "jersey", outfitColor: "#2fbf71", shoes: "court", shoeColor: "#1d2333", accessory: "wristbands" },
@@ -397,13 +402,50 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     const h = createHumanoid(holder, neighbourLooks[i]!, { shadows: quality === "high" });
     const anim = new BowlerAnimator(h);
     anim.ready(0);
-    neighbours.push({ anim, next: 4 + i * 6, resetAt: -1 });
+    neighbours.push({ anim, next: 4 + i * 6, resetAt: -1, h, look: neighbourLooks[i]! });
   }
 
   // The bowler: the player's own character.
   const bowlerHumanoid = createHumanoid(root, null, { shadows: true });
   const bowler = new BowlerAnimator(bowlerHumanoid);
   bowler.ready(0);
+
+  // Realistic athletes and crowd (Settings → Graphics); the classic rig keeps animating underneath.
+  let bowlerAvatar: AvatarConfig | null = null;
+  let realAssets: AthleteAssets | null = null;
+  let bowlerMirror: HumanoidMirror | null = null;
+  let atlas: CrowdAtlas | null = null;
+  let destroyed = false;
+  const mirrorFor = (h: Humanoid, look: AvatarConfig | null, grip: number) => {
+    const a = new Athlete(realAssets!, root, look, { shadows: quality === "high" || h === bowlerHumanoid });
+    a.setGrip("R", grip, grip * 0.8);
+    return new HumanoidMirror(h, a);
+  };
+  const makeRealBowler = () => {
+    if (!realAssets) return;
+    if (bowlerMirror && bowlerMirror.ath.body === athleteBody(bowlerAvatar)) {
+      bowlerMirror.ath.apply(bowlerAvatar);
+      bowlerMirror.hideSource();
+      return;
+    }
+    bowlerMirror?.destroy();
+    bowlerMirror = mirrorFor(bowlerHumanoid, bowlerAvatar, 0.55);
+  };
+  if (getGameSettings().graphics === "realistic")
+    loadAthleteAssets(app)
+      .then(async (as) => {
+        if (destroyed) return;
+        realAssets = as;
+        makeRealBowler();
+        for (const n of neighbours) n.mirror = mirrorFor(n.h, n.look, 0.4);
+        atlas = await bakeCrowdAtlas(app, as, 11);
+        if (destroyed) return atlas.destroy();
+        crowd.destroy();
+        crowd = new RealCrowd(root, atlas, device, { ...crowdOpts(), tiers: quality === "high" ? 5 : 4, seats: std({ diffuse: hex("#1a1f33"), gloss: 0.4 }) });
+        loungeCrowd.destroy();
+        loungeCrowd = new RealCrowd(lounge, atlas, device, { innerX: 6.4, zFrom: hallWidth / 2 - 1, zTo: -hallWidth / 2 + 1, tiers: 2, spacing: quality === "high" ? 0.7 : 1, fill: 0.7, sides: [-1], seed: 7 });
+      })
+      .catch((e) => console.warn("[bowling] realistic athletes unavailable, using classic", e));
 
   // Aim guide.
   const guide = add("aim-guide", root, { material: neonBlue, scale: [0.01, 0.002, 6] });
@@ -516,10 +558,12 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   let earlyApproach = false;
   app.on("update", (dt: number) => {
     bowler.update(dt);
+    bowlerMirror?.update();
     crowd.update(dt);
     loungeCrowd.update(dt);
     for (const n of neighbours) {
       n.anim.update(dt);
+      n.mirror?.update();
       n.next -= dt;
       if (n.resetAt > 0) {
         n.resetAt -= dt;
@@ -534,7 +578,11 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     }
     updateConfetti(dt);
     if (bowler.isHoldingBall) {
-      bowler.ballPosition(handBall);
+      if (bowlerMirror && realAssets) {
+        // in the athlete's right palm
+        const hr = realAssets.rig.hand.R;
+        bowlerMirror.palm("R", 0.05, handBall, BALL.radius + 0.02, hr.normal, hr.dir);
+      } else bowler.ballPosition(handBall);
       ball.setPosition(handBall);
     }
     if ((playback && !playback.started) || (!playback && earlyApproach)) {
@@ -631,7 +679,11 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       ball.enabled = true;
       ball.setEulerAngles(0, 0, 0);
       bowler.ready(aim.x);
-      bowler.ballPosition(handBall);
+      if (bowlerMirror && realAssets) {
+        // in the athlete's right palm
+        const hr = realAssets.rig.hand.R;
+        bowlerMirror.palm("R", 0.05, handBall, BALL.radius + 0.02, hr.normal, hr.dir);
+      } else bowler.ballPosition(handBall);
       ball.setPosition(handBall);
       guide.enabled = visible;
       const len = 6;
@@ -643,6 +695,8 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     },
     setBowler(avatar) {
       bowlerHumanoid.apply(avatar);
+      bowlerAvatar = avatar;
+      makeRealBowler();
     },
     beginApproach(startX) {
       guide.enabled = false;
@@ -695,7 +749,9 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     },
     resize,
     destroy() {
+      destroyed = true;
       ro.disconnect();
+      atlas?.destroy();
       crowd.destroy();
       loungeCrowd.destroy();
       cameraFrame?.destroy?.();
