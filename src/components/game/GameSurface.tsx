@@ -132,6 +132,10 @@ export function GameSettingsPanel({ racing = true, haptics = true }: { racing?: 
         { id: "steady", name: "Steady", hint: "Minimal camera movement: calmer framing, no speed effects." },
         { id: "manual", name: "Manual", hint: "Like Dynamic, plus free look where a game supports it (golf: drag the view to look along your aim)." },
       ]} />
+      <Seg label="Graphics" value={s.graphics} onChange={(v) => set({ graphics: v })} options={[
+        { id: "realistic", name: "Realistic", hint: "Motion-captured athletes, officials and a full crowd (tennis for now). Applies from the next match." },
+        { id: "classic", name: "Classic", hint: "The original stylised characters. Lighter on older phones." },
+      ]} />
       <Seg label="Dominant hand" value={s.hand} onChange={(v) => set({ hand: v })} options={[
         { id: "right", name: "Right-handed", hint: "Actions on the right, movement and aim on the left." },
         { id: "left", name: "Left-handed", hint: "Actions on the left, movement and aim on the right." },
