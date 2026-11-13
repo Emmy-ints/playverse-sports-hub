@@ -99,7 +99,7 @@ export class ParkourRoom {
     if (m["t"] === "ping") return socket.send(JSON.stringify({ t: "pong", c: m["c"] }));
     if (m["t"] !== "in" || this.status !== "playing") return;
     const key = m["key"];
-    if (key !== "J" && key !== "S") return;
+    if (key !== "J" && key !== "S" && key !== "L" && key !== "R") return;
     const seq = typeof m["seq"] === "number" && Number.isFinite(m["seq"]) ? Math.floor(m["seq"]) : -1;
     applyInput(this.s, p, { seq, key: key as Key, down: m["down"] === true });
   }

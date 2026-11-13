@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiInput, applyInput, createCourse, createRace, groundAt, LENGTHS, placings, stepRace, takeEvents } from "@/game/parkour/sim";
+import { aiInput, applyInput, createCourse, createRace, groundAt, laneZ, LENGTHS, placings, stepRace, takeEvents } from "@/game/parkour/sim";
 
 function run(seed: number, skills: number[], length: keyof typeof LENGTHS = "standard") {
   const s = createRace(skills.length, seed, length);
@@ -28,7 +28,7 @@ describe("Rooftop Rush course", () => {
       expect(groundAt(c, c.length + 5)).not.toBeNull();
       c.obstacles.forEach((o) => kinds.add(o.kind));
     }
-    expect([...kinds].sort()).toEqual(["drop", "gap", "pad", "pipe", "vent", "wall"]);
+    expect([...kinds].sort()).toEqual(["drop", "gap", "pad", "pipe", "rail", "swing", "vent", "wall"]);
   });
 });
 
@@ -65,6 +65,45 @@ describe("Rooftop Rush race", () => {
     applyInput(s, 0, { seq: 6, key: "X" as "J", down: true });
     expect(s.runners[0]!.jumpBuf).toBe(buf);
     expect(s.runners[0]!.lastSeq).toBe(5);
+  });
+  it("steers between three lanes and clamps at the edges", () => {
+    const s = createRace(1, 5);
+    s.phase = "live";
+    s.runners[0]!.state = "run";
+    applyInput(s, 0, { seq: 1, key: "L", down: true });
+    applyInput(s, 0, { seq: 2, key: "L", down: true });
+    expect(s.runners[0]!.lane).toBe(0);
+    for (let n = 0; n < 60; n++) stepRace(s, 1 / 60);
+    expect(Math.abs(s.runners[0]!.z - laneZ(0))).toBeLessThan(0.01);
+    applyInput(s, 0, { seq: 3, key: "R", down: true });
+    applyInput(s, 0, { seq: 4, key: "R", down: true });
+    applyInput(s, 0, { seq: 5, key: "R", down: true });
+    expect(s.runners[0]!.lane).toBe(2);
+  });
+  it("grabs a swing bar to cross a gap too wide to jump, and rolls out of big drops", () => {
+    let grabs = 0, rolls = 0;
+    for (const seed of [1, 9001, 31337, 42]) {
+      const s = createRace(1, seed);
+      let seq = 0;
+      for (let n = 0; n < 60 * 120 && s.phase !== "over"; n++) {
+        const inp = aiInput(s, 0, 1, ++seq);
+        if (inp) applyInput(s, 0, inp);
+        stepRace(s, 1 / 60);
+        for (const e of takeEvents(s)) {
+          if (e.kind === "grab") grabs++;
+          if (e.kind === "roll") rolls++;
+        }
+      }
+      expect(s.runners[0]!.falls).toBe(0);
+    }
+    expect(grabs).toBeGreaterThan(0);
+    expect(rolls).toBeGreaterThan(0);
+  });
+  it("a plain jump can't clear a swing gap", () => {
+    const s = createRace(1, 1);
+    const sw = s.course.obstacles.find((o) => o.kind === "swing")!;
+    // Max jump distance at run speed ≈ 5.3 m; swing gaps are wider than 6 m.
+    expect(sw.w).toBeGreaterThan(6);
   });
   it("is deterministic for the same inputs", () => {
     expect(JSON.stringify(run(31, [0.7, 0.4]).runners)).toBe(JSON.stringify(run(31, [0.7, 0.4]).runners));

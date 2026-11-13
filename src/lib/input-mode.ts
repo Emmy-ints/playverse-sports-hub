@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { getGameSettings } from "./game-settings";
 
 /**
  * Which controls to show: touch (on-screen buttons) or keyboard hints.
@@ -61,7 +62,7 @@ export function useTouchMode(): boolean {
 /** Short vibration on phones that support it (Android). Silently does nothing elsewhere. */
 export function buzz(ms: number | number[] = 12) {
   try {
-    if (getInputMode() === "touch") navigator.vibrate?.(ms);
+    if (getInputMode() === "touch" && getGameSettings().haptics) navigator.vibrate?.(ms);
   } catch {
     /* not supported */
   }

@@ -8,7 +8,8 @@ import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
 import { ParkourAnimator } from "./anim.ts";
-import type { Course, RaceState } from "./sim.ts";
+import { getGameSettings, camLiveliness } from "@/lib/game-settings";
+import { LANE_W, laneZ, RUN_SPEED, type Course, type RaceState } from "./sim.ts";
 
 export type Quality = "high" | "low";
 
@@ -28,7 +29,6 @@ export function detectQuality(): Quality {
   return coarse || small ? "low" : "high";
 }
 
-export const LANE_GAP = 1.5;
 
 function col(h: string) {
   const n = parseInt(h.replace("#", ""), 16);
@@ -185,12 +185,13 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   const shadowType = (pc as unknown as Record<string, number>)["SHADOW_PCF3_32F"] ?? (pc as unknown as Record<string, number>)["SHADOW_PCF3"] ?? 0;
   const sun = new pc.Entity("sun");
   sun.addComponent("light", { type: "directional", color: new pc.Color(1, 0.78, 0.55), intensity: 1.7, castShadows: true, shadowResolution: quality === "high" ? 2048 : 1024, shadowDistance: 45, numCascades: 1, shadowType, shadowBias: 0.3, normalOffsetBias: 0.06 });
-  sun.lookAt(new pc.Vec3(-0.55, -0.45, -0.7).normalize());
+  sun.lookAt(new pc.Vec3(-0.8, -0.38, -0.25).normalize());
   sun.rotateLocal(90, 0, 0);
   app.root.addChild(sun);
   const rim = new pc.Entity("rim");
-  rim.addComponent("light", { type: "directional", color: new pc.Color(0.55, 0.65, 1), intensity: 0.55, castShadows: false });
-  rim.lookAt(new pc.Vec3(0.4, -0.3, 0.8).normalize());
+  // Fill from behind the camera so runners' backs aren't silhouettes against the sunset.
+  rim.addComponent("light", { type: "directional", color: new pc.Color(0.7, 0.75, 1), intensity: 0.95, castShadows: false });
+  rim.lookAt(new pc.Vec3(0.75, -0.45, 0.3).normalize());
   rim.rotateLocal(90, 0, 0);
   app.root.addChild(rim);
 
@@ -242,6 +243,7 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     stripe: mat({ map: tex(device, (() => { const [c, x] = canvas(64, 16); for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? "#111" : "#ffcc00"; x.beginPath(); x.moveTo(k * 8, 0); x.lineTo(k * 8 + 8, 0); x.lineTo(k * 8, 16); x.lineTo(k * 8 - 8, 16); x.fill(); } return c; })()), gloss: 0.3 }),
     wood: mat({ color: "#5b3a22", gloss: 0.2 }),
     tank: mat({ color: "#6b4a33", gloss: 0.25 }),
+    grip: mat({ color: "#2a2000", emissive: "#ffd23f", emissiveIntensity: 0.8 }),
     red: mat({ color: "#300", emissive: "#ff2020", noEnv: true }),
     white: mat({ color: "#f2f2f2", gloss: 0.3 }),
     alley: mat({ color: "#120e18", gloss: 0.1 }),
@@ -291,26 +293,48 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   let lanes = 4;
   const blink: pc.Entity[] = [];
   const signs: { e: pc.Entity; m: pc.StandardMaterial; ph: number }[] = [];
+  /** Course half-width (lanes plus run-off) and building half-width (room for rooftop decor). */
+  const HALF = LANE_W * 1.5 + 1.4;
+  const BLD = 8.5;
 
-  /** Far skyline layers (parallax depth), independent of the course. */
+  /** A plane facing the approaching camera (-x). */
+  const facingPlane = (root: pc.Entity, m: pc.Material, pos: [number, number, number], w: number, h: number) => {
+    const p = new pc.Entity();
+    p.setLocalPosition(...pos);
+    p.setLocalEulerAngles(0, -90, 0);
+    root.addChild(p);
+    add(p, "plane", m, [0, 0, 0], [w, 1, h], false, [90, 0, 0]);
+    return p;
+  };
+
+  /** City around the course: skyline blocks down both sides and beyond the finish. */
   const buildSkyline = (root: pc.Entity, from: number, to: number) => {
-    const layers = quality === "high" ? [[-60, 1.0], [-120, 0.75], [-210, 0.5]] : [[-80, 0.9], [-190, 0.55]];
     const r = rand(99);
-    layers.forEach(([z, shade], li) => {
+    const layers = quality === "high" ? [[22, 1.0], [55, 0.75], [110, 0.5]] : [[26, 0.9], [90, 0.55]];
+    layers.forEach(([dz, shade], li) => {
       const base = `rgb(${Math.round(40 * shade!)},${Math.round(38 * shade!)},${Math.round(62 * shade!)})`;
       const m = mat({ map: tex(device, windowsCanvas(base, 0.3, 50 + li)), emissiveMap: tex(device, windowsEmissive(0.3 * shade!, 50 + li)), tiling: [3, 6], gloss: 0.1 });
-      let x = from - 80;
-      while (x < to + 120) {
-        const w = 10 + r() * 22;
-        const h = 18 + r() * (50 + li * 40);
-        add(root, "box", m, [x + w / 2, h / 2 - 30, z! - r() * 20], [w, h + 30, 10 + r() * 12]);
-        if (r() < 0.3) {
-          const a = add(root, "cylinder", M.darkMetal, [x + w / 2, h - 15 + 4, z! - 5], [0.4, 8, 0.4]);
-          blink.push(add(a, "sphere", M.red, [0, 0.52, 0], [3.5, 0.12, 3.5]));
+      for (const side of [-1, 1]) {
+        let x = from - 60;
+        while (x < to + 160) {
+          const w = 10 + r() * 18;
+          const h = 14 + r() * (34 + li * 40);
+          const z = side * (dz! + r() * 18);
+          add(root, "box", m, [x + w / 2, h / 2 - 40, z], [w, h + 40, 10 + r() * 14]);
+          if (r() < 0.25) {
+            const a = add(root, "cylinder", M.darkMetal, [x + w / 2, h - 40 + 4 + 40 / 2 - 20, z], [0.4, 8, 0.4]);
+            blink.push(add(a, "sphere", M.red, [0, 0.52, 0], [3.5, 0.12, 3.5]));
+          }
+          x += w + 2 + r() * 8;
         }
-        x += w + 2 + r() * 8;
       }
     });
+    // A wall of towers far beyond the finish, under the sun.
+    const fm = mat({ map: tex(device, windowsCanvas("#2a2640", 0.25, 77)), emissiveMap: tex(device, windowsEmissive(0.25, 77)), tiling: [3, 6], gloss: 0.1 });
+    for (let z = -160; z < 160; z += 14 + r() * 10) {
+      const h = 30 + r() * 70;
+      add(root, "box", fm, [to + 150 + r() * 60, h / 2 - 40, z], [16, h + 40, 12]);
+    }
   };
 
   const build = () => {
@@ -323,108 +347,124 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     app.root.addChild(root);
     world = root;
     const c = course;
-    const depth = lanes * LANE_GAP + 5;
-    const zFront = 2.2, zBack = zFront - depth;
-    const zMid = (zFront + zBack) / 2;
     buildSkyline(root, -30, c.length + 40);
     const r = rand(c.seed + 3);
-    // Course buildings (one per roof segment).
+    const laneLine = mat({ color: "#e9e4dc", opacity: 0.35, noEnv: true });
+    facades.push(laneLine);
     c.segments.forEach((sg, k) => {
       const w = sg.x1 - sg.x0;
       const h = sg.y + 40;
-      const bm = facadeMat(k, w, h);
-      add(root, "box", bm, [(sg.x0 + sg.x1) / 2, sg.y - h / 2, zMid], [w, h, depth], false);
-      // Roof surface.
-      const rm = mat({ map: tex(device, noise(["#6f6a66", "#6a6560", "#76706a"][k % 3]!, 46, 256, k + 3)), tiling: [w / 4, depth / 4], gloss: 0.12 });
+      const cx = (sg.x0 + sg.x1) / 2;
+      add(root, "box", facadeMat(k, w, h), [cx, sg.y - h / 2, 0], [w, h, BLD * 2], false);
+      const rm = mat({ map: tex(device, noise(["#6f6a66", "#6a6560", "#76706a"][k % 3]!, 46, 256, k + 3)), tiling: [w / 4, BLD / 2], gloss: 0.12 });
       facades.push(rm);
-      add(root, "box", rm, [(sg.x0 + sg.x1) / 2, sg.y - 0.05, zMid], [w, 0.1, depth], false);
-      // Parapets front and back (low at the front so runners stay visible).
-      add(root, "box", M.parapet, [(sg.x0 + sg.x1) / 2, sg.y + 0.15, zFront + 0.15], [w, 0.3, 0.3], false);
-      add(root, "box", M.parapet, [(sg.x0 + sg.x1) / 2, sg.y + 0.5, zBack - 0.15], [w, 1, 0.3], true);
-      // Rooftop decor at the back: water towers, AC stacks, antennas, billboards.
+      add(root, "box", rm, [cx, sg.y - 0.05, 0], [w, 0.1, BLD * 2], false);
+      // Painted lane lines, so steering is easy to read.
+      for (const lz of [-LANE_W / 2, LANE_W / 2]) add(root, "box", laneLine, [cx, sg.y + 0.006, lz], [w, 0.01, 0.07]);
+      // Low parapets along both edges of the course.
+      for (const side of [-1, 1]) add(root, "box", M.parapet, [cx, sg.y + 0.3, side * (HALF + 0.2)], [w, 0.6, 0.3], true);
+      // Rooftop decor outside the parapets.
       let x = sg.x0 + 4;
       while (x < sg.x1 - 4) {
-        const pick = r();
-        const bz = zBack - 1.4;
-        if (pick < 0.22) {
+        const pickD = r();
+        const side = r() < 0.5 ? -1 : 1;
+        const z = side * (HALF + 2.2 + r() * 1.6);
+        if (pickD < 0.2) {
           const tw = new pc.Entity();
-          tw.setLocalPosition(x, sg.y, bz - 1);
+          tw.setLocalPosition(x, sg.y, z);
           root.addChild(tw);
           for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const) add(tw, "box", M.darkMetal, [dx * 1.1, 1.8, dz * 1.1], [0.15, 3.6, 0.15]);
           add(tw, "cylinder", M.tank, [0, 4.6, 0], [3, 2.6, 3], true);
           add(tw, "cone", M.tank, [0, 6.3, 0], [3.2, 0.9, 3.2]);
-        } else if (pick < 0.42) {
+        } else if (pickD < 0.4) {
           const text = ["PLAYVERSE", "ROOFTOP RUSH", "GO FASTER", "NO LIMITS", "CITY RUN"][Math.floor(r() * 5)]!;
           const colr = ["#ff3fb4", "#3ef0ff", "#ffd23f", "#7cff6b"][Math.floor(r() * 4)]!;
           const sm = mat({ color: "#000", emissiveMap: tex(device, signCanvas(text, colr), false), emissiveIntensity: 1.4, noEnv: true });
           facades.push(sm);
-          add(root, "box", M.darkMetal, [x - 2.6, sg.y + 1.6, bz], [0.15, 3.2, 0.15]);
-          add(root, "box", M.darkMetal, [x + 2.6, sg.y + 1.6, bz], [0.15, 3.2, 0.15]);
-          const s = add(root, "plane", sm, [x, sg.y + 3.6, bz], [6.4, 1, 1.6], false, [90, 0, 0]);
-          signs.push({ e: s, m: sm, ph: r() * 10 });
-        } else if (pick < 0.6) {
-          add(root, "box", M.metal, [x, sg.y + 0.7, bz], [2.2, 1.4, 1.6], true);
-          add(root, "cylinder", M.darkMetal, [x, sg.y + 1.45, bz], [1.2, 0.1, 1.2]);
-        } else if (pick < 0.72) {
-          const a = add(root, "cylinder", M.darkMetal, [x, sg.y + 3, bz], [0.12, 6, 0.12]);
-          const tip = add(a, "sphere", M.red, [0, 0.52, 0], [2.5, 0.05, 2.5]);
-          blink.push(tip);
+          for (const dz of [-1.6, 1.6]) add(root, "box", M.darkMetal, [x + 0.2, sg.y + 1.8, z + dz], [0.15, 3.6, 0.15]);
+          const p = facingPlane(root, sm, [x, sg.y + 4, z], 4.2, 1.05);
+          signs.push({ e: p, m: sm, ph: r() * 10 });
+        } else if (pickD < 0.6) {
+          add(root, "box", M.metal, [x, sg.y + 0.7, z], [1.6, 1.4, 2.2], true);
+          add(root, "cylinder", M.darkMetal, [x, sg.y + 1.45, z], [1.2, 0.1, 1.2]);
+        } else if (pickD < 0.72) {
+          const a = add(root, "cylinder", M.darkMetal, [x, sg.y + 3, z], [0.12, 6, 0.12]);
+          blink.push(add(a, "sphere", M.red, [0, 0.52, 0], [2.5, 0.05, 2.5]));
         }
-        x += 6 + r() * 7;
+        x += 5 + r() * 6;
       }
-      // String lights along the back parapet.
       if (quality === "high" && w > 12) {
-        for (let lx = sg.x0 + 1; lx < sg.x1 - 1; lx += 1.6) add(root, "sphere", M.bulb, [lx, sg.y + 1.15 + Math.sin((lx - sg.x0) / w * Math.PI) * -0.25, zBack - 0.15], [0.12, 0.12, 0.12]);
+        for (const side of [-1, 1]) for (let lx = sg.x0 + 1; lx < sg.x1 - 1; lx += 1.8) add(root, "sphere", M.bulb, [lx, sg.y + 0.75, side * (HALF + 0.2)], [0.1, 0.1, 0.1]);
       }
     });
-    // Alleys between buildings (dark gulf visible through gaps).
-    add(root, "box", M.alley, [c.length / 2, -40, zMid - 2], [c.length + 200, 1, depth + 30]);
+    add(root, "box", M.alley, [c.length / 2, -40, 0], [c.length + 300, 1, 80]);
 
-    // Obstacles.
+    const laneSpan = (mask: number) => {
+      const ls = [0, 1, 2].filter((l) => mask & (1 << l));
+      const runs: number[][] = [];
+      for (const l of ls) {
+        const last = runs[runs.length - 1];
+        if (last && last[last.length - 1] === l - 1) last.push(l);
+        else runs.push([l]);
+      }
+      return runs.map((run) => ({ z: (laneZ(run[0]!) + laneZ(run[run.length - 1]!)) / 2, w: run.length * LANE_W }));
+    };
     c.obstacles.forEach((o) => {
       if (o.kind === "vent") {
-        for (let l = 0; l < lanes; l++) {
-          const z = -l * LANE_GAP;
-          const v = add(root, "box", M.grille, [o.x + o.w / 2, o.y + o.h / 2, z], [o.w, o.h, 1.1], true);
-          void v;
-          add(root, "box", M.metal, [o.x + o.w / 2, o.y + o.h + 0.03, z], [o.w + 0.08, 0.06, 1.18]);
+        for (let l = 0; l < 3; l++) {
+          if (!(o.lanes & (1 << l))) continue;
+          const z = laneZ(l);
+          add(root, "box", M.grille, [o.x + o.w / 2, o.y + o.h / 2, z], [o.w, o.h, LANE_W - 0.25], true);
+          add(root, "box", M.metal, [o.x + o.w / 2, o.y + o.h + 0.03, z], [o.w + 0.08, 0.06, LANE_W - 0.15]);
           add(root, "cylinder", M.darkMetal, [o.x + o.w / 2, o.y + o.h + 0.07, z], [Math.min(0.7, o.w * 0.8), 0.04, 0.7]);
         }
+      } else if (o.kind === "rail") {
+        const span = HALF * 2 - 0.4;
+        add(root, "cylinder", M.metal, [o.x + 0.1, o.y + o.h, 0], [0.1, span, 0.1], true, [90, 0, 0]);
+        add(root, "cylinder", M.metal, [o.x + 0.1, o.y + o.h * 0.55, 0], [0.07, span, 0.07], false, [90, 0, 0]);
+        for (let z = -span / 2; z <= span / 2 + 0.01; z += span / 4) add(root, "box", M.darkMetal, [o.x + 0.1, o.y + o.h / 2, z], [0.08, o.h, 0.08], true);
       } else if (o.kind === "pipe") {
         const top = o.y + o.h;
-        const span = depth - 0.6;
-        // Horizontal steam pipes or a hazard beam, on posts at both ends.
-        add(root, "cylinder", M.pipe, [o.x + o.w / 2, top + 0.22, zMid], [0.44, span, 0.44], true, [90, 0, 0]);
-        if (o.w > 1) add(root, "cylinder", M.pipe, [o.x + o.w / 2, top + 0.62, zMid], [0.3, span, 0.3], true, [90, 0, 0]);
-        add(root, "box", M.stripe, [o.x + o.w / 2, top + 0.22, zFront + 0.05], [Math.max(0.5, o.w), 0.3, 0.06]);
-        for (const z of [zFront - 0.1, zBack + 0.2]) add(root, "box", M.darkMetal, [o.x + o.w / 2, o.y + (top - o.y + 0.5) / 2, z], [0.16, top - o.y + 0.5, 0.16], true);
+        for (const sp of laneSpan(o.lanes)) {
+          add(root, "cylinder", M.pipe, [o.x + o.w / 2, top + 0.22, sp.z], [0.44, sp.w, 0.44], true, [90, 0, 0]);
+          if (o.w > 1) add(root, "cylinder", M.pipe, [o.x + o.w / 2, top + 0.62, sp.z], [0.3, sp.w, 0.3], true, [90, 0, 0]);
+          add(root, "box", M.stripe, [o.x - 0.02, top + 0.22, sp.z], [0.04, 0.3, sp.w * 0.9]);
+          for (const ez of [sp.z - sp.w / 2, sp.z + sp.w / 2]) add(root, "box", M.darkMetal, [o.x + o.w / 2, o.y + (top - o.y + 0.5) / 2, ez], [0.14, top - o.y + 0.5, 0.14], true);
+        }
       } else if (o.kind === "pad") {
-        for (let l = 0; l < lanes; l++) add(root, "box", padMat, [o.x + o.w / 2, o.y + 0.02, -l * LANE_GAP], [o.w, 0.04, 1.1]);
-      } else if (o.kind === "gap") {
-        // Edge warning stripe on the take-off ledge.
-        add(root, "box", M.stripe, [o.x - 0.15, o.y + 0.01, zMid], [0.3, 0.02, depth - 0.5], false, [0, 90, 0]);
+        for (let l = 0; l < 3; l++) if (o.lanes & (1 << l)) add(root, "box", padMat, [o.x + o.w / 2, o.y + 0.02, laneZ(l)], [o.w, 0.04, LANE_W - 0.3]);
+      } else if (o.kind === "gap" || o.kind === "drop") {
+        add(root, "box", M.stripe, [o.x - 0.15, o.y + 0.01, 0], [0.3, 0.02, HALF * 2], false);
+      } else if (o.kind === "swing") {
+        // A swing bar over the gap: grab it and fly across.
+        add(root, "box", M.stripe, [o.x - 0.15, o.y + 0.01, 0], [0.3, 0.02, HALF * 2], false);
+        const barY = o.y + 2.55;
+        add(root, "cylinder", M.metal, [o.x + 0.35, barY, 0], [0.12, HALF * 2, 0.12], true, [90, 0, 0]);
+        for (let l = 0; l < 3; l++) add(root, "cylinder", M.grip, [o.x + 0.35, barY, laneZ(l)], [0.16, 0.7, 0.16], false, [90, 0, 0]);
+        for (const side of [-1, 1]) {
+          add(root, "box", M.darkMetal, [o.x - 0.2, o.y + 1.4, side * (HALF - 0.1)], [0.16, 2.8, 0.16], true);
+          add(root, "box", M.darkMetal, [o.x + 0.08, barY + 0.1, side * (HALF - 0.1)], [0.7, 0.12, 0.12]);
+        }
       } else if (o.kind === "wall") {
-        // Ledge trim at the top of the climb.
-        add(root, "box", M.metal, [o.x + 0.05, o.y + o.h + 0.04, zMid], [0.12, 0.08, depth]);
-        add(root, "box", M.stripe, [o.x - 0.02, o.y + 0.8, zMid], [0.04, 0.25, depth - 0.4], false, [0, 90, 0]);
+        add(root, "box", M.metal, [o.x + 0.05, o.y + o.h + 0.04, 0], [0.12, 0.08, BLD * 2]);
+        for (let l = 0; l < 3; l++) add(root, "box", M.stripe, [o.x - 0.02, o.y + 0.8, laneZ(l)], [0.04, 0.25, LANE_W - 0.4]);
       }
     });
 
-    // Start and finish arches.
+    // Start and finish arches across the course, facing the runners.
     const arch = (x: number, yy: number, label: string, banner: pc.Material) => {
-      add(root, "box", M.darkMetal, [x, yy + 2.1, zFront + 0.3], [0.25, 4.2, 0.25], true);
-      add(root, "box", M.darkMetal, [x, yy + 2.1, zBack - 0.3], [0.25, 4.2, 0.25], true);
-      add(root, "box", banner, [x, yy + 4.1, zMid], [0.2, 0.7, depth + 0.6]);
+      for (const side of [-1, 1]) add(root, "box", M.darkMetal, [x, yy + 2.3, side * (HALF + 0.5)], [0.25, 4.6, 0.25], true);
+      add(root, "box", banner, [x, yy + 4.5, 0], [0.2, 0.7, HALF * 2 + 1.2]);
       const sm = mat({ color: "#000", emissiveMap: tex(device, signCanvas(label, "#ffd23f"), false), emissiveIntensity: 1.3, noEnv: true });
       facades.push(sm);
-      add(root, "plane", sm, [x, yy + 4.95, zFront + 0.3], [3.2, 1, 0.8], false, [90, 0, 0]);
+      facingPlane(root, sm, [x - 0.12, yy + 5.3, 0], 4, 1);
     };
     arch(0, 0, "START", M.white);
     const fy = c.segments[c.segments.length - 1]!.y;
     const finMat = mat({ map: finishTex, tiling: [1, 1], gloss: 0.3 });
     facades.push(finMat);
     arch(c.length, fy, "FINISH", finMat);
-    add(root, "box", finMat, [c.length, fy + 0.012, zMid], [0.5, 0.02, depth - 0.5]);
+    add(root, "box", finMat, [c.length, fy + 0.012, 0], [0.5, 0.02, HALF * 2]);
   };
 
   // Runners.
@@ -445,7 +485,7 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       h.root.setLocalEulerAngles(0, -90, 0); // face +x
       humans.push(h);
       anims.push(new ParkourAnimator(h));
-      blobs.push(add(runnerRoot, "cylinder", M.shadow, [0, 0.03, 0], [0.8, 0.01, 0.5]));
+      blobs.push(add(runnerRoot, "cylinder", M.shadow, [0, 0.03, 0], [0.6, 0.01, 0.8]));
       const tr = add(runnerRoot, "box", M.trail, [0, 1, 0], [2.4, 1.1, 0.25]);
       tr.enabled = false;
       trails.push(tr);
@@ -481,15 +521,31 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   };
 
   const camera = new pc.Entity("camera");
-  camera.addComponent("camera", { fov: 50, nearClip: 0.1, farClip: 1600, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
+  camera.addComponent("camera", { fov: 62, nearClip: 0.1, farClip: 1600, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
   app.root.addChild(camera);
-  const camPos = new pc.Vec3(-6, 3, 12), camLook = new pc.Vec3(0, 1, 0);
+  const camPos = new pc.Vec3(8, 3, 6), camLook = new pc.Vec3(0, 1, 0);
   const want = new pc.Vec3(), wantLook = new pc.Vec3();
   let state: RaceState | null = null;
   let viewer = 0;
   let celebrate: number[] = [];
   let elapsed = 0;
-  const laneOf = (i: number) => (i === viewer ? 0 : i < viewer ? i + 1 : i);
+  let focusY = 0;
+  let fovNow = 62;
+  /** Visual-only spacing so runners sharing a lane don't overlap. */
+  const vis = (i: number) => (i === viewer ? 0 : ((i % 2 ? 1 : -1) * 0.22));
+
+  const groundY = (x: number) => {
+    if (!course) return null;
+    for (const sg of course.segments) if (x >= sg.x0 && x <= sg.x1) return sg.y;
+    return null;
+  };
+
+  /** Lowest safe camera height at x: above the roof below it, and above any wall face between it and the runner. */
+  const camFloor = (cx: number, rx: number) => {
+    let min = (groundY(cx) ?? -40) + 1.4;
+    if (course) for (const o of course.obstacles) if (o.kind === "wall" && o.x > cx && o.x < rx + 0.5) min = Math.max(min, o.y + o.h + 0.9);
+    return min;
+  };
 
   app.on("update", (dt: number) => {
     elapsed += dt;
@@ -514,78 +570,74 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     const s = state;
     if (!s || !course) return;
     const portrait = cv.clientHeight > cv.clientWidth * 1.05;
+    const settings = getGameSettings();
+    const live = camLiveliness(settings);
     s.runners.forEach((a, i) => {
       const h = humans[i];
       if (!h) return;
-      const z = -laneOf(i) * LANE_GAP;
+      const z = a.z + vis(i);
       h.root.setPosition(a.x, a.y, z);
       anims[i]!.update(a, dt, celebrate[i] ?? 0, s.phase === "ready" && s.goAt - s.t < 1.2);
       const gy = groundY(a.x);
       const b = blobs[i]!;
-      if (gy !== null && a.state !== "fall") {
+      if (gy !== null && a.state !== "fall" && a.y - gy < 6) {
         b.enabled = true;
         const hgt = Math.max(0, a.y - gy);
         b.setPosition(a.x, gy + 0.02, z);
         const sc = Math.max(0.3, 1 - hgt * 0.25);
-        b.setLocalScale(0.8 * sc, 0.01, 0.5 * sc);
+        b.setLocalScale(0.6 * sc, 0.01, 0.8 * sc);
       } else b.enabled = false;
       const tr = trails[i]!;
-      tr.enabled = a.boost > 0.6 && a.state !== "fall";
+      tr.enabled = a.boost > 0.6 && a.state !== "fall" && a.state !== "swing";
       if (tr.enabled) {
-        tr.setPosition(a.x - 1.3, a.y + (a.state === "slide" ? 0.35 : 1.0), z);
-        tr.setLocalScale(1.6 + a.boost * 0.6, a.state === "slide" ? 0.5 : 1.1, 0.2);
+        const low = a.state === "slide" || a.state === "roll";
+        tr.setPosition(a.x - 1.3, a.y + (low ? 0.35 : 1.0), z);
+        tr.setLocalScale(1.6 + a.boost * 0.6, low ? 0.5 : 1.1, 0.2);
       }
     });
 
-    // Chase camera: side-on, a little ahead; portrait pulls back and up to show more course.
+    // Chase camera: behind and above the runner, looking ahead down the course.
     const me = s.runners[viewer];
     if (me) {
-      const ahead = portrait ? 4.5 : 5.5;
-      const back = portrait ? 15 : 10.5;
-      const lift = portrait ? 4.2 : 2.6;
-      const gy = groundY(me.x + 6) ?? me.y;
-      const focusY = Math.max(me.state === "fall" ? me.y * 0.4 + gy * 0.6 : me.y, (me.y + gy) / 2);
+      const gy = groundY(me.x) ?? me.y;
+      // Follow height gently through jumps (no bobbing), firmly through climbs and drops.
+      const wantFocus = me.state === "air" ? Math.max(gy, me.y * 0.45 + Math.max(gy, me.peakY - 1.2) * 0.55) : me.state === "fall" ? me.y * 0.3 + gy * 0.7 : me.y;
+      focusY += (wantFocus - focusY) * (1 - Math.exp(-dt * (me.state === "air" ? 3.5 : 7)));
       if (s.phase === "ready") {
-        want.set(me.x + 4, me.y + 1.6, 6.5);
-        wantLook.set(me.x + 0.5, me.y + 1, -LANE_GAP);
-      } else if (me.state === "done" && me.vx < 2) {
-        want.set(me.x + 4, me.y + 1.8, 6);
-        wantLook.set(me.x, me.y + 1, -LANE_GAP * 0.5);
+        // Pre-race: in front of the line looking back at the runners.
+        want.set(me.x + 4.2, me.y + 1.7, me.z + 2.2);
+        wantLook.set(me.x - 0.5, me.y + 1.1, me.z * 0.5);
+      } else if (me.state === "done" && me.vx < 2.5) {
+        want.set(me.x + 3.6, me.y + 1.9, me.z + 2.6);
+        wantLook.set(me.x, me.y + 1.1, me.z);
       } else {
-        want.set(me.x + ahead * 0.35, focusY + lift, back);
-        wantLook.set(me.x + ahead, focusY + 1.1, -LANE_GAP * (lanes - 1) * 0.35);
+        const speed = me.vx + me.boost;
+        const pull = live * Math.max(0, Math.min(1.8, (speed - RUN_SPEED) * 0.45)) + (me.state === "swing" ? 1.6 : 0) + (me.state === "air" && me.y - gy > 1.5 ? 0.8 : 0);
+        const back = (portrait ? 6.4 : 5.2) + pull;
+        const up = (portrait ? 3.6 : 2.5) + (me.state === "climb" ? 0.9 : 0) + (me.state === "swing" ? 0.6 : 0);
+        const ahead = 6 + live * Math.min(3, speed * 0.25);
+        want.set(me.x - back, focusY + up, me.z * 0.55);
+        wantLook.set(me.x + ahead, focusY + 1.1, me.z * 0.75);
       }
-      const k = 1 - Math.exp(-dt * (s.phase === "ready" ? 2.5 : 6));
-      camPos.x += (want.x - camPos.x) * Math.min(1, k * 1.6);
-      camPos.y += (want.y - camPos.y) * k * 0.8;
-      camPos.z += (want.z - camPos.z) * k;
+      const k = 1 - Math.exp(-dt * (s.phase === "ready" ? 2.6 : 7));
+      // x is followed tightly so the runner never leaves the frame; height and side gently.
+      camPos.x += (want.x - camPos.x) * (s.phase === "live" && me.state !== "done" ? 1 - Math.exp(-dt * 14) : k);
+      camPos.y += (want.y - camPos.y) * k * 0.85;
+      camPos.z += (want.z - camPos.z) * k * 0.8;
       camLook.x += (wantLook.x - camLook.x) * Math.min(1, k * 1.6);
-      camLook.y += (wantLook.y - camLook.y) * k * 0.8;
-      camLook.z += (wantLook.z - camLook.z) * k;
+      camLook.y += (wantLook.y - camLook.y) * k;
+      camLook.z += (wantLook.z - camLook.z) * k * 0.8;
+      // Collision avoidance: never inside a building or below a roof between us and the runner.
+      if (s.phase === "live") camPos.y = Math.max(camPos.y, camFloor(camPos.x, me.x));
       camera.setPosition(camPos);
       camera.lookAt(camLook);
-      const speedFov = Math.min(1, (me.vx + me.boost) / 11) * 6;
-      camera.camera!.fov = (portrait ? 62 : 48) + speedFov;
+      const kick = settings.camMode === "steady" ? 0 : Math.min(1, Math.max(0, (me.vx + me.boost - 7) / 4)) * 8;
+      fovNow += ((portrait ? 72 : 62) + kick - fovNow) * (1 - Math.exp(-dt * 3));
+      camera.camera!.fov = fovNow;
       sky.setPosition(camPos.x, 0, camPos.z);
-      sunDisc.setPosition(camPos.x + 220, 55, camPos.z - 560);
+      sunDisc.setPosition(camPos.x + 520, 48, camPos.z + 140);
     }
   });
-
-  const groundY = (x: number) => {
-    if (!course) return null;
-    for (const sg of course.segments) if (x >= sg.x0 && x <= sg.x1) return sg.y;
-    return null;
-  };
-
-  const resize = () => {
-    const rect = cv.parentElement?.getBoundingClientRect();
-    if (rect) app.resizeCanvas(Math.max(1, rect.width), Math.max(1, rect.height));
-  };
-  const ro = new ResizeObserver(resize);
-  if (cv.parentElement) ro.observe(cv.parentElement);
-  resize();
-  app.start();
-
   return {
     setCourse(c, count) {
       course = c;
@@ -606,12 +658,12 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     fx(kind, i) {
       const a = state?.runners[i];
       if (!a) return;
-      const z = -laneOf(i) * LANE_GAP;
+      const z = a.z + vis(i);
       if (kind === "land") emit(false, a.x, a.y + 0.1, z, 6);
       else if (kind === "hit") emit(false, a.x + 0.3, a.y + 0.6, z, 8);
       else if (kind === "perfect") {
         emit(true, a.x, a.y + 1.2, z, 14);
-        if (a.state === "air") anims[i]?.trick();
+        if (a.state === "air" && !a.vaulting) anims[i]?.trick();
       } else if (kind === "pad") emit(true, a.x, a.y + 0.2, z, 10);
       else if (kind === "finish") emit(true, a.x, a.y + 2.5, z, 30);
     },

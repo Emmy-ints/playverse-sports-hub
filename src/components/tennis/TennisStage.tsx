@@ -11,6 +11,8 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
+import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
+import { useGameSettings } from "@/lib/game-settings";
 
 interface Props {
   theme: CourtTheme;
@@ -39,6 +41,9 @@ function spokenScore(s: Score, names: [string, string]): string {
 }
 
 export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useGameSurface(surfaceRef);
+  const [settings] = useGameSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<TennisView | null>(null);
   const audioRef = useRef<TennisAudio | null>(null);
@@ -331,7 +336,8 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
   );
 
   return (
-    <div className="relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+    <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+      <RotateHint />
       <canvas ref={canvasRef} className="block h-full w-full" aria-label={`3D tennis court: ${theme.name}`} />
 
       {phase === "loading" && (

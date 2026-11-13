@@ -103,6 +103,8 @@
   --shadow-card: 0 20px 50px -20px oklch(0 0 0 / 0.7), inset 0 1px 0 oklch(1 0 0 / 0.06);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
 }
 
 @layer base {
@@ -139,6 +141,16 @@
 @utility shadow-card { box-shadow: var(--shadow-card); }
 @utility pt-safe { padding-top: var(--safe-top); }
 @utility pb-safe { padding-bottom: var(--safe-bottom); }
+/* In-game touch controls: inside the notch/safe area, sized to the screen and the player's "button size" setting (--ctl). */
+@utility left-safe { left: calc(var(--safe-left) + clamp(0.75rem, 2.5vmin, 1.5rem)); }
+@utility right-safe { right: calc(var(--safe-right) + clamp(0.75rem, 2.5vmin, 1.5rem)); }
+@utility bottom-safe { bottom: calc(var(--safe-bottom) + clamp(0.75rem, 3vmin, 1.5rem)); }
+@utility ctl-xl { width: calc(var(--ctl, 1) * clamp(5rem, 22vmin, 8.5rem)); height: calc(var(--ctl, 1) * clamp(5rem, 22vmin, 8.5rem)); }
+@utility ctl-lg { width: calc(var(--ctl, 1) * clamp(4.25rem, 18vmin, 7rem)); height: calc(var(--ctl, 1) * clamp(4.25rem, 18vmin, 7rem)); }
+@utility ctl-md { width: calc(var(--ctl, 1) * clamp(3.4rem, 14vmin, 5.5rem)); height: calc(var(--ctl, 1) * clamp(3.4rem, 14vmin, 5.5rem)); }
+@utility ctl-sm { width: calc(var(--ctl, 1) * clamp(2.75rem, 11vmin, 4.25rem)); height: calc(var(--ctl, 1) * clamp(2.75rem, 11vmin, 4.25rem)); }
+/* A game screen: no text selection, long-press menus, pull-to-refresh or rubber-banding. */
+@utility game-surface { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; touch-action: none; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 @utility pb-tabbar { padding-bottom: calc(5.5rem + var(--safe-bottom)); }
 
 @keyframes beam-sweep {

@@ -18,7 +18,7 @@ const FATAL: Record<string, string> = {
   NOT_IN_MATCH: "You're not a runner in this race.",
 };
 /** Pure feedback for your own runner, played locally without waiting for the server. */
-const LOCAL_KINDS = new Set(["step", "jump", "slide", "land", "climb"]);
+const LOCAL_KINDS = new Set(["step", "jump", "vault", "slide", "land", "climb", "lane", "grab"]);
 const AI_SKILLS = [0.8, 0.6];
 
 export class OnlineParkourDriver implements ParkourDriver {

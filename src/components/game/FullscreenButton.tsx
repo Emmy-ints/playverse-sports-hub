@@ -16,7 +16,7 @@ function isFull() {
  * screen). Optionally locks to landscape for games that play best sideways. Hidden where the
  * browser can't do it (e.g. iPhone Safari — there, "Add to Home Screen" gives full screen).
  */
-export function FullscreenButton({ landscape = false, className }: { landscape?: boolean; className?: string }) {
+export function FullscreenButton({ landscape = true, className }: { landscape?: boolean; className?: string }) {
   const touch = useTouchMode();
   const [supported, setSupported] = useState(false);
   const [full, setFull] = useState(false);

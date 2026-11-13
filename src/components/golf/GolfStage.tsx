@@ -7,6 +7,8 @@ import { CLUBS, getClub, simulateShot, suggestClub, type ClubId, type ShotInput,
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
+import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
+import { useGameSettings } from "@/lib/game-settings";
 
 export interface GolfReplay { id: string; result: ShotResult; input: ShotInput; from: { x: number; z: number; lie: Surface }; avatar?: AvatarConfig | null }
 
@@ -40,6 +42,9 @@ function defaultAim(hole: Hole, ball: { x: number; z: number }) {
 }
 
 export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotShown, replay, onReplayShown, waitingLabel, children }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useGameSurface(surfaceRef);
+  const [settings] = useGameSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<GolfView | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -261,7 +266,8 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
   };
 
   return (
-    <div className="relative h-full w-full select-none overflow-hidden bg-[#9cc6e8] touch-none">
+    <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-full w-full select-none overflow-hidden bg-[#9cc6e8] touch-none">
+      <RotateHint />
       <canvas ref={canvasRef} className="block h-full w-full" />
       <div
         className="absolute inset-0"

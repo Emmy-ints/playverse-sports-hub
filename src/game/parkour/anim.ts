@@ -15,9 +15,12 @@ export class ParkourAnimator {
 
   update(a: Runner, dt: number, celebrate: number, ready: boolean) {
     this.t += dt;
+    this.clock += dt;
     const p = this.target(a, celebrate, ready);
+    // After a roll/flip, unwind the full turn so the body doesn't spin back the other way.
+    if (p.roll > -180 && this.cur.roll < -180) this.cur.roll += 360;
     // Fast states snap harder so take-offs and landings read crisply.
-    const rate = a.state === "air" || a.state === "slide" || a.state === "climb" ? 22 : a.state === "run" ? 30 : 10;
+    const rate = a.state === "roll" ? 40 : a.state === "air" || a.state === "slide" || a.state === "climb" || a.state === "swing" ? 22 : a.state === "run" ? 30 : 10;
     const k = 1 - Math.exp(-dt * rate);
     for (const key of KEYS) this.cur[key] += (p[key] - this.cur[key]) * k;
     // Forward flip on big perfect jumps is handled by `roll`.
@@ -35,6 +38,17 @@ export class ParkourAnimator {
     h.elbowL.setLocalEulerAngles(c.elL, 0, 0);
     h.elbowR.setLocalEulerAngles(c.elR, 0, 0);
   }
+
+  private clock = 0;
+  /** Race clock estimate for timed poses (runner `until` is in race time). */
+  private rollClock(a: { until: number }) {
+    if (this.rollUntil !== a.until) {
+      this.rollUntil = a.until;
+      this.clock = a.until - 0.4;
+    }
+    return this.clock;
+  }
+  private rollUntil = -1;
 
   /** Spin into a forward flip (perfect move flourish). */
   trick() {
@@ -66,7 +80,21 @@ export class ParkourAnimator {
           shL: -cyc * arm, shR: cyc * arm, elL: 75 + run * 15, elR: 75 + run * 15, shLz: -8, shRz: 8, roll: 0,
         };
       }
+      case "roll": {
+        // Shoulder roll: tuck tight and tumble forward.
+        const k = Math.max(0, Math.min(1, 1 - (a.until - this.rollClock(a)) / 0.4));
+        return { hipsY: 0.45, spine: -70, head: -40, hipL: 110, hipR: 110, kneeL: -130, kneeR: -130, shL: 60, shR: 60, elL: 90, elR: 90, shLz: -20, shRz: 20, roll: -k * 360 };
+      }
+      case "swing": {
+        // Hanging from the bar: arms overhead, legs swinging through.
+        const sw = Math.sin(this.t * 7) * 35;
+        return { hipsY: 0.95, spine: -10, head: 10, hipL: 40 + sw, hipR: 30 + sw, kneeL: -20, kneeR: -35, shL: 175, shR: 175, elL: 5, elR: 5, shLz: -12, shRz: 12, roll: -20 + sw * 0.4 };
+      }
       case "air": {
+        if (a.vaulting && a.vy > -2) {
+          // Speed vault: one hand plants, legs swing through to the side.
+          return { hipsY: 0.85, spine: -30, head: 15, hipL: 95, hipR: 80, kneeL: -40, kneeR: -70, shL: 40, shR: 120, elL: 10, elR: 30, shLz: -35, shRz: 20, roll: 0 };
+        }
         // Rising: knees tucked, arms up; falling: legs reach for the landing.
         const rising = a.vy > 0;
         const k = Math.max(0, Math.min(1, (a.vy + 6) / 12));

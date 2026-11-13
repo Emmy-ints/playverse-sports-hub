@@ -9,6 +9,8 @@ import { buildTrack, type TrackDef } from "@/game/racing/track";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
+import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
+import { useGameSettings } from "@/lib/game-settings";
 
 export interface RaceResultRow { car: number; name: string; time: number | null; best: number; color: string }
 
@@ -33,6 +35,9 @@ function rowsOf(s: RaceState, names: string[], colors: string[]): RaceResultRow[
 }
 
 export function RaceStage({ track: trackId, driver, names, colors, helmets, renderEnd, topRight }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useGameSurface(surfaceRef);
+  const [settings] = useGameSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<RaceView | null>(null);
   const audioRef = useRef<RaceAudio | null>(null);
@@ -218,7 +223,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   });
 
   return (
-    <div className="relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+    <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+      <RotateHint />
       <canvas ref={canvasRef} className="block h-full w-full" aria-label={`3D race track: ${track.def.name}`} />
       {phase === "loading" && <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white"><Loader2 className="mr-2 size-6 animate-spin" aria-hidden /> Loading the circuit…</div>}
       {phase === "error" && <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-6 text-center text-white">Your browser couldn't start the 3D view. Try updating your browser or enabling hardware acceleration.</div>}

@@ -125,23 +125,25 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
     case "parkour":
       return {
         name: "Rooftop Rush",
-        goal: "Race across the rooftops and reach the finish first. You run automatically: your job is to jump, slide and climb at the right moment.",
+        goal: "Race across the rooftops and reach the finish first. You run automatically: steer between the three lanes and pull off the right move at the right moment.",
         sections: [{
           keyboard: [
-            { keys: ["Space", "↑", "W"], action: "Jump: over vents, across gaps between buildings, and at walls to climb them" },
-            { keys: ["Hold ↓", "S"], action: "Slide under pipes and beams. Hold it to keep sliding." },
-            { keys: ["↓ in the air"], action: "Drop down fast" },
+            { keys: ["← →", "A D"], action: "Steer one lane left or right: go round vents and pipes, or line up a speed pad" },
+            { keys: ["Space", "W", "↑"], action: "Action: jump gaps, vault vents and railings, climb walls, and grab swing bars over wide gaps" },
+            { keys: ["Hold ↓", "S"], action: "Slide under pipes. In the air: roll, which you need to land a big drop at speed" },
           ],
           touch: [
-            { keys: ["Tap right side"], action: "Jump: over vents, across gaps, and at walls to climb them" },
-            { keys: ["Hold left side"], action: "Slide under pipes and beams" },
-            { keys: ["Swipe"], action: "Swipe up to jump or down to slide, anywhere on the screen" },
+            { keys: ["Steer pad"], action: "Touch its left or right side to change lane; drag across it to move two" },
+            { keys: ["Action"], action: "The big button: its label changes to Jump, Vault, Climb or Grab for what's coming" },
+            { keys: ["Slide / Roll"], action: "Hold to slide under pipes; in the air it becomes Roll for big drops" },
+            { keys: ["Swipe"], action: "Or swipe on open screen: up = action, down = slide/roll, left/right = steer (one move per swipe)" },
           ],
         }],
         tips: [
-          "The orange \"next move\" sign tells you what's coming and lights up when it's time.",
-          "Jump late, close to a vent or an edge, for a Perfect move and a burst of speed. Cyan pads give a boost too.",
-          "Miss a gap and you start again a few metres back; miss it three times and you're helped across.",
+          "The prompt in the middle shows the next move and lights up orange when it's time.",
+          "Late, committed moves are Perfect and give a burst of speed. Cyan pads boost you too.",
+          "Gaps with a bar over them are too wide to jump: press Action at the edge to grab and swing.",
+          "Miss a gap three times and you're helped across. Left-handed? Swap the controls in Settings.",
         ],
       };
     case "athletics": {

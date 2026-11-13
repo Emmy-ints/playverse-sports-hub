@@ -11,6 +11,8 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { settingsStore } from "@/lib/settings";
 import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
+import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
+import { useGameSettings } from "@/lib/game-settings";
 
 export interface StageReplay { id: string; result: SimResult; avatar?: AvatarConfig | null }
 
@@ -47,6 +49,9 @@ interface Props {
 type Phase = "loading" | "error" | "ready" | "charging" | "rolling";
 
 export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, onReplayShown, avatar, waitingLabel, children }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useGameSurface(surfaceRef);
+  const [settings] = useGameSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<BowlingView | null>(null);
   const audioRef = useRef<AlleyAudio | null>(null);
@@ -250,7 +255,8 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   };
 
   return (
-    <div className="relative h-full w-full select-none overflow-hidden bg-[#03040a] touch-none">
+    <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-full w-full select-none overflow-hidden bg-[#03040a] touch-none">
+      <RotateHint />
       <canvas ref={canvasRef} className="block h-full w-full" />
       {banner && (
         <div key={banner.id} className="pointer-events-none absolute inset-x-0 top-[40%] z-10 flex justify-center" aria-live="assertive">

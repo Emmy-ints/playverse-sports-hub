@@ -9,6 +9,8 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
+import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
+import { useGameSettings } from "@/lib/game-settings";
 
 interface Props {
   event: EventId;
@@ -30,6 +32,9 @@ export function markText(event: EventId, v: number | null) {
 const ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
 
 export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topRight, overlay }: Props) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  useGameSurface(surfaceRef);
+  const [settings] = useGameSettings();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<AthleticsView | null>(null);
   const audioRef = useRef<StadiumAudio | null>(null);
@@ -283,7 +288,8 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
   const ideal = event === "longjump" ? 45 : 36;
   const maxA = event === "longjump" ? 50 : 60;
   return (
-    <div className="relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+    <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
+      <RotateHint />
       <canvas ref={canvasRef} className="block h-full w-full" aria-label={`3D athletics stadium: ${ev.name}`} />
       {phase === "loading" && <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white"><Loader2 className="mr-2 size-6 animate-spin" aria-hidden /> Filling the stadium…</div>}
       {phase === "error" && <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-6 text-center text-white">Your browser couldn't start the 3D view. Try updating your browser or enabling hardware acceleration.</div>}
