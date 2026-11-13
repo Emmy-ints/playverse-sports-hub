@@ -9,6 +9,7 @@ import type { CourtTheme } from "@/game/tennis/themes";
 import { TennisAudio } from "@/game/tennis/audio";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { useTouchMode } from "@/lib/input-mode";
 
 interface Props {
   theme: CourtTheme;
@@ -52,7 +53,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
   const [myServe, setMyServe] = useState(false);
   const [ended, setEnded] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [touch, setTouch] = useState(false);
+  const touch = useTouchMode();
 
   const keys = useRef(new Set<string>());
   const stick = useRef({ x: 0, y: 0, active: false, ox: 0, oy: 0, id: -1 });
@@ -63,9 +64,6 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
   const namesRef = useRef(names);
   namesRef.current = names;
 
-  useEffect(() => {
-    setTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
-  }, []);
 
   // Boot the 3D view.
   useEffect(() => {

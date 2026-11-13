@@ -7,6 +7,7 @@ import type { Quality, RaceView } from "@/game/racing/renderer";
 import { standings, type RaceState } from "@/game/racing/sim";
 import { buildTrack, type TrackDef } from "@/game/racing/track";
 import { cn } from "@/lib/utils";
+import { useTouchMode } from "@/lib/input-mode";
 
 export interface RaceResultRow { car: number; name: string; time: number | null; best: number; color: string }
 
@@ -37,7 +38,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [quality, setQuality] = useState<Quality>("high");
   const [sound, setSound] = useState(true);
-  const [touch, setTouch] = useState(false);
+  const touch = useTouchMode();
   const [autoGas, setAutoGas] = useState(false);
   const [hud, setHud] = useState({ pos: 1, of: names.length, lap: 0, laps: 0, time: 0, speed: 0, best: 0, last: 0, count: -1, wrong: false, stuck: false, finished: false, phase: "countdown" as RaceState["phase"] });
   const [banner, setBanner] = useState<{ text: string; id: number } | null>(null);
@@ -68,11 +69,10 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
     return { d: d + "Z", px, py, h: 16 + ((maxZ - minZ) / size) * 124 };
   }, [track]);
 
+  // Phones default to auto-gas: one less thumb to worry about.
   useEffect(() => {
-    const t = window.matchMedia?.("(pointer: coarse)").matches ?? false;
-    setTouch(t);
-    setAutoGas(t);
-  }, []);
+    if (touch) setAutoGas(true);
+  }, [touch]);
 
   useEffect(() => {
     let disposed = false;

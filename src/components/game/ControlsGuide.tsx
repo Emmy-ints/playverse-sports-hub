@@ -2,6 +2,7 @@ import { HelpCircle, Keyboard, Smartphone, Target, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { GameButton } from "@/components/game/GameButton";
 import { cn } from "@/lib/utils";
+import { useTouchMode } from "@/lib/input-mode";
 
 export type GuideSport = "tennis" | "racing" | "bowling" | "golf" | "athletics";
 type AthleticsEvent = "sprint100" | "hurdles110" | "longjump" | "javelin";
@@ -152,15 +153,10 @@ function Keys({ keys }: { keys: string[] }) {
   );
 }
 
-function useCoarse() {
-  const [coarse, setCoarse] = useState(false);
-  useEffect(() => setCoarse(window.matchMedia?.("(pointer: coarse)").matches ?? false), []);
-  return coarse;
-}
 
 /** The guide content itself: goal, controls (keyboard or touch tab), tips. */
 export function ControlsGuideBody({ sport, events, compact }: { sport: GuideSport; events?: string[] | undefined; compact?: boolean }) {
-  const coarse = useCoarse();
+  const coarse = useTouchMode();
   const [device, setDevice] = useState<"keyboard" | "touch" | null>(null);
   const tab = device ?? (coarse ? "touch" : "keyboard");
   const g = guideFor(sport, events);

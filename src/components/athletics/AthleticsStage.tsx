@@ -7,6 +7,7 @@ import type { AthleticsView, Quality } from "@/game/athletics/renderer";
 import { EVENTS, placings, type EventId, type EventState, type Key } from "@/game/athletics/sim";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { useTouchMode } from "@/lib/input-mode";
 
 interface Props {
   event: EventId;
@@ -34,7 +35,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [quality, setQuality] = useState<Quality>("high");
   const [sound, setSound] = useState(true);
-  const [touch, setTouch] = useState(false);
+  const touch = useTouchMode();
   const [hud, setHud] = useState({ toLine: 0, prompt: "L" as "L" | "R", speed: 0, call: "", aiming: false, angle: 0, attempt: 0, time: 0, best: null as number | null, live: false, flash: 0 });
   const [banner, setBanner] = useState<{ text: string; sub?: string; tone: "good" | "bad" | "info"; id: number } | null>(null);
   const [standings, setStandings] = useState<{ i: number; mark: number | null }[]>([]);
@@ -45,9 +46,6 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
   onEndRef.current = onEventEnd;
   const held = useRef(new Set<string>());
 
-  useEffect(() => {
-    setTouch(window.matchMedia?.("(pointer: coarse)").matches ?? false);
-  }, []);
 
   // 3D view (one per stage; events switch inside it).
   useEffect(() => {
