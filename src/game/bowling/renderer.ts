@@ -276,12 +276,12 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   // Spectator galleries: raised floor, glass balustrade with LED strip, and colourful wall panels.
   const galleryX = laneSpacing * 2.5 + 0.35;
   const galleryMat = std({ diffuse: hex("#1b2140"), gloss: 0.5 });
-  const glassMat = std({ diffuse: hex("#9fd3ff"), gloss: 0.95, opacity: 0.18 });
+  const glassMat = std({ diffuse: hex("#9fd3ff"), gloss: 0.95, opacity: 0.07 });
   const panelMats = ["#ff2fb3", "#20e3ff", "#ffb020", "#8b5cf6"].map((c) => std({ diffuse: hex("#000000"), emissive: hex(c), emissiveIntensity: 0.9 }));
   for (const s of [-1, 1]) {
     add("gallery-floor", root, { material: galleryMat, pos: [s * (galleryX + 2), 0.15, -2.5], scale: [4, 0.3, 17] });
-    add("gallery-glass", root, { material: glassMat, pos: [s * (galleryX + 0.05), 0.75, -2.5], scale: [0.03, 0.9, 17] });
-    add("gallery-led", root, { material: s < 0 ? neonBlue : neonOrange, pos: [s * (galleryX + 0.05), 1.22, -2.5], scale: [0.05, 0.03, 17] });
+    add("gallery-glass", root, { material: glassMat, pos: [s * (galleryX + 0.05), 0.55, -2.5], scale: [0.02, 0.5, 17] });
+    add("gallery-led", root, { material: s < 0 ? neonBlue : neonOrange, pos: [s * (galleryX + 0.05), 0.81, -2.5], scale: [0.04, 0.025, 17] });
     for (let k = 0; k < 6; k++) {
       add("wall-panel", root, { material: panelMats[(k + (s > 0 ? 2 : 0)) % panelMats.length]!, pos: [s * (hallWidth / 2 - 0.06), 2.3, 3.5 - k * 3.2], scale: [0.02, 0.9, 2.2] });
     }
@@ -314,6 +314,16 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   const pinLight = spot("pin-light", [0, 2.6, HEAD_PIN_Z - 0.3], 6, 7, 38, true);
   const laneLights = [spot("lane-1", [0, 3, -3], 3, 9, 60, false), spot("lane-2", [0, 3, -9], 3, 9, 60, false), spot("lane-3", [0, 3, -14], 3, 9, 60, false)];
   const approachLight = spot("approach", [0, 3, 1.5], 3.5, 8, 55, quality === "high");
+  // Warm lights over the spectator galleries and the lounge so the crowd is clearly visible.
+  const crowdLight = (pos: [number, number, number], range: number) => {
+    const e = new pc.Entity("crowd-light");
+    e.addComponent("light", { type: "point", color: new pc.Color(1, 0.9, 0.78), intensity: 1.6, range, castShadows: false });
+    e.setLocalPosition(...pos);
+    root.addChild(e);
+  };
+  for (const sx of [-1, 1]) for (const z of [2, -3, -8]) crowdLight([sx * (laneSpacing * 2.5 + 2.2), 2.6, z], 6.5);
+  crowdLight([-4, 2.6, 6.8], 7);
+  crowdLight([4, 2.6, 6.8], 7);
   void pinLight;
   void laneLights;
   void approachLight;
@@ -379,7 +389,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     { version: 1, nickname: "Mara", genderPresentation: "feminine", skinTone: "#eac0a0", face: "smile", hairstyle: "ponytail", hairColor: "#8a5a2b", outfit: "polo", outfitColor: "#e0307a", shoes: "runner", shoeColor: "#e8eaf0", accessory: "none" },
     { version: 1, nickname: "Deji", genderPresentation: "masculine", skinTone: "#7a4b2e", face: "focused", hairstyle: "buzz", hairColor: "#1b1410", outfit: "jersey", outfitColor: "#2fbf71", shoes: "court", shoeColor: "#1d2333", accessory: "wristbands" },
   ];
-  for (const [i, x] of [[0, -laneSpacing], [1, laneSpacing]] as const) {
+  for (const [i, x] of [[0, -laneSpacing * 2], [1, laneSpacing * 2]] as const) {
     const holder = new pc.Entity("neighbour");
     holder.setLocalPosition(x, 0, 0);
     root.addChild(holder);
