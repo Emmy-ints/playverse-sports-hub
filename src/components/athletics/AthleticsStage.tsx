@@ -34,7 +34,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
   const [quality, setQuality] = useState<Quality>("high");
   const [sound, setSound] = useState(true);
   const [touch, setTouch] = useState(false);
-  const [hud, setHud] = useState({ prompt: "L" as "L" | "R", speed: 0, call: "", aiming: false, angle: 0, attempt: 0, time: 0, best: null as number | null, live: false, flash: 0 });
+  const [hud, setHud] = useState({ toLine: 0, prompt: "L" as "L" | "R", speed: 0, call: "", aiming: false, angle: 0, attempt: 0, time: 0, best: null as number | null, live: false, flash: 0 });
   const [banner, setBanner] = useState<{ text: string; sub?: string; tone: "good" | "bad" | "info"; id: number } | null>(null);
   const [standings, setStandings] = useState<{ i: number; mark: number | null }[]>([]);
   const ended = useRef(false);
@@ -206,8 +206,10 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
             if (s.event === "javelin") audio?.thud();
             if (mine && e.detail) {
               const m = Number(e.detail);
-              const pb = m >= (s.athletes[v]!.finish ?? 0);
-              setBanner({ text: `${m.toFixed(2)} m`, sub: pb ? "Best mark!" : undefined, tone: "good", id: now });
+              const me = s.athletes[v]!;
+              const early = me.takeoffX < -1.5;
+              const pb = m > 0 && m >= (me.finish ?? 0);
+              setBanner({ text: `${m.toFixed(2)} m`, sub: early ? (s.event === "longjump" ? `Took off ${(-me.takeoffX).toFixed(1)} m before the board` : "Released too far behind the line") : pb ? "Best mark!" : undefined, tone: early ? "info" : "good", id: now });
               audio?.say(`${m.toFixed(2)} metres`);
               if (pb) audio?.roar(1.6);
               viewRef.current?.cheer(pb ? 0.8 : 0.4);
@@ -244,6 +246,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
         hudAt = now;
         const me = s.athletes[v]!;
         setHud({
+          toLine: -me.x,
           prompt: me.prompt, speed: me.v / 12.2,
           call: s.phase === "ready" ? (race ? (s.goAt - s.t > 1.6 ? "On your marks" : "Set…") : `Attempt ${Math.min(EVENTS[s.event].attempts, me.attempt + 1)} of ${EVENTS[s.event].attempts}`) : "",
           aiming: me.phase === "aiming", angle: me.phase === "aiming" ? Math.min(s.event === "longjump" ? 50 : 60, (s.t - me.actionAt) * (s.event === "longjump" ? 70 : 75)) : me.angle,
@@ -328,6 +331,11 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
               </span>
             ))}
           </div>
+          {field && hud.toLine > -1 && (
+            <span className={cn("rounded-full px-4 py-1 font-display text-lg font-black uppercase tabular-nums", hud.toLine < 2.5 ? "bg-[#2fbf71] text-white" : "bg-black/55 text-white")}>
+              {event === "longjump" ? "Board" : "Line"} {Math.max(0, hud.toLine).toFixed(1)} m{hud.toLine < 2.5 ? " — NOW!" : ""}
+            </span>
+          )}
           <div className="h-3 w-64 overflow-hidden rounded-full bg-black/50" aria-label={`Speed ${Math.round(hud.speed * 100)}%`}>
             <div className="h-full rounded-full bg-gradient-to-r from-[#2fbf71] via-[#ffd23f] to-[#ff2d2d] transition-[width] duration-75" style={{ width: `${Math.min(100, hud.speed * 100)}%` }} />
           </div>
