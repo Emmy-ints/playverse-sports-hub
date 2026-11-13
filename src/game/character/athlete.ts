@@ -11,7 +11,7 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 
-const VERSION = 2;
+const VERSION = 3;
 const BASE = "/assets/athletes";
 
 export type ClipName = "idle" | "run" | "walk" | "fh" | "bh" | "serve" | "cheer" | "sad";
@@ -181,7 +181,7 @@ export class Athlete {
     const orig: Record<string, pc.StandardMaterial> = {};
     for (const r of renders) for (const mi of r.meshInstances) orig[mi.material.name] = mi.material as pc.StandardMaterial;
     this.mats = {
-      skin: mk(0.42, { diffuseVertexColor: true, diffuseVertexColorChannel: "rgb", sheen: new pc.Color(0.12, 0.06, 0.05), sheenGloss: 0.4 }),
+      skin: mk(0.38, { diffuseVertexColor: true, diffuseVertexColorChannel: "rgb" }),
       eyes: mk(0.9, { diffuseMap: orig["eyes"]?.diffuseMap ?? null }),
       kit_top: mk(0.22, { cull: pc.CULLFACE_NONE, twoSidedLighting: true, sheen: new pc.Color(0.25, 0.25, 0.25), sheenGloss: 0.3 }),
       kit_bottom: mk(0.2, { cull: pc.CULLFACE_NONE, twoSidedLighting: true, sheen: new pc.Color(0.2, 0.2, 0.2), sheenGloss: 0.3 }),
@@ -207,6 +207,13 @@ export class Athlete {
       m.update();
     };
     set("skin", c.skinTone);
+    // the vertex detail colours already carry shading; pull the tone down a touch so it reads true under the sun
+    const sk = this.mats["skin"];
+    if (sk) {
+      const d = sk.diffuse;
+      sk.diffuse = new pc.Color(d.r * 0.9, d.g * 0.9, d.b * 0.9);
+      sk.update();
+    }
     set("hair", c.hairColor);
     set("kit_top", c.outfitColor);
     // Shorts: white with a light kit, otherwise dark navy for contrast.

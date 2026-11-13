@@ -294,12 +294,21 @@ export function skinColors(b, normals, faces, gender) {
     for (const e of [eyeL, eyeR]) {
       const dx = (p[0] - e[0]) * (e[0] > 0 ? 1 : -1);
       const dy = p[1] - e[1];
-      const archY = 0.019 + 0.004 * Math.cos(clamp((dx + 0.004) / 0.026, -1.5, 1.5)) - (dx > 0.016 ? (dx - 0.016) * 0.4 : 0);
-      if (p[2] > e[2] - 0.004 && dx > -0.018 && dx < 0.03 && Math.abs(dy - archY) < (gender ? 0.0055 : 0.0038)) {
-        const k = 1 - Math.abs(dy - archY) / (gender ? 0.0055 : 0.0038);
-        const hair = 0.55 + 0.45 * noise3(p[0] * 900, p[1] * 300, 0);
-        const m = 1 - 0.68 * clamp(k * 1.6, 0, 1) * hair;
+      // brow: thick at the inner end, tapering outward along a gentle arch
+      const t = clamp((dx + 0.016) / 0.044, 0, 1);
+      const archY = 0.017 + 0.006 * Math.sin(t * Math.PI * 0.85) - 0.002 * t;
+      const half = (gender ? 0.0058 : 0.0042) * (1 - 0.55 * t);
+      if (p[2] > e[2] - 0.006 && dx > -0.017 && dx < 0.029 && Math.abs(dy - archY) < half * 1.6) {
+        const k = clamp((half * 1.6 - Math.abs(dy - archY)) / (half * 0.8), 0, 1);
+        const hair = 0.75 + 0.25 * noise3(p[0] * 1200, p[1] * 400, 0);
+        const m = 1 - 0.82 * k * hair;
         c = c.map((x) => x * m);
+      }
+      // lash line / eye socket shadow
+      const r = Math.hypot(p[0] - e[0], (p[1] - e[1]) * 1.6);
+      if (p[2] > e[2] - 0.004 && r > 0.009 && r < 0.02 && Math.abs(dy) < 0.011) {
+        const k = 1 - Math.abs(r - 0.0135) / 0.0065;
+        c = c.map((x) => x * (1 - 0.35 * clamp(k, 0, 1)));
       }
     }
     // cheeks / nose / ears warmth
