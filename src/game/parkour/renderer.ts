@@ -638,6 +638,19 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       sunDisc.setPosition(camPos.x + 520, 48, camPos.z + 140);
     }
   });
+
+  // Debug handle (read-only use from the console): window.__playverseParkour
+  if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__playverseParkour = { app, camera, camPos, camLook };
+
+  const resize = () => {
+    const rect = cv.parentElement?.getBoundingClientRect();
+    if (rect) app.resizeCanvas(Math.max(1, rect.width), Math.max(1, rect.height));
+  };
+  const ro = new ResizeObserver(resize);
+  if (cv.parentElement) ro.observe(cv.parentElement);
+  resize();
+  app.start();
+
   return {
     setCourse(c, count) {
       course = c;

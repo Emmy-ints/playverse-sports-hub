@@ -13,8 +13,10 @@ export class ParkourAudio {
   private musicOn = false;
   enabled = true;
 
+  private destroyed = false;
+
   private ensure() {
-    if (!this.enabled || typeof window === "undefined") return null;
+    if (this.destroyed || !this.enabled || typeof window === "undefined") return null;
     if (!this.ctx) {
       const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AC) return null;
@@ -170,7 +172,7 @@ export class ParkourAudio {
     this.beatN = 0;
     const bass = [55, 55, 65.4, 49];
     this.beatTimer = setInterval(() => {
-      if (!this.ctx || !this.enabled) return;
+      if (!this.ctx || !this.enabled || this.ctx.state === "closed") return;
       while (this.nextBeat < this.ctx.currentTime + 0.25) {
         const at = this.nextBeat - this.ctx.currentTime;
         const n = this.beatN;
@@ -220,8 +222,12 @@ export class ParkourAudio {
   }
 
   destroy() {
-    this.music(false);
-    void this.ctx?.close();
+    if (this.beatTimer) clearInterval(this.beatTimer);
+    this.beatTimer = null;
+    this.musicOn = false;
+    this.destroyed = true;
+    const ctx = this.ctx;
     this.ctx = null;
+    if (ctx && ctx.state !== "closed") void ctx.close().catch(() => {});
   }
 }
