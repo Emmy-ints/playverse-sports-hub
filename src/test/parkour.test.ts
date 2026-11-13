@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiInput, applyInput, createCourse, createRace, groundAt, laneZ, LENGTHS, placings, stepRace, takeEvents } from "@/game/parkour/sim";
+import { aiInput, applyInput, createCourse, createRace, groundAt, laneZ, LENGTHS, moveIsLit, nextMove, placings, stepRace, takeEvents } from "@/game/parkour/sim";
 
 function run(seed: number, skills: number[], length: keyof typeof LENGTHS = "standard") {
   const s = createRace(skills.length, seed, length);
@@ -104,6 +104,40 @@ describe("Rooftop Rush race", () => {
     const sw = s.course.obstacles.find((o) => o.kind === "swing")!;
     // Max jump distance at run speed ≈ 5.3 m; swing gaps are wider than 6 m.
     expect(sw.w).toBeGreaterThan(6);
+  });
+  it("a player who presses when the prompt lights (normal human reaction) runs clean", () => {
+    for (const delay of [0.15, 0.25, 0.35]) {
+      for (let seed = 200; seed < 215; seed++) {
+        const s = createRace(1, seed);
+        let seq = 0, pend = -1, move = "", lit = -1, slideUp = -1;
+        for (let n = 0; n < 60 * 120 && s.phase !== "over"; n++) {
+          const a = s.runners[0]!;
+          if (s.phase === "live") {
+            const m = nextMove(s, a);
+            if (m && moveIsLit(a, m) && lit !== m.k * 10 + (m.move === "roll" ? 1 : 0) && pend < 0) {
+              lit = m.k * 10 + (m.move === "roll" ? 1 : 0);
+              pend = s.t + delay;
+              move = m.move;
+            }
+            if (pend > 0 && s.t >= pend) {
+              pend = -1;
+              if (move === "slide" || move === "roll") {
+                applyInput(s, 0, { seq: ++seq, key: "S", down: true });
+                slideUp = s.t + (move === "slide" ? 0.7 : 0.2);
+              } else applyInput(s, 0, { seq: ++seq, key: "J", down: true });
+            }
+            if (slideUp > 0 && s.t > slideUp) {
+              applyInput(s, 0, { seq: ++seq, key: "S", down: false });
+              slideUp = -1;
+            }
+          }
+          stepRace(s, 1 / 60);
+          takeEvents(s);
+        }
+        expect(s.runners[0]!.falls).toBe(0);
+        expect(s.runners[0]!.hits).toBe(0);
+      }
+    }
   });
   it("is deterministic for the same inputs", () => {
     expect(JSON.stringify(run(31, [0.7, 0.4]).runners)).toBe(JSON.stringify(run(31, [0.7, 0.4]).runners));

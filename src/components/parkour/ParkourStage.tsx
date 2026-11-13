@@ -6,7 +6,7 @@ import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/comp
 import { ParkourAudio } from "@/game/parkour/audio";
 import type { ParkourDriver } from "@/game/parkour/driver";
 import type { ParkourView, Quality } from "@/game/parkour/renderer";
-import { nextMove, placings, progress, type Key, type MoveHint, type RaceState } from "@/game/parkour/sim";
+import { moveIsLit, nextMove, placings, progress, type Key, type MoveHint, type RaceState } from "@/game/parkour/sim";
 import type { AvatarConfig } from "@/lib/avatar";
 import { getGameSettings, useGameSettings } from "@/lib/game-settings";
 import { buzz, useTouchMode } from "@/lib/input-mode";
@@ -25,8 +25,6 @@ interface Props {
 const ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
 
 const MOVE_LABEL: Record<MoveHint, string> = { jump: "Jump", vault: "Vault", climb: "Climb", grab: "Grab", slide: "Slide", roll: "Roll" };
-/** Distance (m) at which the prompt lights up: the moment to act. */
-const ACT_AT: Record<MoveHint, number> = { jump: 2.2, vault: 3.2, climb: 3, grab: 2.6, slide: 3, roll: 99 };
 
 export function formatRaceTime(t: number) {
   const m = Math.floor(t / 60);
@@ -271,7 +269,7 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
       if (now - hudAt > 50) {
         hudAt = now;
         const n = me.state !== "done" ? nextMove(s, me) : null;
-        const show = n && (n.move === "roll" ? n.dist < 14 : n.dist < 22) ? n : null;
+        const show = n && (n.move === "roll" || n.dist < 22) ? n : null;
         // Vent or pipe in your lane with a clear lane next door: suggest steering.
         let steer: -1 | 0 | 1 = 0;
         if (show && (show.move === "vault" || show.move === "slide") && show.o.kind !== "rail" && show.free && !(show.free & (1 << me.lane))) {
@@ -287,7 +285,7 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
           speed: Math.min(1, (me.vx + me.boost) / 11),
           prog: s.runners.map((_, i) => progress(s, i)),
           move: show ? show.move : null,
-          urgent: show ? show.move === "roll" || show.dist < ACT_AT[show.move] * (Math.max(5, me.vx) / 8.4) : false,
+          urgent: show ? moveIsLit(me, show) : false,
           steer,
           lane: me.lane,
           airborne: me.state === "air",

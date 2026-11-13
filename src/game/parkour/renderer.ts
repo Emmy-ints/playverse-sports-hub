@@ -641,7 +641,7 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   });
 
   // Debug handle (read-only use from the console): window.__playverseParkour
-  if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__playverseParkour = { app, camera, camPos, camLook };
+  if (typeof window !== "undefined") (window as unknown as Record<string, unknown>).__playverseParkour = { app, camera, camPos, camLook, get state() { return state; } };
 
   const resize = () => {
     const rect = cv.parentElement?.getBoundingClientRect();

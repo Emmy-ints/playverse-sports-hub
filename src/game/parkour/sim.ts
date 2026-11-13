@@ -53,6 +53,8 @@ export interface Runner {
   peakY: number;
   /** Taking off over a vent/rail: animate as a vault. */
   vaulting: boolean;
+  /** When the runner last ran off an edge without jumping (for "coyote time"). */
+  ledgeT: number;
   boost: number;
   combo: number;
   bestCombo: number;
@@ -76,6 +78,9 @@ export interface Runner {
   /** AI: decided lane for the obstacle it is handling (-1 none) and which obstacle. */
   aiLane: number;
   aiFor: number;
+  /** AI: the prompt it is reacting to, and when it will press. */
+  aiPendK: number;
+  aiPendAt: number;
 }
 
 export type ParkourEventKind = "go" | "jump" | "vault" | "land" | "slide" | "roll" | "perfect" | "hit" | "climb" | "grab" | "fall" | "respawn" | "pad" | "lane" | "finish" | "step";
@@ -108,6 +113,7 @@ const STRAFE = 9;
 /** Falls from this high (m above landing) need a roll. */
 export const HARD_LANDING = 1.8;
 const ROLL_WINDOW = 0.45;
+const COYOTE = 0.14;
 const COUNTDOWN = 3;
 const DT = 1 / 120;
 
@@ -184,7 +190,7 @@ export function createCourse(seed: number, length: CourseLength | number = "stan
       case "gap":
       case "swing": {
         const swing = kind === "swing";
-        const w = swing ? 6.2 + r() * 1.3 : 2.4 + r() * 1.7;
+        const w = swing ? 6.2 + r() * 1.3 : 2.2 + r() * 1.1;
         const down = level > 0 && r() < 0.35;
         segments.push({ x0: segStart, x1: x, y });
         if (down) level--;
@@ -220,9 +226,9 @@ export function groundAt(c: Course, x: number): number | null {
 
 function newRunner(): Runner {
   return {
-    x: 0, y: 0, z: 0, lane: 1, vx: 0, vy: 0, state: "ready", until: 0, jumpBuf: -1, slideHeld: false, rollArm: -1, peakY: 0, vaulting: false,
+    x: 0, y: 0, z: 0, lane: 1, vx: 0, vy: 0, state: "ready", until: 0, jumpBuf: -1, slideHeld: false, rollArm: -1, peakY: 0, vaulting: false, ledgeT: -9,
     boost: 0, combo: 0, bestCombo: 0, hits: 0, falls: 0, passed: [], checkpoint: 0, checkpointY: 0,
-    pathFrom: 0, pathTo: 0, pathY0: 0, pathY1: 0, pathDur: 0, stride: 0, airT: 0, finish: null, lastSeq: -1, failK: -1, failN: 0, aiLane: -1, aiFor: -1,
+    pathFrom: 0, pathTo: 0, pathY0: 0, pathY1: 0, pathDur: 0, stride: 0, airT: 0, finish: null, lastSeq: -1, failK: -1, failN: 0, aiLane: -1, aiFor: -1, aiPendK: -1, aiPendAt: -1,
   };
 }
 
@@ -256,7 +262,15 @@ export function applyInput(s: RaceState, i: number, inp: Input) {
     case "J":
       a.jumpBuf = s.t + JUMP_BUFFER;
       // Grab a swing bar while already in the air near it.
-      if (a.state === "air") tryGrab(s, i, a);
+      if (a.state === "air" && !tryGrab(s, i, a) && s.t - a.ledgeT < COYOTE) {
+        // "Coyote time": a jump pressed just after running off the edge still counts.
+        a.ledgeT = -9;
+        a.jumpBuf = -1;
+        a.vy = JUMP_V;
+        a.airT = 0;
+        a.peakY = a.y;
+        s.events.push({ t: s.t, kind: "jump", a: i });
+      }
       break;
     case "S":
       if (a.state === "run") startSlide(s, i, a);
@@ -321,7 +335,7 @@ function tryGrab(s: RaceState, i: number, a: Runner): boolean {
     const o = c.obstacles[k]!;
     if (o.kind !== "swing" || a.passed.includes(k)) continue;
     const d = o.x - a.x;
-    const reach = a.state === "air" ? d < 1.4 && d > -1.6 && a.y > o.y - 0.4 : d < 2.4 && d > -0.3;
+    const reach = a.state === "air" ? d < 1.6 && d > -1.8 && a.y > o.y - 0.5 : d < 4.2 && d > -0.4;
     if (!reach) continue;
     a.passed.push(k);
     a.combo++;
@@ -338,7 +352,7 @@ function tryGrab(s: RaceState, i: number, a: Runner): boolean {
     a.vaulting = false;
     s.events.push({ t: s.t, kind: "grab", a: i });
     // A clean early grab from a run is the stylish one.
-    if (d > 0.4 && d < 1.8) {
+    if (d > 0.3 && d < 2) {
       a.boost = Math.min(2.6, a.boost + 0.9);
       s.events.push({ t: s.t, kind: "perfect", a: i, detail: "swing" });
     }
@@ -412,7 +426,7 @@ function stepRunner(s: RaceState, i: number, a: Runner, dt: number) {
     a.jumpBuf = -1;
     if (!tryGrab(s, i, a)) {
       const m = laneMask(a);
-      const vault = c.obstacles.some((o, k) => (o.kind === "vent" || o.kind === "rail") && (o.lanes & m) && !a.passed.includes(k) && o.x - a.x < 3 && o.x - a.x > -0.3);
+      const vault = c.obstacles.some((o, k) => (o.kind === "vent" || o.kind === "rail") && (o.lanes & m) && !a.passed.includes(k) && o.x - a.x < 4.6 && o.x - a.x > -0.3);
       a.state = "air";
       a.vy = JUMP_V;
       a.airT = 0;
@@ -489,12 +503,13 @@ function stepRunner(s: RaceState, i: number, a: Runner, dt: number) {
     a.airT = 0;
     a.vy = 0;
     a.peakY = a.y;
+    a.ledgeT = s.t;
   } else a.y = g;
 
   // Fell into a gap.
   if (a.state === "air" && g === null) {
     const gap = c.obstacles.find((o) => (o.kind === "gap" || o.kind === "swing") && a.x > o.x - 1 && a.x < o.x + o.w + 1);
-    if (gap && a.y < Math.min(gap.y, gap.y + gap.h) - 0.6) {
+    if (gap && a.y < Math.min(gap.y, gap.y + gap.h) - 0.9) {
       a.state = "fall";
       a.falls++;
       a.combo = 0;
@@ -528,7 +543,8 @@ function stepRunner(s: RaceState, i: number, a: Runner, dt: number) {
     if (o.kind === "vent" || o.kind === "rail") {
       if (a.x + 0.25 > o.x && a.x - 0.25 < o.x + o.w) {
         // Feet may brush the top (a hand-plant vault); clipping it lower is a trip.
-        if ((o.lanes & m) && a.y < o.y + o.h - 0.35) {
+        // A vault is a hand-plant: brushing the top is part of the move. Only a low clip trips you.
+        if ((o.lanes & m) && !(a.vaulting && a.state === "air") && a.y < o.y + o.h - 0.35) {
           a.passed.push(k);
           hit(s, i, a, o.kind);
         }
@@ -638,11 +654,12 @@ export type MoveHint = "jump" | "vault" | "climb" | "grab" | "slide" | "roll";
 export interface NextMove { o: Obstacle; k: number; dist: number; move: MoveHint; /** Lanes that are clear (for vents/pipes). */ free: number }
 
 export function nextMove(s: RaceState, a: Runner): NextMove | null {
-  if (a.state === "air" && a.vy < 0) {
+  // In the air above a big drop: roll. `dist` here is the height left to fall (m).
+  if (a.state === "air") {
     const g = groundAt(s.course, a.x + a.vx * 0.25);
-    if (g !== null && a.peakY - g >= HARD_LANDING) {
+    if (g !== null && Math.max(a.peakY, a.y + Math.max(0, a.vy) ** 2 / 42) - g >= HARD_LANDING) {
       const drop = s.course.obstacles.find((o) => (o.kind === "drop" || o.kind === "gap" || o.kind === "swing") && o.x < a.x + 1 && o.x + o.w + 3 > a.x);
-      if (drop) return { o: drop, k: s.course.obstacles.indexOf(drop), dist: 0, move: "roll", free: 0 };
+      if (drop) return { o: drop, k: s.course.obstacles.indexOf(drop), dist: Math.max(0, a.y - g), move: "roll", free: 0 };
     }
   }
   const m = laneMask(a);
@@ -652,13 +669,33 @@ export function nextMove(s: RaceState, a: Runner): NextMove | null {
     if (o.kind === "pad" || a.passed.includes(k)) continue;
     const d = o.x - a.x;
     if (d < -0.5) continue;
-    if (o.kind === "drop") return { o, k, dist: d, move: "roll", free: 0 };
+    if (o.kind === "drop") continue; // the roll prompt appears once you're falling
     if ((o.kind === "vent" || o.kind === "pipe") && !(o.lanes & (1 << a.lane)) && !(o.lanes & m)) continue;
     const free = ALL & ~obs.filter((p) => Math.abs(p.x - o.x) < 0.5 && (p.kind === "vent" || p.kind === "pipe")).reduce((acc, p) => acc | p.lanes, 0);
     const move: MoveHint = o.kind === "pipe" ? "slide" : o.kind === "vent" || o.kind === "rail" ? "vault" : o.kind === "wall" ? "climb" : o.kind === "swing" ? "grab" : "jump";
     return { o, k, dist: d, move, free };
   }
   return null;
+}
+
+/** Best take-off distance (m before the obstacle) for each move; windows around these are generous. */
+const IDEAL_AT: Record<MoveHint, number> = { jump: 0.9, vault: 1.6, climb: 2.0, grab: 1.4, slide: 1.5, roll: 0 };
+/** Typical human reaction time the "now!" cue allows for (s). */
+export const REACTION = 0.25;
+
+/**
+ * Should the HUD light the move up right now? It lights a reaction-time ahead of the ideal
+ * moment (scaled by current speed), so pressing when it lights lands inside the move's window.
+ */
+export function moveIsLit(a: Runner, n: NextMove): boolean {
+  if (n.move === "roll") {
+    // Time until touchdown from the current height and fall speed.
+    const h = n.dist, v = -a.vy;
+    const tLand = (-v + Math.sqrt(Math.max(0, v * v + 2 * GRAVITY * h))) / GRAVITY;
+    return a.vy < 0 && tLand < 0.55;
+  }
+  const v = Math.max(4, a.vx + a.boost);
+  return n.dist < IDEAL_AT[n.move] + v * REACTION;
 }
 
 /**
@@ -707,21 +744,25 @@ export function aiInput(s: RaceState, i: number, skill: number, seq: number): In
     a.aiLane = Math.round(Math.log2(c.obstacles[pad]!.lanes));
   }
   if (a.aiLane >= 0 && a.aiLane !== a.lane && Math.abs(a.z - laneZ(a.lane)) < 0.3) return { seq, key: a.aiLane < a.lane ? "L" : "R", down: true };
-  if (!n) return null;
-  const { o, dist } = n;
-  const noise = (hash01(c.seed, i, n.k + a.falls * 101 + a.hits * 31) - 0.5) * 2 * (1 - skill);
-  const inMyLane = (o.lanes & laneMask(a)) !== 0;
-  if (o.kind === "pipe") {
-    if (!inMyLane) return null;
-    const at = 1.4 + noise * 1.6;
-    if (!a.slideHeld && dist < at * (v / RUN_SPEED) && dist > -0.2 && a.state === "run") return { seq, key: "S", down: true };
-    return null;
+  // Moves: react to the same "now!" cue a player sees, with a reaction time set by skill.
+  const nm = nextMove(s, a);
+  if (nm && moveIsLit(a, nm)) {
+    const key = nm.k * 10 + (nm.move === "roll" ? 1 : 0) + a.falls * 1000;
+    if (a.aiPendK !== key) {
+      a.aiPendK = key;
+      const h = hash01(c.seed, i * 13 + 1, key);
+      // Skilled runners react in ~0.12 s; weak ones are slower and sometimes far too late or early.
+      const delay = 0.1 + (1 - skill) * (0.12 + 0.5 * h * h) - (h > 0.92 && skill < 0.6 ? 0.25 : 0);
+      a.aiPendAt = s.t + Math.max(0, delay);
+    }
   }
-  if (o.kind === "vent" && !inMyLane) return null;
-  if (a.state !== "run") return null;
-  const ideal = o.kind === "vent" || o.kind === "rail" ? 1.7 : o.kind === "gap" ? 0.5 : o.kind === "swing" ? 1.1 : 1.7;
-  const at = ideal + noise * (o.kind === "gap" || o.kind === "swing" ? 1.3 : 1.8);
-  if (dist < at * (v / RUN_SPEED) + 0.05) return { seq, key: "J", down: true };
+  if (a.aiPendAt >= 0 && s.t >= a.aiPendAt && nm) {
+    a.aiPendAt = -1;
+    if (nm.move === "slide") return a.state === "run" ? { seq, key: "S", down: true } : null;
+    if (nm.move === "roll") return { seq, key: "S", down: true };
+    return { seq, key: "J", down: true };
+  }
+  void n;
   return null;
 }
 
