@@ -408,7 +408,7 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
 
       {/* Course progress. */}
       {hud.prog.length > 0 && (
-        <div className="pointer-events-none absolute left-1/2 top-[calc(var(--safe-top)+4.6rem)] w-[min(60vw,520px)] -translate-x-1/2 sm:top-4" aria-hidden>
+        <div className="pointer-events-none absolute left-1/2 top-[calc(var(--safe-top)+4.4rem)] w-[min(46vw,520px)] -translate-x-1/2 lg:top-[calc(var(--safe-top)+1.4rem)] lg:w-[min(36vw,520px)]" aria-hidden>
           <div className="relative h-2 rounded-full bg-black/45">
             <div className="absolute right-0 top-1/2 h-4 w-1 -translate-y-1/2 bg-white" />
             {hud.prog.map((p, i) => (
@@ -473,7 +473,7 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
               {actLabel}
             </button>
           </div>
-          {!hud.live && <p className="pointer-events-none absolute inset-x-0 top-[44%] text-center text-sm font-bold text-white drop-shadow">Steer with your {left ? "right" : "left"} thumb · moves with your {left ? "left" : "right"} thumb · or swipe</p>}
+          {!hud.live && <p className="pointer-events-none absolute inset-x-0 top-[58%] px-4 text-center text-sm font-bold text-white drop-shadow">Steer with your {left ? "right" : "left"} thumb · moves with your {left ? "left" : "right"} thumb · or swipe</p>}
         </>
       )}
       {phase === "ready" && !over && !touch && (
