@@ -87,6 +87,14 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Controls: alternate left/right in rhythm to run (lit-arrow prompt), Space/button to jump or throw, angle meter for the field events, false starts, fouls, three attempts.
 - Practice against 1–5 AI rivals; **live 1v1 online** on the real-time server (two players + four AI lanes), instant local response with server reconciliation, server-settled results/ratings/XP, `athletics_gold` achievement, rankings scope.
 
+### Milestone 10 — Parkour: Rooftop Rush (new sport)
+- Original free-runners race across seeded rooftop courses at sunset: vault vents, slide under pipes, leap gaps between buildings, climb walls to higher roofs, drop to lower ones, hit speed pads. Perfect (late, committed) moves give speed bursts; combos; three misses at one gap and you're helped across.
+- Controls: keyboard Space/↑ jump, hold ↓/S slide; touch: tap right half to jump, hold left half to slide, swipes work too; mouse clicks work as well. An on-screen "next move" sign lights up when it's time to act.
+- Practice vs 1–3 computer runners (Sprint / Standard / Marathon courses, three levels). **Live 1v1 online** on the real-time server (2 players + 2 computer runners), instant local response with server reconciliation, server-settled results/ratings/XP, `parkour_king` achievement, rankings scope.
+
+### Mobile
+- Touch controls follow the input actually used (a finger switches to touch, a key press back), so tablets with keyboards and touch laptops work. Full-screen button on phones (locks landscape for tennis and racing); top bars wrap on narrow screens; light haptics on Android in parkour.
+
 ### Controls guide (all games)
 - Before every practice game starts, a "How to play" screen shows the goal and controls (Keyboard / Touch tabs, auto-picked by device); Enter/Space or the button starts the game.
 - Online: the guide is shown in the match lobby and on the "waiting for opponent" screen; a ? button in every game opens it any time (it doesn't pause online play). The Help page has every sport's controls plus FAQs.
@@ -117,6 +125,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - **Tennis is fully online** on the real-time game server (Render).
 - **Racing is fully online** on the same server.
 - **Athletics is fully online** on the same server (2 players + 4 AI lanes).
+- **Parkour is fully online** on the same server (2 players + 2 computer runners).
 
 ## Test results
 - Added `src/test/schemas.test.ts` (avatar schema, register/login schemas, XP curve) alongside the existing routing test.
@@ -139,6 +148,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Live racing test against Render + Supabase: lowlog vs a temporary QA bot on Neon City — countdown, driving at 115 km/h online, bot disconnected, forfeit win settled (rating +16/−16, `racing_podium`, stats). QA user, match and stat changes removed afterwards.
 - Athletics: sim tests (`src/test/athletics.test.ts`); server self-test (`server/realtime/selftest-athletics.ts`): two clients run a 100m over WebSockets, the faster player wins and the result is saved.
 - Live athletics test against Render + Supabase: lowlog connected, stadium and field rendered, the absent QA opponent forfeited and the server settled the result (rating +16/−16, XP, `athletics_gold`).
+- Parkour: sim tests (`src/test/parkour.test.ts`: deterministic courses, every obstacle type, races finish, skill matters, nobody gets stuck, junk input ignored); server self-test (`server/realtime/selftest-parkour.ts`): two clients race over WebSockets, result settled once with times and places.
 - Syntax check of all new files: passed.
 - `vitest run`, `tsc` and `vite build`: **not yet run** (dependencies could not be installed in the authoring environment). Run in Lovable / CI to confirm.
 
@@ -146,7 +156,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- Parkour runner (second new game), practice + live online.
+- Live two-person tests of athletics and parkour online; replace the parkour card image with an in-game screenshot.
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
