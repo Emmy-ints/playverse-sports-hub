@@ -13,6 +13,7 @@ export interface Backend {
   settleTennis(matchId: string, winner: string, score: unknown, stats: unknown, forfeit: boolean): Promise<void>;
   settleRacing(matchId: string, winner: string, results: unknown, forfeit: boolean): Promise<void>;
   settleAthletics(matchId: string, winner: string, results: unknown, forfeit: boolean): Promise<void>;
+  settleParkour(matchId: string, winner: string, results: unknown, forfeit: boolean): Promise<void>;
 }
 
 export function supabaseBackend(env: { url: string; anonKey: string; secret: string }): Backend {
@@ -47,6 +48,9 @@ export function supabaseBackend(env: { url: string; anonKey: string; secret: str
     },
     async settleAthletics(matchId, winner, results, forfeit) {
       await rpc("realtime_settle_athletics", { p_secret: env.secret, p_match: matchId, p_winner: winner, p_results: results, p_forfeit: forfeit });
+    },
+    async settleParkour(matchId, winner, results, forfeit) {
+      await rpc("realtime_settle_parkour", { p_secret: env.secret, p_match: matchId, p_winner: winner, p_results: results, p_forfeit: forfeit });
     },
   };
 }

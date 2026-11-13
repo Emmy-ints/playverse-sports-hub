@@ -1,6 +1,6 @@
 import { avatarConfigSchema, type AvatarConfig } from "./avatar";
 
-export type Sport = "tennis" | "bowling" | "golf" | "racing" | "athletics";
+export type Sport = "tennis" | "bowling" | "golf" | "racing" | "athletics" | "parkour";
 
 /** Row shape of public.profiles. XP/level/coins are server-managed (read-only to clients). */
 export interface PlayerProfile {

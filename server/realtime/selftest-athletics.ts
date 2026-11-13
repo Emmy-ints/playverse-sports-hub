@@ -26,7 +26,7 @@ let seq = 0; const t0 = Date.now();
 while (Date.now() - t0 < 40000 && !A.msgs.some((m) => m.t === "end")) {
   for (const [i, X] of [A, B].entries()) {
     if (!X.st.s) continue;
-    const e = aiEvent(X.st.s, i, i === 0 ? 0.95 : 0.5, ++seq);
+    const e = aiEvent(X.st.s, i, i === 0 ? 0.97 : 0.2, ++seq);
     if (e) X.ws.send(JSON.stringify({ t: "in", ...e }));
   }
   await sleep(40);

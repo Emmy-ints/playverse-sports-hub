@@ -53,6 +53,17 @@ export const MATCH_FORMATS = {
     defaultMode: "championship",
     defaultLength: 1,
   },
+  parkour: {
+    modes: [
+      { id: "sprint", label: "Sprint", hint: "Short course, about 25 seconds" },
+      { id: "standard", label: "Standard", hint: "Full course, about 40 seconds" },
+      { id: "marathon", label: "Marathon", hint: "Long course, about a minute" },
+    ],
+    lengths: [1],
+    unit: () => "",
+    defaultMode: "standard",
+    defaultLength: 1,
+  },
 } as const satisfies Record<SportId, { modes: readonly { id: string; label: string; hint: string }[]; lengths: readonly number[]; unit: (n: number) => string; defaultMode: string; defaultLength: number }>;
 
 export const matchConfigSchema = z.object({

@@ -20,12 +20,13 @@ const SPORTS: { id: GuideSport; name: string }[] = [
   { id: "bowling", name: "Bowling" },
   { id: "golf", name: "Golf" },
   { id: "athletics", name: "Athletics" },
+  { id: "parkour", name: "Parkour" },
 ];
 
 const FAQ: { q: string; a: string }[] = [
   { q: "How do I play someone online?", a: "Add them as a friend, then challenge them from Friends or a sport page. When they accept, you both meet in the lobby, press \"I'm ready\" and the match starts after a short countdown." },
   { q: "Are online results real?", a: "Yes. Every online match is played and scored on the PLAYVERSE servers, not on your device, so results, ratings and XP can't be faked." },
-  { q: "What happens if I lose connection?", a: "Open the match lobby again and press Rejoin. In live games (tennis, racing, athletics), if you stay away too long the match is awarded to your opponent." },
+  { q: "What happens if I lose connection?", a: "Open the match lobby again and press Rejoin. In live games (tennis, racing, athletics, parkour), if you stay away too long the match is awarded to your opponent." },
   { q: "Do practice games count?", a: "No. Practice is for learning and fun: nothing is ranked or saved." },
   { q: "It runs slowly on my phone.", a: "Tap the screen/monitor icon in any game to switch to Lite graphics." },
   { q: "Can I install it like an app?", a: "Yes, from the Install page. It then opens full-screen from your home screen." },

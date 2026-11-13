@@ -36,6 +36,10 @@ function scoreText(r: HistoryRow): string | null {
   const s = r.scores as Record<string, unknown> | null;
   if (!s) return null;
   if (r.sport === "tennis" && Array.isArray(s["history"])) return (s["history"] as [number, number][]).map((h) => h.join("–")).join("  ") || null;
+  if (r.sport === "parkour" && s["players"] && typeof s["players"] === "object") {
+    const t = Object.values(s["players"] as Record<string, { time?: number | null }>).map((p) => (p.time ? `${p.time.toFixed(2)} s` : "DNF"));
+    return t.length === 2 ? t.join(" vs ") : null;
+  }
   if (r.sport === "athletics" && s["players"] && typeof s["players"] === "object") {
     const pts = Object.values(s["players"] as Record<string, { points?: number }>).map((p) => p.points ?? 0);
     return pts.length === 2 ? `${pts[0]} – ${pts[1]} pts` : null;

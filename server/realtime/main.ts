@@ -6,10 +6,11 @@
 import { createServer } from "node:http";
 import { supabaseBackend, type Backend } from "./backend.ts";
 import { AthleticsRoom } from "./athletics-room.ts";
+import { ParkourRoom } from "./parkour-room.ts";
 import { RaceRoom } from "./race-room.ts";
 import { TennisRoom } from "./tennis-room.ts";
 
-type Room = TennisRoom | RaceRoom | AthleticsRoom;
+type Room = TennisRoom | RaceRoom | AthleticsRoom | ParkourRoom;
 import { accept, type Socket } from "./ws.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,8 +37,8 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
     if (!p) {
       p = (async () => {
         const info = await opts.backend.matchInfo(matchId);
-        if (!info || !["tennis", "racing", "athletics"].includes(info.sport) || info.status !== "in_progress" || info.players.length !== 2) return null;
-        const room: Room = info.sport === "tennis" ? new TennisRoom(info, opts.backend) : info.sport === "racing" ? new RaceRoom(info, opts.backend) : new AthleticsRoom(info, opts.backend);
+        if (!info || !["tennis", "racing", "athletics", "parkour"].includes(info.sport) || info.status !== "in_progress" || info.players.length !== 2) return null;
+        const room: Room = info.sport === "tennis" ? new TennisRoom(info, opts.backend) : info.sport === "racing" ? new RaceRoom(info, opts.backend) : info.sport === "parkour" ? new ParkourRoom(info, opts.backend) : new AthleticsRoom(info, opts.backend);
         room.onDispose = () => rooms.delete(matchId);
         rooms.set(matchId, room);
         return room;

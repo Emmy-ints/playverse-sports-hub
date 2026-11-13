@@ -4,7 +4,7 @@ import { GameButton } from "@/components/game/GameButton";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 
-export type GuideSport = "tennis" | "racing" | "bowling" | "golf" | "athletics";
+export type GuideSport = "tennis" | "racing" | "bowling" | "golf" | "athletics" | "parkour";
 type AthleticsEvent = "sprint100" | "hurdles110" | "longjump" | "javelin";
 
 interface Row { keys: string[]; action: string }
@@ -121,6 +121,28 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
           ],
         }],
         tips: ["Watch the wind arrow, and use the putter on the green."],
+      };
+    case "parkour":
+      return {
+        name: "Rooftop Rush",
+        goal: "Race across the rooftops and reach the finish first. You run automatically: your job is to jump, slide and climb at the right moment.",
+        sections: [{
+          keyboard: [
+            { keys: ["Space", "↑", "W"], action: "Jump: over vents, across gaps between buildings, and at walls to climb them" },
+            { keys: ["Hold ↓", "S"], action: "Slide under pipes and beams. Hold it to keep sliding." },
+            { keys: ["↓ in the air"], action: "Drop down fast" },
+          ],
+          touch: [
+            { keys: ["Tap right side"], action: "Jump: over vents, across gaps, and at walls to climb them" },
+            { keys: ["Hold left side"], action: "Slide under pipes and beams" },
+            { keys: ["Swipe"], action: "Swipe up to jump or down to slide, anywhere on the screen" },
+          ],
+        }],
+        tips: [
+          "The orange \"next move\" sign tells you what's coming and lights up when it's time.",
+          "Jump late, close to a vent or an edge, for a Perfect move and a burst of speed. Cyan pads give a boost too.",
+          "Miss a gap and you start again a few metres back; miss it three times and you're helped across.",
+        ],
       };
     case "athletics": {
       const list = (events?.length ? events : ["sprint100", "hurdles110", "longjump", "javelin"]).filter((e): e is AthleticsEvent => e in ATHLETICS);
