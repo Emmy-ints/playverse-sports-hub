@@ -121,7 +121,7 @@ function Slider({ label, value, min, max, step, format, onChange }: { label: str
 }
 
 /** The one Controls & Camera settings panel (settings page and in-game). */
-export function GameSettingsPanel({ racing = true }: { racing?: boolean }) {
+export function GameSettingsPanel({ racing = true, haptics = true }: { racing?: boolean; haptics?: boolean }) {
   const [s, set] = useGameSettings();
   return (
     <div className="space-y-4 text-white">
@@ -148,10 +148,10 @@ export function GameSettingsPanel({ racing = true }: { racing?: boolean }) {
           ]} />
         </>
       )}
-      <label className="flex items-center justify-between gap-3">
+      {haptics && <label className="flex items-center justify-between gap-3">
         <span className="text-sm font-bold">Vibration (haptic feedback)</span>
         <input type="checkbox" className="size-5 accent-[#ff7a1a]" checked={s.haptics} onChange={(e) => set({ haptics: e.target.checked })} />
-      </label>
+      </label>}
       <label className="flex items-center justify-between gap-3">
         <span className="text-sm font-bold">Suggest landscape on phones</span>
         <input type="checkbox" className="size-5 accent-[#ff7a1a]" checked={s.landscapeHint} onChange={(e) => set({ landscapeHint: e.target.checked })} />

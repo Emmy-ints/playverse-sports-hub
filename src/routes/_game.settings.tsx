@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageShell } from "@/components/game/PageShell";
 import { GameSettingsPanel } from "@/components/game/GameSurface";
+import { setGameSettings } from "@/lib/game-settings";
 import { GlassPanel } from "@/components/game/GlassPanel";
 import { GameButton } from "@/components/game/GameButton";
 import { Switch } from "@/components/ui/switch";
@@ -26,14 +27,14 @@ function SettingsPage() {
       <GlassPanel className="space-y-4">
         {(Object.keys(LABELS) as (keyof Settings)[]).map((k) => (
           <label key={k} className="flex items-center justify-between font-semibold">{LABELS[k]}
-            <Switch checked={s[k]} onCheckedChange={(v) => settingsStore.write({ ...s, [k]: v })} />
+            <Switch checked={s[k]} onCheckedChange={(v) => { settingsStore.write({ ...s, [k]: v }); if (k === "haptics") setGameSettings({ haptics: v }); }} />
           </label>
         ))}
       </GlassPanel>
       <GlassPanel className="mt-6">
         <h2 className="mb-1 text-2xl font-bold uppercase">Controls & camera</h2>
         <p className="mb-4 text-sm text-muted-foreground">Used in every game. You can also change these during a match with the gear button.</p>
-        <GameSettingsPanel />
+        <GameSettingsPanel haptics={false} />
       </GlassPanel>
       <AccountPanel />
       <GameButton variant="glass" className="mt-6" onClick={() => { if (confirm("Delete your guest character and progress on this device?")) { avatarStore.clear(); guestStore.clear(); } }}>Reset guest data</GameButton>
