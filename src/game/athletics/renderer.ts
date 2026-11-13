@@ -298,7 +298,7 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
     const tiers = quality === "high" ? 7 : 4;
     add(root, "box", M.concrete, [standX, 0.5, W + 3.4], [standLen, 1, 1.2], false);
     add(root, "box", M.concrete, [standX, 3.2 + tiers * 0.2, W + 4.5 + tiers * 0.55], [standLen, 6 + tiers * 0.4, 0.6], false);
-    add(root, "box", M.roof, [standX, 8 + tiers * 0.38, W + 3.5 + tiers * 0.28], [standLen, 0.25, tiers * 0.6 + 4], true, [-8, 0, 0]);
+    add(root, "box", M.roof, [standX, 8 + tiers * 0.38, W + 3.5 + tiers * 0.28], [standLen, 0.25, tiers * 0.6 + 4], false, [-8, 0, 0]);
     for (let x = STRAIGHT_FROM; x <= STRAIGHT_TO + 10; x += 15) add(root, "box", M.steel, [x, 4 + tiers * 0.2, W + 4.2 + tiers * 0.55], [0.3, 8 + tiers * 0.4, 0.3], false);
     const home = new pc.Entity("home-stand");
     home.setLocalPosition(0, 1, 0);
@@ -466,31 +466,31 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
         if (s.phase === "ready") {
           // Low front view of the athletes in the blocks.
           const sx = worldOf(s.event, 0, 0).x;
-          want.set(sx + 9, 1.4, W / 2 + 3.5);
-          wantLook.set(sx, 0.6, W / 2);
+          want.set(sx + 8, 1.3, -2.5);
+          wantLook.set(sx, 0.6, W / 2 + 0.5);
         } else if (s.phase === "over" || me.phase === "done") {
-          want.set(p.x + 7, 2.6, W + 2.6);
-          wantLook.set(p.x - 2, 1, W / 2);
+          want.set(p.x + 6, 2.2, -4);
+          wantLook.set(p.x - 2, 1.2, W / 2 + 1);
         } else {
           // Tracking camera along the home straight (like TV): side-on, slightly ahead.
           const lead = Math.max(...s.athletes.map((a) => worldOf(s.event, a.x, 0).x));
           const fx = p.x * 0.75 + lead * 0.25;
-          // Trackside rail camera just outside lane 8 (in front of the grandstand).
-          want.set(fx - (portrait ? 4 : 2), portrait ? 5.2 : 3.4, W + 2.8);
-          wantLook.set(fx + (portrait ? 3 : 6), 0.7, W / 2 - 1.5);
+          // Infield rail camera looking out at the runners with the packed grandstand behind them.
+          want.set(fx - (portrait ? 5 : 3), portrait ? 4.2 : 2.4, portrait ? -8 : -4.5);
+          wantLook.set(fx + (portrait ? 3 : 5), 1.4, W + 2);
         }
       } else {
         const flying = me.phase === "flight";
         if (s.event === "javelin" && flying) {
           const jp = worldOf("javelin", me.jx, viewer);
-          want.set(jp.x - 12, 6 + me.jy * 0.6, jp.z + 18);
+          want.set(jp.x - 12, 6 + me.jy * 0.6, jp.z - 18);
           wantLook.set(jp.x + 6, Math.max(1, me.jy * 0.7), jp.z);
         } else if (s.event === "javelin" && me.phase === "done" && me.marks.length && me.marks[me.marks.length - 1] !== null && s.phase !== "ready") {
           const jp = worldOf("javelin", me.jx, viewer);
-          want.set(jp.x - 6, 4, jp.z + 9);
+          want.set(jp.x - 6, 4, jp.z - 9);
           wantLook.set(jp.x, 0.3, jp.z);
         } else {
-          want.set(p.x - 3, portrait ? 4 : 2.8, p.z + (portrait ? 11 : 8));
+          want.set(p.x - 3, portrait ? 4 : 2.6, p.z - (portrait ? 11 : 7.5));
           wantLook.set(p.x + (flying ? 3 : 5), 1, p.z);
         }
       }

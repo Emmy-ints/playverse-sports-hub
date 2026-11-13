@@ -319,7 +319,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
 
       {/* Prompt + speed */}
       {phase === "ready" && hud.live && !hud.aiming && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[30%] flex flex-col items-center gap-2 sm:bottom-[22%]">
+        <div data-prompt={hud.prompt} aria-label={hud.prompt === "L" ? "Press left" : "Press right"} className="pointer-events-none absolute inset-x-0 bottom-[30%] flex flex-col items-center gap-2 sm:bottom-[22%]">
           <div className="flex gap-4">
             {(["L", "R"] as const).map((k) => (
               <span key={k} className={cn("flex size-16 items-center justify-center rounded-2xl border-2 font-display text-3xl font-black transition sm:size-20",
