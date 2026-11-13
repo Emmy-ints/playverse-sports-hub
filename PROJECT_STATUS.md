@@ -75,6 +75,12 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Controls: keyboard (W/S/A/D or arrows, Space drift, R reset) and touch (steer buttons, gas, brake, drift; auto-gas on phones).
 - Practice (`/play/racing`): circuit, 1/3/5 laps, 1/3/5 AI drivers, Rookie/Pro/Champion, car colour. Online 1v1 (`/match/racing/$matchId`) from the lobby on the real-time game server, settled by `realtime_settle_racing` (ratings, XP, coins, `racing_podium`, best lap per track).
 
+### Online responsiveness, bowling atmosphere, competitive features, PWA
+- Instant response: tennis and racing predict your own movement/car locally and reconcile with the server (checked with a 150 ms-latency simulation: < 10 cm error); bowling and golf start the run-up/swing the moment you let go while the server simulates.
+- Bowling: wider hall with lit spectator galleries full of fans, a lounge crowd behind the approach, neighbouring bowlers taking turns, big screen, confetti, applause, STRIKE!/SPARE! banners, off-axis camera.
+- Match history (`/history`), rankings (`/rankings`, global/friends, per sport + overall), friend tournaments (`/tournaments`, `/tournament/$id`: 4/8-player knockout brackets, auto-advance on results), installable app (PNG/maskable icons, service worker, install button). Tournament flow tested in SQL (rolled back): brackets, advancement, draw tie-break by seed, champion and positions.
+- Known gap: if a player leaves a tournament match lobby, that bracket match is abandoned and the bracket waits (host can't reassign yet).
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 
@@ -129,7 +135,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- Own-movement prediction for online tennis and racing, match history page, Milestone 9 (leaderboards, rankings, tournaments) and Milestone 10 (installable PWA).
+- New games (original athletics events and a parkour runner, inspired by the user's research notes), each with practice + live online multiplayer on the real-time server.
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
