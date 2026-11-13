@@ -8,6 +8,7 @@ import { standings, type RaceState } from "@/game/racing/sim";
 import { buildTrack, type TrackDef } from "@/game/racing/track";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 export interface RaceResultRow { car: number; name: string; time: number | null; best: number; color: string }
 
@@ -244,11 +245,12 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       </div>
 
       <div className="absolute right-3 top-3 flex flex-col items-end gap-2 pt-safe">
-        <div className="flex gap-2">
+        <div className="flex max-w-[62vw] flex-wrap justify-end gap-2">
           <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
           <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
           <button type="button" onClick={() => setAutoGas((v) => !v)} aria-pressed={autoGas} className={cn("glass rounded-full px-3 py-2 text-xs font-bold text-white", autoGas && "ring-2 ring-[#3dff9a]")}>Auto-gas {autoGas ? "on" : "off"}</button>
           <ControlsHelpButton sport="racing" />
+          <FullscreenButton landscape />
           {topRight}
         </div>
         <svg width="140" height={map.h} viewBox={`0 0 140 ${map.h}`} className="rounded-xl bg-black/45" aria-hidden>

@@ -6,6 +6,7 @@ import type { GolfView, Quality } from "@/game/golf/renderer";
 import { CLUBS, getClub, simulateShot, suggestClub, type ClubId, type ShotInput, type ShotResult } from "@/game/golf/sim";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 export interface GolfReplay { id: string; result: ShotResult; input: ShotInput; from: { x: number; z: number; lie: Surface }; avatar?: AvatarConfig | null }
 
@@ -300,7 +301,10 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
               <span aria-hidden className="inline-block text-base leading-none" style={{ transform: `rotate(${(windRel * 180) / Math.PI}deg)` }}>↑</span>
             </p>
           </div>
-          <ControlsHelpButton sport="golf" className="absolute right-3 top-[calc(var(--safe-top)+8rem)]" />
+          <div className="absolute right-3 top-[calc(var(--safe-top)+8rem)] flex gap-2">
+            <FullscreenButton />
+            <ControlsHelpButton sport="golf" />
+          </div>
           <button
             type="button"
             onClick={toggleQuality}

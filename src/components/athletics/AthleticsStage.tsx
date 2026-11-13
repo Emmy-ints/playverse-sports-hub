@@ -8,6 +8,7 @@ import { EVENTS, placings, type EventId, type EventState, type Key } from "@/gam
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 interface Props {
   event: EventId;
@@ -304,10 +305,11 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
           ))}
         </ol>
       </div>
-      <div className="absolute right-3 top-3 flex gap-2 pt-safe">
+      <div className="absolute right-3 top-3 flex max-w-[62vw] flex-wrap justify-end gap-2 pt-safe">
         <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
         <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
         <ControlsHelpButton sport="athletics" events={[event]} />
+        <FullscreenButton />
         {topRight}
       </div>
 

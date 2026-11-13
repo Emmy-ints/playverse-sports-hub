@@ -8,6 +8,7 @@ import { nextObstacle, placings, progress, type Key, type RaceState } from "@/ga
 import type { AvatarConfig } from "@/lib/avatar";
 import { buzz, useTouchMode } from "@/lib/input-mode";
 import { cn } from "@/lib/utils";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 interface Props {
   driver: ParkourDriver;
@@ -300,8 +301,8 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
       {phase === "loading" && <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white"><Loader2 className="mr-2 size-6 animate-spin" aria-hidden /> Building the city…</div>}
       {phase === "error" && <div className="absolute inset-0 flex items-center justify-center bg-black/90 p-6 text-center text-white">Your browser couldn't start the 3D view. Try updating your browser or enabling hardware acceleration.</div>}
 
-      {/* Touch zones sit under the HUD so buttons on top still work. */}
-      {phase === "ready" && touch && !over && (
+      {/* Touch/mouse zones sit under the HUD so buttons on top still work. */}
+      {phase === "ready" && !over && (
         <div className="absolute inset-0 flex">
           <div className="h-full w-1/2" onPointerDown={onZoneDown("S")} onPointerMove={onZoneMove} onPointerUp={onZoneUp} onPointerCancel={onZoneUp} aria-label="Slide: hold the left side of the screen" />
           <div className="h-full w-1/2" onPointerDown={onZoneDown("J")} onPointerMove={onZoneMove} onPointerUp={onZoneUp} onPointerCancel={onZoneUp} aria-label="Jump: tap the right side of the screen" />
@@ -317,10 +318,11 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
         {hud.combo >= 2 && <p className="mt-2 w-fit rounded-full bg-[#ffd23f] px-3 py-0.5 text-xs font-black uppercase text-black">{hud.combo}× combo</p>}
       </div>
 
-      <div className="absolute right-3 top-3 flex gap-2 pt-safe">
+      <div className="absolute right-3 top-3 flex max-w-[62vw] flex-wrap justify-end gap-2 pt-safe">
         <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
         <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
         <ControlsHelpButton sport="parkour" />
+        <FullscreenButton />
         {topRight}
       </div>
 

@@ -10,6 +10,7 @@ import type { Reaction } from "@/game/bowling/bowler";
 import type { AvatarConfig } from "@/lib/avatar";
 import { settingsStore } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 export interface StageReplay { id: string; result: SimResult; avatar?: AvatarConfig | null }
 
@@ -288,7 +289,10 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
 
       {phase !== "loading" && phase !== "error" && (
         <>
-          <ControlsHelpButton sport="bowling" className="absolute left-3 top-[calc(var(--safe-top)+5.5rem)]" />
+          <div className="absolute left-3 top-[calc(var(--safe-top)+5.5rem)] flex gap-2">
+            <ControlsHelpButton sport="bowling" />
+            <FullscreenButton />
+          </div>
           <button
             type="button"
             onClick={toggleQuality}

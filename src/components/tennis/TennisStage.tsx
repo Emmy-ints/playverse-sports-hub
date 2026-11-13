@@ -10,6 +10,7 @@ import { TennisAudio } from "@/game/tennis/audio";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
+import { FullscreenButton } from "@/components/game/FullscreenButton";
 
 interface Props {
   theme: CourtTheme;
@@ -349,7 +350,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
         {status && <div className="mt-2 rounded-lg bg-black/60 px-3 py-1 text-xs text-white">{status}</div>}
       </div>
 
-      <div className="absolute right-3 top-3 flex gap-2 pt-safe">
+      <div className="absolute right-3 top-3 flex max-w-[62vw] flex-wrap justify-end gap-2 pt-safe">
         <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>
           {sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
         </button>
@@ -360,6 +361,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
           Auto-run {assist ? "on" : "off"}
         </button>
         <ControlsHelpButton sport="tennis" />
+        <FullscreenButton landscape />
         {topRight}
       </div>
 
