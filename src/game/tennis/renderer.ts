@@ -298,7 +298,7 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     strings: mat({ color: "#f1f1f1", opacity: 0.45, noEnv: true }),
     grip: mat({ color: "#f5f5f5", gloss: 0.2 }),
     lamp: mat({ color: "#ffffff", emissive: "#fff6dd" }),
-    dark: mat({ color: "#0b0f18", gloss: 0.2, noEnv: true }),
+    dark: mat({ color: "#26324a", gloss: 0.25 }),
     roof: mat({ color: "#121725", gloss: 0.1, noEnv: true }),
   };
 
@@ -356,11 +356,11 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     endStand.setLocalPosition(0, 1.1, 0);
     endStand.setLocalEulerAngles(0, 90, 0);
     root.addChild(endStand);
-    crowd.push(new Crowd(endStand, { innerX: 19.8, zFrom: 10, zTo: -10, tiers: endTiers, spacing: hi ? 0.62 : 0.85, fill: 0.8, shadows: false }));
+    crowd.push(new Crowd(endStand, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers, spacing: hi ? 0.62 : 0.85, fill: 0.8, shadows: false }));
     // Stadium bowl walls behind the crowd.
     for (const s of [1, -1]) {
       add(root, "box", M.dark, [s * (11.6 + sideTiers * 0.55 + 0.6), 3, 0], [0.6, 6 + sideTiers * 0.4, 46], false);
-      add(root, "box", M.dark, [0, 3, s * (20.2 + endTiers * 0.55 + 0.6)], [30, 6 + endTiers * 0.4, 0.6], false);
+      add(root, "box", M.dark, [0, 3, s * (23.9 + endTiers * 0.55 + 0.6)], [34, 6 + endTiers * 0.4, 0.6], false);
     }
 
     // Umpire's chair (with an umpire) and players' benches.
@@ -382,9 +382,9 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     for (const s of [1, -1]) add(root, "box", M.chair, [ux - 0.6, 0.45, s * 2.6], [0.5, 0.9, 1.6]);
 
     // Big scoreboard over the far end (drawn per viewer).
-    const sb = add(root, "box", sbMat, [0, 5.4, -(22.5 + endTiers * 0.55)], [7.2, 3.1, 0.15], false);
+    const sb = add(root, "box", sbMat, [0, 6.2, -(24.2 + endTiers * 0.55)], [7.2, 3.1, 0.15], false);
     sb.name = "scoreboard";
-    const sb2 = add(root, "box", sbMat, [0, 5.4, 22.5 + endTiers * 0.55], [7.2, 3.1, 0.15], false, [0, 180, 0]);
+    const sb2 = add(root, "box", sbMat, [0, 6.2, 24.2 + endTiers * 0.55], [7.2, 3.1, 0.15], false, [0, 180, 0]);
     sb2.name = "scoreboard2";
 
     // Floodlights for night sessions / indoor ceiling.
@@ -470,11 +470,11 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const cam = camera.camera!;
     cam.horizontalFov = portrait;
     cam.fov = portrait ? 74 : 46;
-    const back = portrait ? 10.5 : 13.5;
-    const up = portrait ? 8.2 : 6.6;
+    const back = portrait ? 10.2 : 9.6;
+    const up = portrait ? 8.4 : 6.2;
     const me = f.players[viewer];
     want.set(b.x * 0.18 + me.x * 0.12, up, side * (COURT.halfLength + back));
-    wantT.set(b.x * 0.25, 0.6, side * (portrait ? 0.5 : -1.5));
+    wantT.set(b.x * 0.25, 0.2, side * (portrait ? 0.5 : -2.5));
     if (f.phase === "matchOver") {
       // Slow orbit at the end.
       const a = elapsed * 0.15;
