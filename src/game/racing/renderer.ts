@@ -5,8 +5,6 @@
  * brake lights and headlights, tyre smoke, and a chase camera. Visual only.
  */
 import * as pc from "playcanvas";
-import { applyCinematic } from "../shared/cinematic.ts";
-import { addSurfaceDetail } from "../shared/surface.ts";
 import type { RaceState } from "./sim.ts";
 import { RACE_THEMES, type RaceTheme } from "./themes.ts";
 import { buildTrack, nearest, type Track, type TrackDef } from "./track.ts";
@@ -263,16 +261,16 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       minZ = Math.min(minZ, track.z[i]!); maxZ = Math.max(maxZ, track.z[i]!);
     }
     const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
-    add(root, "plane", addSurfaceDetail(mat({ color: theme.ground, gloss: 0.1, noEnv: true }), device, theme.scenery === "valley" ? "grass" : theme.scenery === "coast" ? "sand" : "concrete", [(maxX - minX + 1600) / 3, (maxZ - minZ + 1600) / 3], quality, 0.7), [cx, -0.05, cz], [maxX - minX + 1600, 1, maxZ - minZ + 1600], false);
+    add(root, "plane", mat({ color: theme.ground, gloss: 0.1, noEnv: true }), [cx, -0.05, cz], [maxX - minX + 1600, 1, maxZ - minZ + 1600], false);
     if (theme.scenery === "coast") {
-      add(root, "plane", addSurfaceDetail(mat({ color: "#145a74", gloss: 0.92, clearCoat: 0.8 }), device, "water", [60, 120], quality, 0.5), [maxX + 520, -0.02, cz], [800, 1, maxZ - minZ + 1600], false);
+      add(root, "plane", mat({ color: "#145a74", gloss: 0.92, clearCoat: 0.8 }), [maxX + 520, -0.02, cz], [800, 1, maxZ - minZ + 1600], false);
     }
 
     // Run-off strips, asphalt, kerbs, barriers.
-    meshEntity(root, ribbon(device, track, (i) => L(i, -wall, 0.005), (i) => L(i, wall, 0.005), 1 / 8), addSurfaceDetail(mat({ color: theme.runoff, gloss: 0.12, noEnv: true }), device, theme.scenery === "valley" ? "grass" : theme.scenery === "coast" ? "sand" : "concrete", [10, 3], quality, 0.8));
+    meshEntity(root, ribbon(device, track, (i) => L(i, -wall, 0.005), (i) => L(i, wall, 0.005), 1 / 8), mat({ color: theme.runoff, gloss: 0.12, noEnv: true }));
     const asphalt = canvasTex(device, asphaltCanvas(theme));
     textures.push(asphalt);
-    meshEntity(root, ribbon(device, track, (i) => L(i, -hw, 0.02), (i) => L(i, hw, 0.02), 1 / 14), addSurfaceDetail(mat({ map: asphalt, gloss: theme.night ? 0.5 : 0.3 }), device, "asphalt", [6, 7], quality, 0.7));
+    meshEntity(root, ribbon(device, track, (i) => L(i, -hw, 0.02), (i) => L(i, hw, 0.02), 1 / 14), mat({ map: asphalt, gloss: theme.night ? 0.5 : 0.3 }));
     const kerbTex = canvasTex(device, stripeCanvas("#d71f1f", "#f4f4f4", 2));
     textures.push(kerbTex);
     const kerbMat = mat({ map: kerbTex, gloss: 0.3 });
@@ -475,7 +473,6 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   const camera = new pc.Entity("camera");
   camera.addComponent("camera", { fov: 62, nearClip: 0.1, farClip: 2500, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
   app.root.addChild(camera);
-  let fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.012 : 0.004 });
   const camPos = new pc.Vec3(track.x[0]!, 30, track.z[0]! + 40);
   const camLook = new pc.Vec3(track.x[0]!, 0, track.z[0]!);
   const want = new pc.Vec3(), wantLook = new pc.Vec3();
@@ -587,13 +584,10 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       quality = q;
       device.maxPixelRatio = ratio();
       build();
-      fx.destroy();
-      fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.012 : 0.004 });
       resize();
     },
     destroy() {
       ro.disconnect();
-      fx.destroy();
       app.destroy();
     },
   };
