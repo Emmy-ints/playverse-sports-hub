@@ -58,6 +58,12 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   const playedReplays = useRef(new Set<string>());
   /** Hard guard against overlapping throws (state updates are async). */
   const throwing = useRef(false);
+  const [banner, setBanner] = useState<{ text: string; kind: Reaction; id: number } | null>(null);
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner((b) => (b?.id === banner.id ? null : b)), 2200);
+    return () => clearTimeout(t);
+  }, [banner]);
   const busy = phase === "rolling" || phase === "loading";
 
   // Boot the 3D engine (client only).
@@ -109,7 +115,14 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
     await view.play(result, {
       reaction: reactionFor(result),
       onRelease: () => audio?.startRoll(),
-      onImpact: () => audio?.crash(Math.min(1, 0.3 + result.knocked.length / 10)),
+      onImpact: () => {
+        audio?.crash(Math.min(1, 0.3 + result.knocked.length / 10));
+        const r = reactionFor(result);
+        const text = r === "strike" ? "STRIKE!" : r === "spare" ? "SPARE!" : result.gutter ? "GUTTER" : result.knocked.length === 0 ? "MISS" : `${result.knocked.length} PIN${result.knocked.length === 1 ? "" : "S"}`;
+        setBanner({ text, kind: r, id: Date.now() });
+        if (r === "strike") setTimeout(() => audio?.applause(1), 250);
+        else if (r === "spare") setTimeout(() => audio?.applause(0.6), 250);
+      },
     });
     audio?.stopRoll();
   }, []);
@@ -237,6 +250,16 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-[#03040a] touch-none">
       <canvas ref={canvasRef} className="block h-full w-full" />
+      {banner && (
+        <div key={banner.id} className="pointer-events-none absolute inset-x-0 top-[24%] z-10 flex justify-center" aria-live="assertive">
+          <span className={cn("animate-rise font-display font-black italic uppercase tracking-wide drop-shadow-[0_6px_24px_rgba(0,0,0,0.6)]",
+            banner.kind === "strike" ? "bg-gradient-to-b from-[#fff3b0] via-[#ffd23f] to-[#ff7a1a] bg-clip-text text-7xl text-transparent sm:text-9xl"
+              : banner.kind === "spare" ? "bg-gradient-to-b from-white to-[#20e3ff] bg-clip-text text-6xl text-transparent sm:text-8xl"
+              : "text-4xl text-white/90 sm:text-6xl")}>
+            {banner.text}
+          </span>
+        </div>
+      )}
       <div
         className="absolute inset-0"
         onPointerDown={onPointerDown}

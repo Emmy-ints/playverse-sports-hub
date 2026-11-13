@@ -86,6 +86,55 @@ export class AlleyAudio {
     src.start(t);
   }
 
+  /** Crowd applause and cheers: many short filtered claps plus a rising "woo". */
+  applause(level: number) {
+    const ctx = this.ensure();
+    if (!ctx) return;
+    const t0 = ctx.currentTime + 0.05;
+    const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 1700;
+    bp.Q.value = 0.6;
+    const master = ctx.createGain();
+    master.gain.value = 0.05 + 0.08 * level;
+    bp.connect(master).connect(ctx.destination);
+    const claps = Math.round(50 + 170 * level), dur = 1.4 + 2 * level;
+    for (let i = 0; i < claps; i++) {
+      const at = t0 + Math.pow(Math.random(), 1.5) * dur;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(0.5 + Math.random() * 0.5, at + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.03 + Math.random() * 0.03);
+      src.connect(g).connect(bp);
+      src.start(at, Math.random() * 0.8, 0.08);
+    }
+    if (level > 0.8) {
+      for (let k = 0; k < 5; k++) {
+        const osc = ctx.createOscillator();
+        osc.type = "sawtooth";
+        const f = 260 + Math.random() * 160;
+        osc.frequency.setValueAtTime(f, t0);
+        osc.frequency.linearRampToValueAtTime(f * 1.5, t0 + 0.5);
+        osc.frequency.linearRampToValueAtTime(f * 1.2, t0 + 1.2);
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 900;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.012, t0 + 0.25);
+        g.gain.linearRampToValueAtTime(0.0001, t0 + 1.3);
+        osc.connect(lp).connect(g).connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 1.4);
+      }
+    }
+  }
+
   dispose() {
     this.stopRoll();
     void this.ctx?.close();

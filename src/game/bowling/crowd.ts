@@ -29,10 +29,10 @@ export class Crowd {
   private time = 0;
   private mats = new Map<string, pc.StandardMaterial>();
 
-  constructor(parent: pc.Entity, opts: { innerX: number; zFrom: number; zTo: number; tiers: number; spacing: number; fill: number; shadows: boolean }) {
+  constructor(parent: pc.Entity, opts: { innerX: number; zFrom: number; zTo: number; tiers: number; spacing: number; fill: number; shadows: boolean; sides?: number[]; seed?: number }) {
     this.root = new pc.Entity("crowd");
     parent.addChild(this.root);
-    const rand = rng(42);
+    const rand = rng(opts.seed ?? 42);
     const mat = (hex: string, gloss = 0.12) => {
       const key = hex + gloss;
       let m = this.mats.get(key);
@@ -58,7 +58,7 @@ export class Crowd {
       return e;
     };
 
-    for (const side of [-1, 1]) {
+    for (const side of opts.sides ?? [-1, 1]) {
       for (let tier = 0; tier < opts.tiers; tier++) {
         const x = side * (opts.innerX + tier * 0.55);
         const seatY = 0.45 + tier * 0.38;

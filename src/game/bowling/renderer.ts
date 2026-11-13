@@ -122,7 +122,7 @@ function canvasTexture(device: pc.GraphicsDevice, source: HTMLCanvasElement, rep
   return tex;
 }
 
-function std(opts: Partial<{ noEnv: boolean; diffuse: pc.Color; gloss: number; metalness: number; clearCoat: number; clearCoatGloss: number; emissive: pc.Color; emissiveIntensity: number; diffuseMap: pc.Texture; glossMap: pc.Texture; emissiveMap: pc.Texture; tiling: [number, number] }>) {
+function std(opts: Partial<{ opacity: number; noEnv: boolean; diffuse: pc.Color; gloss: number; metalness: number; clearCoat: number; clearCoatGloss: number; emissive: pc.Color; emissiveIntensity: number; diffuseMap: pc.Texture; glossMap: pc.Texture; emissiveMap: pc.Texture; tiling: [number, number] }>) {
   const m = new pc.StandardMaterial();
   m.useMetalness = true;
   m.metalness = opts.metalness ?? 0;
@@ -145,6 +145,11 @@ function std(opts: Partial<{ noEnv: boolean; diffuse: pc.Color; gloss: number; m
     m.emissiveIntensity = opts.emissiveIntensity ?? 1;
   }
   if (opts.emissiveMap) m.emissiveMap = opts.emissiveMap;
+  if (opts.opacity !== undefined) {
+    m.opacity = opts.opacity;
+    m.blendType = pc.BLEND_NORMAL;
+    m.depthWrite = false;
+  }
   // Matte room surfaces shouldn't mirror the studio HDR at grazing angles.
   if (opts.noEnv) m.useSkybox = false;
   m.update();
@@ -168,7 +173,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   device.maxPixelRatio = quality === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25);
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.scene.ambientLight = new pc.Color(0.05, 0.05, 0.07);
+  app.scene.ambientLight = new pc.Color(0.09, 0.09, 0.12);
 
   const root = new pc.Entity("alley");
   app.root.addChild(root);
@@ -258,7 +263,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   rebuildDeco();
 
   // Building: floor, walls, ceiling strip lights.
-  const hallWidth = laneSpacing * 7;
+  const hallWidth = laneSpacing * 5 + 9; // five lanes plus spectator galleries on both sides
   add("carpet", root, { material: carpetMat, pos: [0, -0.06, 7.5], scale: [hallWidth, 0.1, 5.5] });
   add("ceiling", root, { material: wallMat, pos: [0, 3.2, laneMidZ + 2], scale: [hallWidth, 0.1, laneLen + 12] });
   add("wall-l", root, { material: wallMat, pos: [-hallWidth / 2, 1.6, laneMidZ + 2], scale: [0.1, 3.2, laneLen + 12] });
@@ -268,6 +273,21 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     add("strip", root, { material: ceilingLight, pos: [0, 3.14, z], scale: [hallWidth * 0.9, 0.02, 0.12] });
   }
   add("neon-ceiling-b", root, { material: neonBlue, pos: [0, 3.12, HEAD_PIN_Z + 1.2], scale: [hallWidth, 0.03, 0.03] });
+  // Spectator galleries: raised floor, glass balustrade with LED strip, and colourful wall panels.
+  const galleryX = laneSpacing * 2.5 + 0.35;
+  const galleryMat = std({ diffuse: hex("#1b2140"), gloss: 0.5 });
+  const glassMat = std({ diffuse: hex("#9fd3ff"), gloss: 0.95, opacity: 0.18 });
+  const panelMats = ["#ff2fb3", "#20e3ff", "#ffb020", "#8b5cf6"].map((c) => std({ diffuse: hex("#000000"), emissive: hex(c), emissiveIntensity: 0.9 }));
+  for (const s of [-1, 1]) {
+    add("gallery-floor", root, { material: galleryMat, pos: [s * (galleryX + 2), 0.15, -2.5], scale: [4, 0.3, 17] });
+    add("gallery-glass", root, { material: glassMat, pos: [s * (galleryX + 0.05), 0.75, -2.5], scale: [0.03, 0.9, 17] });
+    add("gallery-led", root, { material: s < 0 ? neonBlue : neonOrange, pos: [s * (galleryX + 0.05), 1.22, -2.5], scale: [0.05, 0.03, 17] });
+    for (let k = 0; k < 6; k++) {
+      add("wall-panel", root, { material: panelMats[(k + (s > 0 ? 2 : 0)) % panelMats.length]!, pos: [s * (hallWidth / 2 - 0.06), 2.3, 3.5 - k * 3.2], scale: [0.02, 0.9, 2.2] });
+    }
+  }
+  // Big screen above the pins and a lounge wall behind the approach.
+  add("screen-frame", root, { material: wallMat, pos: [0, 2.55, HEAD_PIN_Z - 1.6], scale: [laneSpacing * 3.2, 0.9, 0.08] });
   add("neon-ceiling-o", root, { material: neonOrange, pos: [0, 3.12, HEAD_PIN_Z + 1.4], scale: [hallWidth, 0.03, 0.03] });
 
   // Lights.
@@ -337,16 +357,37 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     for (let b = 0; b < 3; b++) add("house-ball", root, { mesh: smallBall, material: houseBalls[(b + i + 6) % houseBalls.length]!, pos: [x, 0.66 + BALL.radius, 2.25 + b * 0.24], shadows: true });
   }
 
-  // Spectator stands along both walls.
+  // Spectators: tiered galleries along both side walls (visible beside the lanes) and a lounge
+  // behind the approach with people sitting at the tables watching.
   const crowd = new Crowd(root, {
-    innerX: hallWidth / 2 - 1.45,
-    zFrom: 4,
-    zTo: -9,
-    tiers: quality === "high" ? 3 : 2,
-    spacing: quality === "high" ? 0.62 : 0.95,
-    fill: quality === "high" ? 0.8 : 0.6,
+    innerX: laneSpacing * 2.5 + 0.9,
+    zFrom: 5,
+    zTo: -10,
+    tiers: quality === "high" ? 4 : 3,
+    spacing: quality === "high" ? 0.6 : 0.85,
+    fill: quality === "high" ? 0.85 : 0.65,
     shadows: false,
   });
+  const lounge = new pc.Entity("lounge");
+  lounge.setLocalPosition(0, 0, 0);
+  lounge.setLocalEulerAngles(0, 90, 0);
+  root.addChild(lounge);
+  const loungeCrowd = new Crowd(lounge, { innerX: 6.4, zFrom: hallWidth / 2 - 1, zTo: -hallWidth / 2 + 1, tiers: 2, spacing: quality === "high" ? 0.7 : 1, fill: 0.7, shadows: false, sides: [-1], seed: 7 });
+  // Neighbouring lanes: other bowlers waiting their turn and occasionally bowling.
+  const neighbours: { anim: BowlerAnimator; next: number; resetAt: number }[] = [];
+  const neighbourLooks: AvatarConfig[] = [
+    { version: 1, nickname: "Mara", genderPresentation: "feminine", skinTone: "#eac0a0", face: "smile", hairstyle: "ponytail", hairColor: "#8a5a2b", outfit: "polo", outfitColor: "#e0307a", shoes: "runner", shoeColor: "#e8eaf0", accessory: "none" },
+    { version: 1, nickname: "Deji", genderPresentation: "masculine", skinTone: "#7a4b2e", face: "focused", hairstyle: "buzz", hairColor: "#1b1410", outfit: "jersey", outfitColor: "#2fbf71", shoes: "court", shoeColor: "#1d2333", accessory: "wristbands" },
+  ];
+  for (const [i, x] of [[0, -laneSpacing], [1, laneSpacing]] as const) {
+    const holder = new pc.Entity("neighbour");
+    holder.setLocalPosition(x, 0, 0);
+    root.addChild(holder);
+    const h = createHumanoid(holder, neighbourLooks[i]!, { shadows: quality === "high" });
+    const anim = new BowlerAnimator(h);
+    anim.ready(0);
+    neighbours.push({ anim, next: 4 + i * 6, resetAt: -1 });
+  }
 
   // The bowler: the player's own character.
   const bowlerHumanoid = createHumanoid(root, null, { shadows: true });
@@ -426,10 +467,60 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     } else e.setRotation(q1);
   };
 
+  // Confetti burst over the pin deck for strikes and spares.
+  const confettiMats = ["#ff2fb3", "#20e3ff", "#ffd23f", "#3dff9a", "#ffffff"].map((c) => std({ diffuse: hex(c), emissive: hex(c), emissiveIntensity: 0.6 }));
+  const confetti = Array.from({ length: quality === "high" ? 140 : 70 }, (_, k) => ({
+    e: add("confetti", root, { type: "box", material: confettiMats[k % confettiMats.length]!, scale: [0.035, 0.002, 0.05] }),
+    v: new pc.Vec3(), spin: new pc.Vec3(), life: 0,
+  }));
+  confetti.forEach((c) => (c.e.enabled = false));
+  const burstConfetti = (amount: number) => {
+    const n = Math.floor(confetti.length * amount);
+    for (let k = 0; k < n; k++) {
+      const c = confetti[k]!;
+      c.e.enabled = true;
+      c.life = 2.6 + Math.random();
+      c.e.setLocalPosition((Math.random() - 0.5) * 0.9, 0.6 + Math.random() * 0.4, HEAD_PIN_Z - 0.3 + (Math.random() - 0.5) * 0.6);
+      c.v.set((Math.random() - 0.5) * 3.2, 3.2 + Math.random() * 2.6, 1.2 + Math.random() * 2.2);
+      c.spin.set(Math.random() * 720, Math.random() * 720, Math.random() * 720);
+    }
+  };
+  const updateConfetti = (dt: number) => {
+    for (const c of confetti) {
+      if (c.life <= 0) continue;
+      c.life -= dt;
+      c.v.y -= 3.5 * dt;
+      c.v.x *= 1 - dt * 0.8;
+      c.v.z *= 1 - dt * 0.8;
+      if (c.v.y < -0.9) c.v.y = -0.9; // flutter
+      const p = c.e.getLocalPosition();
+      c.e.setLocalPosition(p.x + c.v.x * dt + Math.sin(c.life * 9) * 0.004, Math.max(0.01, p.y + c.v.y * dt), p.z + c.v.z * dt);
+      const r = c.e.getLocalEulerAngles();
+      c.e.setLocalEulerAngles(r.x + c.spin.x * dt, r.y + c.spin.y * dt, r.z + c.spin.z * dt);
+      if (c.life <= 0) c.e.enabled = false;
+    }
+  };
+
   let earlyApproach = false;
   app.on("update", (dt: number) => {
     bowler.update(dt);
     crowd.update(dt);
+    loungeCrowd.update(dt);
+    for (const n of neighbours) {
+      n.anim.update(dt);
+      n.next -= dt;
+      if (n.resetAt > 0) {
+        n.resetAt -= dt;
+        if (n.resetAt <= 0) n.anim.ready(0); // walk back to the top of the approach
+      }
+      if (n.next <= 0) {
+        n.anim.ready(0);
+        n.anim.start();
+        n.next = 14 + Math.random() * 12;
+        n.resetAt = 4.5;
+      }
+    }
+    updateConfetti(dt);
     if (bowler.isHoldingBall) {
       bowler.ballPosition(handBall);
       ball.setPosition(handBall);
@@ -438,7 +529,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       // Approach: the camera tracks the bowler from behind.
       mode = "approach";
       const bp = bowler.position;
-      desiredPos.set(bp.x * 0.5 + 0.35, 1.75, bp.z + 2.5);
+      desiredPos.set(bp.x * 0.5 + 0.75, 1.9, bp.z + 2.8);
       desiredTarget.set(bp.x * 0.3, 0.45, bp.z - 12);
     } else if (playback && playback.finishedAt !== null) {
       // After the pins settle, show the bowler's reaction.
@@ -482,8 +573,15 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       if (i >= result.frames.length - 1) {
         playback.finishedAt = 0;
         bowler.react(playback.reaction);
-        if (playback.reaction === "strike") crowd.cheer(1);
-        else if (playback.reaction === "spare") crowd.cheer(0.55);
+        if (playback.reaction === "strike") {
+          crowd.cheer(1);
+          loungeCrowd.cheer(1);
+          burstConfetti(1);
+        } else if (playback.reaction === "spare") {
+          crowd.cheer(0.6);
+          loungeCrowd.cheer(0.6);
+          burstConfetti(0.5);
+        }
       }
     }
     const k = 1 - Math.exp(-dt * (mode === "follow" ? 6 : mode === "approach" ? 5 : 3));
@@ -525,8 +623,8 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       guide.setPosition(aim.x + Math.sin(aim.angle) * (len / 2 + 0.3), 0.002, -Math.cos(aim.angle) * (len / 2 + 0.3) + 0.3);
       guide.setEulerAngles(0, -(aim.angle * 180) / Math.PI, 0);
       mode = "aim";
-      desiredPos.set(aim.x * 0.5 + 0.4, 1.95, START_Z + 2.7);
-      desiredTarget.set(aim.x * 0.2, 0.45, -12);
+      desiredPos.set(aim.x * 0.5 + 0.85, 2.15, START_Z + 3.1);
+      desiredTarget.set(aim.x * 0.2, 0.35, -13);
     },
     setBowler(avatar) {
       bowlerHumanoid.apply(avatar);
@@ -584,6 +682,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
     destroy() {
       ro.disconnect();
       crowd.destroy();
+      loungeCrowd.destroy();
       cameraFrame?.destroy?.();
       app.destroy();
     },
