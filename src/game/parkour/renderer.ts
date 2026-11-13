@@ -358,9 +358,10 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       add(root, "box", facadeMat(k, w, h), [cx, sg.y - h / 2, 0], [w, h, BLD * 2], false);
       const rm = mat({ map: tex(device, noise(["#6f6a66", "#6a6560", "#76706a"][k % 3]!, 46, 256, k + 3)), tiling: [w / 4, BLD / 2], gloss: 0.12 });
       facades.push(rm);
-      add(root, "box", rm, [cx, sg.y - 0.05, 0], [w, 0.1, BLD * 2], false);
+      // Roof surface sits just above the building's top face (no z-fighting with the facade texture).
+      add(root, "box", rm, [cx, sg.y - 0.035, 0], [w + 0.02, 0.1, BLD * 2 + 0.02], false);
       // Painted lane lines, so steering is easy to read.
-      for (const lz of [-LANE_W / 2, LANE_W / 2]) add(root, "box", laneLine, [cx, sg.y + 0.006, lz], [w, 0.01, 0.07]);
+      for (const lz of [-LANE_W / 2, LANE_W / 2]) add(root, "box", laneLine, [cx, sg.y + 0.025, lz], [w, 0.01, 0.07]);
       // Low parapets along both edges of the course.
       for (const side of [-1, 1]) add(root, "box", M.parapet, [cx, sg.y + 0.3, side * (HALF + 0.2)], [w, 0.6, 0.3], true);
       // Rooftop decor outside the parapets.

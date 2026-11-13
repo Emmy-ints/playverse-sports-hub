@@ -227,7 +227,14 @@ function newRunner(): Runner {
 }
 
 export function createRace(count: number, seed: number, length: CourseLength | number = "standard"): RaceState {
-  return { t: 0, goAt: COUNTDOWN, phase: "ready", course: createCourse(seed, length), runners: Array.from({ length: count }, newRunner), order: [], overAt: 0, events: [] };
+  // Spread the field across the lanes at the start (player 1 in the middle).
+  const runners = Array.from({ length: count }, (_, i) => {
+    const r = newRunner();
+    r.lane = [1, 0, 2, 1, 0, 2][i % 6]!;
+    r.z = laneZ(r.lane);
+    return r;
+  });
+  return { t: 0, goAt: COUNTDOWN, phase: "ready", course: createCourse(seed, length), runners, order: [], overAt: 0, events: [] };
 }
 
 /** Lanes the runner's body currently overlaps (bit mask). */
