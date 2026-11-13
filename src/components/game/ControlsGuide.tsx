@@ -126,7 +126,16 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
       return {
         name: "Athletics",
         goal: list.length > 1 ? "Compete in every event. Places earn points (1st: 10, 2nd: 8 …) and the most points takes gold." : "Beat the field: fastest time, or the longest mark over three attempts.",
-        sections: list.map((e) => ATHLETICS[e]),
+        // Several events: explain running once, then only what's special about each event.
+        sections: list.length > 1
+          ? [
+              { title: "Running (every event)", keyboard: [RUN_KB], touch: [RUN_TOUCH] },
+              ...list.map((e) => {
+                const sec = ATHLETICS[e];
+                return { ...sec, keyboard: sec.keyboard.filter((r) => r !== RUN_KB), touch: sec.touch.filter((r) => r !== RUN_TOUCH) };
+              }),
+            ]
+          : list.map((e) => ATHLETICS[e]),
         tips: ["In field events, stepping over the board or line is a foul (no mark). Your best attempt counts."],
       };
     }
