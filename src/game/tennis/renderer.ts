@@ -12,6 +12,8 @@ import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
 import { TennisPlayerAnimator } from "./player-anim.ts";
 import { Athlete, athleteBody, loadAthleteAssets, type AthleteAssets } from "../character/athlete.ts";
 import { TennisAthleteAnimator } from "./athlete-anim.ts";
+import { RealCrowd, bakeCrowdAtlas, type CrowdAtlas } from "../character/real-crowd.ts";
+import type { Clip } from "../character/athlete.ts";
 import { COURT } from "./sim.ts";
 import type { CourtTheme } from "./themes.ts";
 
@@ -305,8 +307,16 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     roof: mat({ color: "#121725", gloss: 0.1, noEnv: true }),
   };
 
-  let crowd: Crowd[] = [];
+  (M.strings as pc.StandardMaterial).cull = pc.CULLFACE_NONE;
+  M.strings.update();
+  let crowd: (Crowd | RealCrowd)[] = [];
   let built: pc.Entity | null = null;
+  // Realistic athletes (players, officials, crowd) once their models have loaded.
+  let realAssets: AthleteAssets | null = null;
+  let atlas: CrowdAtlas | null = null;
+  let extras: { ath: Athlete; clip: Clip; t: number; rate: number }[] = [];
+  const LINE_JUDGE: AvatarConfig = { ...UMPIRE, nickname: "Judge", skinTone: "#eac0a0", hairstyle: "buzz", accessory: "cap", outfitColor: "#1d2333" };
+  const BALL_KID: AvatarConfig = { ...UMPIRE, nickname: "Kid", skinTone: "#7a4b2e", hairstyle: "short", accessory: "none", outfitColor: "#2fbf71", genderPresentation: "feminine" };
   const sbCanvas = document.createElement("canvas");
   sbCanvas.width = 512;
   sbCanvas.height = 220;
@@ -319,6 +329,8 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     built?.destroy();
     crowd.forEach((c) => c.destroy());
     crowd = [];
+    extras.forEach((x) => x.ath.destroy());
+    extras = [];
     textures.splice(1).forEach((t) => t.destroy());
     const root = new pc.Entity("venue");
     world.addChild(root);
@@ -354,12 +366,15 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const sideStand = new pc.Entity("side-stands");
     sideStand.setLocalPosition(0, 1.1, 0);
     root.addChild(sideStand);
-    crowd.push(new Crowd(sideStand, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: sideTiers, spacing: hi ? 0.62 : 0.85, fill: 0.85, shadows: false }));
+    const seatMat = mat({ color: "#1b2540", gloss: 0.35 });
+    if (atlas) crowd.push(new RealCrowd(sideStand, atlas, device, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: sideTiers + 2, spacing: hi ? 0.6 : 0.75, fill: 0.9, seats: seatMat }));
+    else crowd.push(new Crowd(sideStand, { innerX: 11.2, zFrom: 17, zTo: -17, tiers: sideTiers, spacing: hi ? 0.62 : 0.85, fill: 0.85, shadows: false }));
     const endStand = new pc.Entity("end-stands");
     endStand.setLocalPosition(0, 1.1, 0);
     endStand.setLocalEulerAngles(0, 90, 0);
     root.addChild(endStand);
-    crowd.push(new Crowd(endStand, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers, spacing: hi ? 0.62 : 0.85, fill: 0.8, shadows: false }));
+    if (atlas) crowd.push(new RealCrowd(endStand, atlas, device, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers + 2, spacing: hi ? 0.6 : 0.75, fill: 0.85, seats: seatMat, seed: 9 }));
+    else crowd.push(new Crowd(endStand, { innerX: 23.5, zFrom: 10, zTo: -10, tiers: endTiers, spacing: hi ? 0.62 : 0.85, fill: 0.8, shadows: false }));
     // Stadium bowl walls behind the crowd.
     for (const s of [1, -1]) {
       add(root, "box", M.dark, [s * (11.6 + sideTiers * 0.55 + 0.6), 3, 0], [0.6, 6 + sideTiers * 0.4, 46], false);
@@ -371,7 +386,29 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     for (const dz of [-0.35, 0.35]) for (const dx of [-0.35, 0.35]) add(root, "box", M.chair, [ux + dx, 0.9, dz], [0.06, 1.8, 0.06]);
     add(root, "box", M.chair, [ux, 1.8, 0], [0.9, 0.12, 0.9]);
     add(root, "box", M.chair, [ux - 0.42, 2.25, 0], [0.08, 0.9, 0.9]);
+    if (realAssets) {
+      const ra = realAssets;
+      const sitHigh = ra.clips["sitHigh"]!, crouch = ra.clips["idle"]!;
+      const ump = new Athlete(ra, root, UMPIRE, { shadows: true });
+      ump.root.setLocalPosition(ux - 0.12, 1.86 - (sitHigh.root[1]! - 0.12), 0);
+      ump.root.setLocalEulerAngles(0, -90, 0);
+      extras.push({ ath: ump, clip: sitHigh, t: 0, rate: 0.6 });
+      // Ball kids crouched at the net posts; line judges at the far corners (high quality only).
+      for (const s of [1, -1]) {
+        const kid = new Athlete(ra, root, BALL_KID, { shadows: true });
+        kid.root.setLocalPosition(s * (COURT.postX + 0.9), 0, s * 0.8);
+        kid.root.setLocalEulerAngles(0, s > 0 ? -100 : 80, 0);
+        extras.push({ ath: kid, clip: crouch, t: Math.random() * 2, rate: 0.7 });
+        if (hi) {
+          const judge = new Athlete(ra, root, LINE_JUDGE, { shadows: true });
+          judge.root.setLocalPosition(s * (DOUBLES_HALF + 2.2), 0, s * (COURT.halfLength + 2.6));
+          judge.root.setLocalEulerAngles(0, s > 0 ? 135 : -45, 0);
+          extras.push({ ath: judge, clip: crouch, t: Math.random() * 2, rate: 0.5 });
+        }
+      }
+    }
     const umpire = createHumanoid(root, UMPIRE, { shadows: true });
+    umpire.root.enabled = !realAssets;
     umpire.root.setLocalPosition(ux - 0.05, 1.86 - 0.9, 0);
     umpire.root.setLocalEulerAngles(0, -90, 0);
     umpire.hipL.setLocalEulerAngles(90, 0, 0);
@@ -430,7 +467,6 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   const anims = humans.map((h) => new TennisPlayerAnimator(h, { frame: M.frame, strings: M.strings, grip: M.grip })) as [TennisPlayerAnimator, TennisPlayerAnimator];
   // Realistic athletes replace the classic characters once their models have loaded.
   let avatars: [AvatarConfig | null, AvatarConfig | null] = [null, null];
-  let realAssets: AthleteAssets | null = null;
   const real: [{ ath: Athlete; anim: TennisAthleteAnimator } | null, { ath: Athlete; anim: TennisAthleteAnimator } | null] = [null, null];
   let destroyed = false;
   const makeReal = (p: 0 | 1) => {
@@ -443,16 +479,19 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     cur?.anim.destroy();
     cur?.ath.destroy();
     const ath = new Athlete(realAssets, app.root, avatars[p], { shadows: true });
-    real[p] = { ath, anim: new TennisAthleteAnimator(ath, realAssets, { frame: M.frame, strings: M.strings, grip: M.grip }) };
+    real[p] = { ath, anim: new TennisAthleteAnimator(ath, realAssets, { frame: M.frame, strings: M.strings, grip: M.grip }, device) };
     humans[p].root.enabled = false;
   };
   if (getGameSettings().graphics === "realistic")
     loadAthleteAssets(app)
-      .then((as) => {
+      .then(async (as) => {
         if (destroyed) return;
         realAssets = as;
         makeReal(0);
         makeReal(1);
+        atlas = await bakeCrowdAtlas(app, as);
+        if (destroyed) return atlas.destroy();
+        build(); // swap in the realistic crowd and officials
       })
       .catch((e) => console.warn("[tennis] realistic athletes unavailable, using classic", e));
 
@@ -478,6 +517,10 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   app.on("update", (dt: number) => {
     elapsed += dt;
     crowd.forEach((c) => c.update(dt));
+    for (const x of extras) {
+      x.t += dt * x.rate;
+      x.ath.pose([{ clip: x.clip, time: x.t, weight: 1 }]);
+    }
     if (!frame) return;
     const f = frame;
     for (const p of [0, 1] as const) {
@@ -569,6 +612,7 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
       destroyed = true;
       ro.disconnect();
       crowd.forEach((c) => c.destroy());
+      atlas?.destroy();
       app.destroy();
     },
   };

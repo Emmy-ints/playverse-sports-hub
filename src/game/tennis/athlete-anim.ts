@@ -16,6 +16,56 @@ export interface TennisAnimInput extends AnimInput {
 const RATE = { fh: 1.25, bh: 1.35, serve: 1.15 } as const;
 const LEAD = 0.14; // seconds of the stroke shown before contact
 
+/** Elliptical racket frame (tube around an ellipse in the XY plane), built once per device. */
+const ringCache = new WeakMap<pc.GraphicsDevice, { ring: pc.Mesh; face: pc.Mesh }>();
+function racketMeshes(device: pc.GraphicsDevice): { ring: pc.Mesh; face: pc.Mesh } {
+  const hit = ringCache.get(device);
+  if (hit) return hit;
+  const A = 0.125, B = 0.16, R = 0.009, SEG = 40, SIDES = 8;
+  const pos: number[] = [], nrm: number[] = [], idx: number[] = [];
+  for (let i = 0; i <= SEG; i++) {
+    const t = (i / SEG) * Math.PI * 2;
+    const cx = Math.cos(t) * A, cy = Math.sin(t) * B;
+    // outward normal of the ellipse in its plane
+    let nx = Math.cos(t) / A, ny = Math.sin(t) / B;
+    const l = Math.hypot(nx, ny);
+    nx /= l;
+    ny /= l;
+    for (let j = 0; j <= SIDES; j++) {
+      const a = (j / SIDES) * Math.PI * 2;
+      const ox = nx * Math.cos(a), oy = ny * Math.cos(a), oz = Math.sin(a) * 0.9;
+      pos.push(cx + ox * R, cy + oy * R, oz * R);
+      nrm.push(ox, oy, oz);
+    }
+  }
+  for (let i = 0; i < SEG; i++)
+    for (let j = 0; j < SIDES; j++) {
+      const a = i * (SIDES + 1) + j, b = a + SIDES + 1;
+      idx.push(a, b, a + 1, a + 1, b, b + 1);
+    }
+  const ring = new pc.Mesh(device);
+  ring.setPositions(pos);
+  ring.setNormals(nrm);
+  ring.setIndices(idx);
+  ring.update(pc.PRIMITIVE_TRIANGLES);
+  // String bed: a flat ellipse just inside the frame (double-sided material).
+  const fp: number[] = [0, 0, 0], fn: number[] = [0, 0, 1], fi: number[] = [];
+  for (let i = 0; i <= SEG; i++) {
+    const t = (i / SEG) * Math.PI * 2;
+    fp.push(Math.cos(t) * (A - R * 0.5), Math.sin(t) * (B - R * 0.5), 0);
+    fn.push(0, 0, 1);
+    if (i > 0) fi.push(0, i, i + 1);
+  }
+  const face = new pc.Mesh(device);
+  face.setPositions(fp);
+  face.setNormals(fn);
+  face.setIndices(fi);
+  face.update(pc.PRIMITIVE_TRIANGLES);
+  const out = { ring, face };
+  ringCache.set(device, out);
+  return out;
+}
+
 const wrap = (d: number) => ((((d + 180) % 360) + 360) % 360) - 180;
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
@@ -37,6 +87,7 @@ export class TennisAthleteAnimator {
     private a: Athlete,
     assets: AthleteAssets,
     mats: { frame: pc.Material; strings: pc.Material; grip: pc.Material },
+    device: pc.GraphicsDevice,
   ) {
     const k = assets.clips;
     this.c = { idle: k["idle"]!, run: k["run"]!, fh: k["fh"]!, bh: k["bh"]!, serve: k["serve"]! };
@@ -73,8 +124,11 @@ export class TennisAthleteAnimator {
     add("cylinder", mats.grip, [0, 0.095, 0], [0.03, 0.19, 0.026]);
     add("cylinder", mats.frame, [0.03, 0.27, 0], [0.014, 0.19, 0.014], [0, 0, 18]);
     add("cylinder", mats.frame, [-0.03, 0.27, 0], [0.014, 0.19, 0.014], [0, 0, -18]);
-    add("torus", mats.frame, [0, 0.52, 0], [0.26, 0.024, 0.33], [90, 0, 0]);
-    add("box", mats.strings, [0, 0.52, 0], [0.22, 0.29, 0.003]);
+    const ring = new pc.Entity("frame");
+    const meshes = racketMeshes(device);
+    ring.addComponent("render", { meshInstances: [new pc.MeshInstance(meshes.ring, mats.frame), new pc.MeshInstance(meshes.face, mats.strings)], castShadows: true, receiveShadows: false });
+    ring.setLocalPosition(0, 0.52, 0);
+    this.racket.addChild(ring);
   }
 
   update(inp: TennisAnimInput, now: number, dt: number) {

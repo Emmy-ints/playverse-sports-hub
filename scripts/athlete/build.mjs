@@ -410,6 +410,8 @@ function clipDefs() {
     { name: "serve", file: "124/124_01", start: 3.25, end: 4.25, mode: "inplace", legsFrom: "idle", contact: 3.72 },
     { name: "cheer", file: "079/79_69", start: 3.6, end: 6.2, mode: "inplace" },
     { name: "sad", file: "079/79_71", start: 1.0, end: 4.0, mode: "inplace" },
+    { name: "sit", file: "013/13_05", start: 3.5, end: 6.5, loop: true, mode: "inplace" },
+    { name: "sitHigh", file: "013/13_01", start: 4.6, end: 7.6, loop: true, mode: "inplace" },
   ];
 }
 
@@ -426,7 +428,7 @@ function buildAnims(b) {
     const frames = r.frames;
     if (d.leftArmFrom || d.legsFrom) {
       const src = results[d.leftArmFrom || d.legsFrom].frames;
-      const re = d.leftArmFrom ? /\.L$/ : /^(upperleg|lowerleg|foot|toe|pelvis)/;
+      const re = d.leftArmFrom ? /\.L$/ : /^(upperleg|lowerleg|foot|toe|pelvis|root)/;
       const re2 = d.leftArmFrom ? /^(clavicle|shoulder01|upperarm|lowerarm|wrist)/ : /./;
       frames.forEach((f, i) => {
         const s = src[i % src.length];

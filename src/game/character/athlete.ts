@@ -246,8 +246,13 @@ export class Athlete {
     this.setGrip("R", 0.35, 0.2);
   }
 
-  /** Blend the given layers (weights need not sum to 1) and pose the skeleton. */
-  pose(layers: Layer[]) {
+  /** Put every mesh of this athlete on the given render layers (e.g. an offscreen bake layer). */
+  setLayers(ids: number[]) {
+    for (const r of this.model.findComponents("render") as pc.RenderComponent[]) r.layers = ids;
+  }
+
+  /** Blend the given layers (weights need not sum to 1) and pose the skeleton. `only` limits which bones are written. */
+  pose(layers: Layer[], only?: (bone: string) => boolean) {
     const B = this.assets.bones.length;
     const acc = this.acc;
     acc.fill(0);
@@ -285,12 +290,12 @@ export class Athlete {
     if (total <= 0) return;
     for (let b = 0; b < B; b++) {
       const e = this.boneEnts[b];
-      if (!e) continue;
+      if (!e || (only && !only(this.assets.bones[b]!))) continue;
       const i = b * 4;
       this.quat.set(acc[i]!, acc[i + 1]!, acc[i + 2]!, acc[i + 3]!).normalize();
       e.setLocalRotation(this.quat);
     }
-    if (this.rootBone) {
+    if (this.rootBone && !only) {
       const s = this.rootScale / total;
       this.rootBone.setLocalPosition(this.accRoot[0]! * s, this.accRoot[1]! * s, this.accRoot[2]! * s);
     }
