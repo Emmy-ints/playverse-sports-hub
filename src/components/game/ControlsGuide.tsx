@@ -176,7 +176,7 @@ export function ControlsGuideBody({ sport, events, compact }: { sport: GuideSpor
           </button>
         ))}
       </div>
-      <div className={cn("mt-3 space-y-3", !compact && "max-h-[50dvh] overflow-y-auto pr-1")}>
+      <div className={cn("mt-3 space-y-3", !compact && "max-h-[46dvh] overflow-y-auto overscroll-contain pr-1 [@media(max-height:480px)]:max-h-none")}>
         {g.sections.map((s, i) => (
           <div key={i}>
             {s.title && <p className="mb-1.5 text-xs font-bold uppercase tracking-wider text-[#ffb35c]">{s.title}</p>}
@@ -202,7 +202,7 @@ export function ControlsGuideBody({ sport, events, compact }: { sport: GuideSpor
 
 function Panel({ sport, children, onClose, title }: { sport: GuideSport; children: ReactNode; onClose?: () => void; title: string }) {
   return (
-    <div className="glass relative w-full max-w-lg rounded-3xl p-5 shadow-2xl animate-rise sm:p-6" role="dialog" aria-modal="true" aria-labelledby="controls-guide-title">
+    <div className="glass relative m-auto w-full max-w-lg rounded-3xl p-4 shadow-2xl animate-rise sm:p-6" role="dialog" aria-modal="true" aria-labelledby="controls-guide-title">
       {onClose && (
         <button type="button" onClick={onClose} className="absolute right-3 top-3 rounded-full p-1.5 text-white/70 hover:bg-white/10 hover:text-white" aria-label="Close guide">
           <X className="size-5" aria-hidden />
@@ -241,7 +241,7 @@ export function ControlsGate({ sport, events, children, startLabel = "I'm ready 
   }, [ready]);
   if (ready) return <>{children}</>;
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[radial-gradient(ellipse_at_top,#1b2550,#05060d_70%)] p-4 pt-safe pb-safe">
+    <div className="fixed inset-0 z-40 flex overflow-y-auto bg-[radial-gradient(ellipse_at_top,#1b2550,#05060d_70%)] p-3 pt-safe pb-safe sm:p-4">
       <Panel sport={sport} title={guideFor(sport, events).name}>
         <ControlsGuideBody sport={sport} events={events} />
         <GameButton ref={btn} variant="hot" size="lg" className="mt-5 w-full" onClick={() => setReady(true)}>{startLabel}</GameButton>
@@ -274,7 +274,7 @@ export function ControlsHelpButton({ sport, events, className }: { sport: GuideS
         <HelpCircle className="size-5" aria-hidden />
       </button>
       {open && (
-        <div className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+        <div className="pointer-events-auto fixed inset-0 z-50 flex overflow-y-auto bg-black/60 p-3 sm:p-4" onPointerDown={(e) => e.target === e.currentTarget && setOpen(false)}>
           <Panel sport={sport} title={guideFor(sport, events).name} onClose={() => setOpen(false)}>
             <ControlsGuideBody sport={sport} events={events} />
             <GameButton variant="hot" className="mt-4 w-full" onClick={() => setOpen(false)}>Back to the game</GameButton>
