@@ -15,7 +15,15 @@ export const REALTIME_URL: string = import.meta.env["VITE_REALTIME_URL"] ?? "htt
 
 export function warmRealtimeServer() {
   if (typeof window === "undefined") return;
-  fetch(`${REALTIME_URL}/health`, { cache: "no-store" }).catch(() => {});
+  // A short-lived WebSocket wakes a sleeping server (plain fetches can be blocked by some browsers/extensions).
+  try {
+    const ws = new WebSocket(REALTIME_URL.replace(/^http/, "ws") + "/play");
+    ws.onopen = () => ws.close();
+    ws.onerror = () => {};
+    setTimeout(() => ws.readyState === WebSocket.CONNECTING && ws.close(), 60_000);
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function startRealtimeMatch(matchId: string) {
