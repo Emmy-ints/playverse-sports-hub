@@ -68,6 +68,13 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Umpire calls (browser speech), synthesised racket/bounce sounds, applause and "ooh"s.
 - Practice (`/play/tennis`) vs Rookie/Pro/Champion AI. Online 1v1 (`/match/tennis/$matchId`) from the lobby, server-authoritative at 60 Hz with 30 Hz snapshots; results, ratings, XP, coins, `tennis_ace` achievement, notifications; rematch.
 
+### Milestone 8 — Racing
+- Three circuits built from splines: Neon City Circuit (night streets), Coastal Ridge (seaside sweepers), Valley Ring (countryside hairpin and esses).
+- Car handling: engine and gears feel, drag, braking and reverse, tyre grip with slides, handbrake drifts, slower on grass, bouncing off tyre walls, car-to-car contact; laps, best laps, live positions, wrong-way warning, "back on track" reset when stuck; AI drivers that brake for corners using track curvature.
+- 3D: asphalt with racing line, red/white kerbs on corners, branded tyre walls (neon at night), start gantry with chequered line, grandstand with fans, city towers with lit windows and street lights / palms, rocks and sea / trees and hills; detailed cars (spinning and steering wheels, brake lights, headlights, driver helmet in the player's kit colour), tyre smoke, chase camera that tightens at speed; engine with gear changes, tyre squeal, impacts, start lights and beeps; HUD with position, lap, timer, last/best lap, speed and a live minimap.
+- Controls: keyboard (W/S/A/D or arrows, Space drift, R reset) and touch (steer buttons, gas, brake, drift; auto-gas on phones).
+- Practice (`/play/racing`): circuit, 1/3/5 laps, 1/3/5 AI drivers, Rookie/Pro/Champion, car colour. Online 1v1 (`/match/racing/$matchId`) from the lobby on the real-time game server, settled by `realtime_settle_racing` (ratings, XP, coins, `racing_podium`, best lap per track).
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 
@@ -81,6 +88,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - None confirmed. Code was written outside Lovable without a local dependency install; Lovable's build is the typecheck. See Test results.
 
 ## Blockers / setup needed
+- The Render game server does **not** redeploy automatically on push (the repo is connected by URL, without Render's GitHub app). After changing `server/realtime` or the shared game code, trigger a deploy on Render (dashboard "Manual Deploy" or the Render tool). Connecting the repo through Render's GitHub app would make it automatic.
 - Supabase dashboard → Authentication → URL Configuration: set Site URL and add the preview URL to Redirect URLs (see docs/SUPABASE.md), otherwise confirmation/reset emails link to localhost.
 - Custom SMTP before launch (default Supabase email is rate-limited).
 
@@ -92,7 +100,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - **Bowling (turn-based) is fully online and server-authoritative** via the `bowling-throw` edge function — no separate game server needed.
 - **Golf (turn-based) is fully online and server-authoritative** via the `golf-shot` edge function.
 - **Tennis is fully online** on the real-time game server (Render).
-- Racing will use the same server (next).
+- **Racing is fully online** on the same server.
 - Online tennis has no client-side prediction of your own movement yet: with ~300 ms latency your player responds a beat late. Auto-run and armed shots keep it playable.
 
 ## Test results
@@ -112,6 +120,8 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Tennis: scoring tests + AI self-play on every surface (`src/test/tennis.test.ts`) — matches finish, average rally 5–8 shots, clay longest, grass shortest, mix of winners/outs/nets.
 - Real-time server self-test (`server/realtime/selftest.ts`, mock database): foreign origins, bad tokens and non-participants rejected; seats by slot; 500 junk messages ignored; real points played over WebSockets; disconnect → forfeit settled once; winner told the result was saved — all passed.
 - Live test against Render + Supabase (Chrome, preview): lowlog vs a temporary QA bot — server welcomed both, points played (aces, winners), scoreboard and umpire calls updated, the bot disconnected, after 30 s the server settled a forfeit win: match completed, verified_by `server:realtime`, rating +16/−16, `tennis_ace` granted. QA user, match and all stat changes removed afterwards.
+- Racing: track and AI-field tests (`src/test/racing.test.ts`) — every circuit finishes, lap times 30–40 s, no impossible corners, malformed input rejected. Racing server self-test (`server/realtime/selftest-racing.ts`): two clients race a full lap over WebSockets, the faster driver is settled as the winner.
+- Live racing test against Render + Supabase: lowlog vs a temporary QA bot on Neon City — countdown, driving at 115 km/h online, bot disconnected, forfeit win settled (rating +16/−16, `racing_podium`, stats). QA user, match and stat changes removed afterwards.
 - Syntax check of all new files: passed.
 - `vitest run`, `tsc` and `vite build`: **not yet run** (dependencies could not be installed in the authoring environment). Run in Lovable / CI to confirm.
 
@@ -119,7 +129,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- **Milestone 8 — Racing** on the same real-time server. Then: own-player prediction for online tennis, match history page, Milestone 9 (competitive ecosystem) and 10 (PWA).
+- Own-movement prediction for online tennis and racing, match history page, Milestone 9 (leaderboards, rankings, tournaments) and Milestone 10 (installable PWA).
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
