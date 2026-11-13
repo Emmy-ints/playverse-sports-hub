@@ -227,6 +227,9 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
   // Pull-and-release swing on the Swing button: drag down to load power, then flick up to strike.
   // A straight flick is pure; drifting left/right as you flick draws or fades (same as an early/late tap).
   const pull = useRef<{ id: number; y0: number; pulling: boolean; pts: { x: number; t: number }[] } | null>(null);
+  // Live phase for gesture handlers (pointer events can arrive before React re-renders).
+  const phaseRef = useRef(phase);
+  phaseRef.current = phase;
   const onSwingDown = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture?.(e.pointerId);
@@ -235,7 +238,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
   };
   const onSwingMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const p = pull.current;
-    if (!p || p.id !== e.pointerId || phase !== "power") return;
+    if (!p || p.id !== e.pointerId || (phaseRef.current !== "power" && meterStart.current === null)) return;
     const dy = e.clientY - p.y0;
     if (!p.pulling && dy > 12) p.pulling = true;
     if (p.pulling) {
@@ -250,7 +253,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
     e.stopPropagation();
     const p = pull.current;
     pull.current = null;
-    if (!p?.pulling || phase !== "power" || meterStart.current === null) return releaseSwing();
+    if (!p?.pulling || meterStart.current === null) return releaseSwing();
     lockedPower.current = Math.max(0.02, Math.min(1, (performance.now() - meterStart.current) / 1100));
     if (club === "putter") {
       meterStart.current = null;
