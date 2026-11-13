@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { BottomTabBar, SideNav } from "@/components/game/AppNav";
 import { TopBar } from "@/components/game/TopBar";
+import { LiveSync } from "@/lib/realtime";
 
 export const Route = createFileRoute("/_game")({ component: GameLayout });
 
@@ -13,6 +14,7 @@ function GameLayout() {
         <main><Outlet /></main>
       </div>
       <BottomTabBar />
+      <LiveSync />
     </div>
   );
 }

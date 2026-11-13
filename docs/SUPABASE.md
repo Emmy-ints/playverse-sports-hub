@@ -41,6 +41,18 @@ Verified with SQL tests (rolled back): a signed-in player could not raise their 
 rating or wins, write match results, edit another player's profile, read audit logs, or file a
 report as someone else; editing their own display name worked.
 
+## Social & lobby (Milestone 3)
+
+- All social actions go through security-definer RPCs (`send_friend_request`, `respond_friend_request`,
+  `cancel_friend_request`, `remove_friend`, `block_player`, `unblock_player`, `report_player`,
+  `create_match_invitation`, `respond_match_invitation`, `cancel_match_invitation`, `leave_lobby`,
+  `mark_notifications_read`). Clients cannot write those tables directly.
+- Match formats are validated server-side by `normalize_match_config`.
+- Realtime publication: notifications, friend_requests, match_invitations, matches. (`friendships` and
+  `match_participants` are excluded because Realtime does not apply RLS to DELETE events.)
+- Lobby channels `lobby:<match uuid>` are **private**: RLS on `realtime.messages` only lets the match's
+  active participants subscribe or send presence.
+
 ## Schema
 
 The applied SQL is in `docs/database/`. Apply changes with new migrations in the Supabase
