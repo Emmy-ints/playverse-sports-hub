@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_game/rankings")({
 });
 
 const SCOPES: { id: Scope; label: string }[] = [
-  { id: "overall", label: "Overall" }, { id: "tennis", label: "Tennis" }, { id: "bowling", label: "Bowling" }, { id: "golf", label: "Golf" }, { id: "racing", label: "Racing" },
+  { id: "overall", label: "Overall" }, { id: "tennis", label: "Tennis" }, { id: "bowling", label: "Bowling" }, { id: "golf", label: "Golf" }, { id: "racing", label: "Racing" }, { id: "athletics", label: "Athletics" },
 ];
 const MEDAL = ["", "🥇", "🥈", "🥉"];
 

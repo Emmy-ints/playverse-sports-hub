@@ -40,6 +40,19 @@ export const MATCH_FORMATS = {
     defaultMode: "race",
     defaultLength: 3,
   },
+  athletics: {
+    modes: [
+      { id: "championship", label: "Championship", hint: "All four events, points for every placing" },
+      { id: "sprint100", label: "100m Dash", hint: "One flat-out sprint" },
+      { id: "hurdles110", label: "110m Hurdles", hint: "Ten hurdles, perfect rhythm" },
+      { id: "longjump", label: "Long Jump", hint: "Three attempts, best counts" },
+      { id: "javelin", label: "Javelin", hint: "Three throws, best counts" },
+    ],
+    lengths: [1],
+    unit: () => "",
+    defaultMode: "championship",
+    defaultLength: 1,
+  },
 } as const satisfies Record<SportId, { modes: readonly { id: string; label: string; hint: string }[]; lengths: readonly number[]; unit: (n: number) => string; defaultMode: string; defaultLength: number }>;
 
 export const matchConfigSchema = z.object({
