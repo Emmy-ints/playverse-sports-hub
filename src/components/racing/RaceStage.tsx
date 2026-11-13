@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Loader2, Monitor, RotateCcw, Smartphone, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Monitor, RotateCcw, Smartphone, Video, Volume2, VolumeX } from "lucide-react";
 import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { RaceAudio } from "@/game/racing/audio";
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
-import { useGameSettings } from "@/lib/game-settings";
+import { getGameSettings, setGameSettings, useGameSettings } from "@/lib/game-settings";
 
 export interface RaceResultRow { car: number; name: string; time: number | null; best: number; color: string }
 
@@ -55,6 +55,12 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   const keys = useRef(new Set<string>());
   const touchIn = useRef({ left: false, right: false, gas: false, brake: false, drift: false });
   const steer = useRef(0);
+  /** Analog steering from the wheel or tilt (-1..1), null when not in use. */
+  const analog = useRef<number | null>(null);
+  const wheelEl = useRef<HTMLDivElement>(null);
+  const wheelTouch = useRef<{ id: number; x: number } | null>(null);
+  const [tiltState, setTiltState] = useState<"off" | "need-permission" | "on" | "unavailable">("off");
+  const tiltZero = useRef<number | null>(null);
   const autoGasRef = useRef(false);
   autoGasRef.current = autoGas;
   const lastLap = useRef(0);
@@ -125,6 +131,11 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       keys.current.add(norm(e));
       audioRef.current?.unlock();
       if (norm(e) === "r" && !e.repeat) driver.reset();
+      if (norm(e) === "c" && !e.repeat) {
+        const order = ["chase", "close", "bonnet", "cockpit"] as const;
+        const cur = getGameSettings().raceView;
+        setGameSettings({ raceView: order[(order.indexOf(cur) + 1) % order.length]! });
+      }
     };
     const up = (e: KeyboardEvent) => keys.current.delete(norm(e));
     const blur = () => keys.current.clear();
@@ -149,10 +160,17 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       const K = keys.current, T = touchIn.current;
       const left = K.has("ArrowLeft") || K.has("a") || T.left;
       const right = K.has("ArrowRight") || K.has("d") || T.right;
-      const target = (right ? 1 : 0) - (left ? 1 : 0);
-      // Keyboard steering ramps in and recentres quickly, like a real wheel.
-      const rate = target === 0 ? 7 : Math.sign(target) !== Math.sign(steer.current) ? 9 : 3.2;
-      steer.current += Math.max(-rate * dt, Math.min(rate * dt, target - steer.current));
+      const digital = (right ? 1 : 0) - (left ? 1 : 0);
+      if (analog.current !== null && digital === 0) {
+        // Wheel / tilt: follow the thumb closely (a touch of smoothing removes jitter).
+        steer.current += (analog.current - steer.current) * (1 - Math.exp(-dt * 18));
+      } else {
+        // Keys and buttons ramp in and recentre quickly, like a real wheel.
+        const target = digital;
+        const rate = target === 0 ? 7 : Math.sign(target) !== Math.sign(steer.current) ? 9 : 3.2;
+        steer.current += Math.max(-rate * dt, Math.min(rate * dt, target - steer.current));
+      }
+      if (wheelEl.current) wheelEl.current.style.transform = `rotate(${steer.current * 110}deg)`;
       const brake = K.has("ArrowDown") || K.has("s") || T.brake ? 1 : 0;
       const gas = K.has("ArrowUp") || K.has("w") || T.gas || (autoGasRef.current && !brake) ? 1 : 0;
       driver.input({ steer: steer.current, throttle: gas, brake, handbrake: K.has(" ") || T.drift });
@@ -222,6 +240,80 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
     onPointerLeave: () => (touchIn.current[k] = false),
   });
 
+  // Tilt steering (phone as a wheel), from gravity so it works the same on Android and iPhone.
+  useEffect(() => {
+    if (settings.steering !== "tilt" || !touch) {
+      if (settings.steering !== "tilt") analog.current = null;
+      setTiltState("off");
+      return;
+    }
+    const DM = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } }).DeviceMotionEvent;
+    if (!DM) {
+      setTiltState("unavailable");
+      return;
+    }
+    if (typeof DM.requestPermission === "function" && tiltState !== "on") {
+      setTiltState("need-permission");
+      return;
+    }
+    setTiltState("on");
+    tiltZero.current = null;
+    const on = (e: DeviceMotionEvent) => {
+      const g = e.accelerationIncludingGravity;
+      if (!g || g.x === null || g.y === null) return;
+      const angle = (screen.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) as number;
+      // In landscape the screen's horizontal axis is the device's y axis.
+      let raw = angle === 90 ? -(g.y ?? 0) : angle === 270 || angle === -90 ? (g.y ?? 0) : (g.x ?? 0);
+      if (getGameSettings().tiltInvert) raw = -raw;
+      if (tiltZero.current === null) tiltZero.current = raw;
+      const range = 5.5 - getGameSettings().camSensitivity * 2.5; // m/s² of tilt for full lock
+      analog.current = Math.max(-1, Math.min(1, (raw - tiltZero.current) / range));
+    };
+    window.addEventListener("devicemotion", on);
+    return () => {
+      window.removeEventListener("devicemotion", on);
+      analog.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.steering, touch, tiltState === "on"]);
+  const enableTilt = async () => {
+    const DM = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } }).DeviceMotionEvent;
+    try {
+      const r = await DM?.requestPermission?.();
+      setTiltState(r === "granted" ? "on" : "unavailable");
+    } catch {
+      setTiltState("unavailable");
+    }
+  };
+
+  // Virtual steering wheel: drag sideways; lets go → recentres.
+  const wheelRange = () => (95 - getGameSettings().camSensitivity * 45) * getGameSettings().buttonScale;
+  const onWheelDown = (e: RPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    wheelTouch.current = { id: e.pointerId, x: e.clientX };
+    analog.current = 0;
+    audioRef.current?.unlock();
+  };
+  const onWheelMove = (e: RPointerEvent<HTMLDivElement>) => {
+    const w = wheelTouch.current;
+    if (!w || w.id !== e.pointerId) return;
+    analog.current = Math.max(-1, Math.min(1, (e.clientX - w.x) / wheelRange()));
+  };
+  const onWheelUp = (e: RPointerEvent<HTMLDivElement>) => {
+    if (wheelTouch.current?.id !== e.pointerId) return;
+    wheelTouch.current = null;
+    analog.current = 0;
+    setTimeout(() => {
+      if (!wheelTouch.current && settings.steering === "wheel") analog.current = null;
+    }, 250);
+  };
+  const cycleView = () => {
+    const order = ["chase", "close", "bonnet", "cockpit"] as const;
+    setGameSettings({ raceView: order[(order.indexOf(settings.raceView) + 1) % order.length]! });
+  };
+  const leftHand = settings.hand === "left";
+
   return (
     <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
       <RotateHint />
@@ -255,6 +347,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
           <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
           <button type="button" onClick={() => setAutoGas((v) => !v)} aria-pressed={autoGas} className={cn("glass rounded-full px-3 py-2 text-xs font-bold text-white", autoGas && "ring-2 ring-[#3dff9a]")}>Auto-gas {autoGas ? "on" : "off"}</button>
+          <button type="button" onClick={cycleView} className="glass flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold capitalize text-white" aria-label={`Camera: ${settings.raceView}. Switch view.`}><Video className="size-4" aria-hidden />{settings.raceView === "close" ? "Close" : settings.raceView}</button>
+          <GameSettingsButton racing />
           <ControlsHelpButton sport="racing" />
           <FullscreenButton landscape />
           {topRight}
@@ -281,19 +375,49 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
 
       {phase === "ready" && !hud.finished && (touch ? (
         <>
-          <div className="absolute bottom-4 left-4 flex gap-3 pb-safe">
-            <button type="button" aria-label="Steer left" {...hold("left")} className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-white/15 text-white active:bg-white/35"><ChevronLeft className="size-10" /></button>
-            <button type="button" aria-label="Steer right" {...hold("right")} className="flex size-20 items-center justify-center rounded-full border border-white/20 bg-white/15 text-white active:bg-white/35"><ChevronRight className="size-10" /></button>
+          {/* Steering (left thumb; right for left-handers). */}
+          <div className={cn("absolute bottom-safe flex items-end gap-3", leftHand ? "right-safe" : "left-safe")}>
+            {settings.steering === "wheel" && (
+              <div onPointerDown={onWheelDown} onPointerMove={onWheelMove} onPointerUp={onWheelUp} onPointerCancel={onWheelUp}
+                className="ctl-xl relative flex items-center justify-center rounded-full border-[6px] border-white/45 bg-black/25 backdrop-blur-sm" role="slider" aria-label="Steering wheel: drag left or right" aria-valuemin={-1} aria-valuemax={1} aria-valuenow={0}>
+                <div ref={wheelEl} className="absolute inset-1 rounded-full">
+                  <span className="absolute left-1/2 top-0 h-3 w-1.5 -translate-x-1/2 rounded-full bg-[#ff7a1a]" />
+                  <span className="absolute inset-x-2 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/50" />
+                  <span className="absolute bottom-2 left-1/2 top-1/2 w-1.5 -translate-x-1/2 rounded-full bg-white/50" />
+                </div>
+              </div>
+            )}
+            {settings.steering === "buttons" && (
+              <>
+                <button type="button" aria-label="Steer left" {...hold("left")} className="ctl-lg flex items-center justify-center rounded-full border border-white/20 bg-white/15 text-white active:bg-white/35"><ChevronLeft className="size-10" /></button>
+                <button type="button" aria-label="Steer right" {...hold("right")} className="ctl-lg flex items-center justify-center rounded-full border border-white/20 bg-white/15 text-white active:bg-white/35"><ChevronRight className="size-10" /></button>
+              </>
+            )}
+            {settings.steering === "tilt" && (
+              <div className="glass rounded-2xl px-3 py-2 text-xs text-white">
+                {tiltState === "need-permission" ? (
+                  <button type="button" onClick={enableTilt} className="font-bold underline">Tap to allow tilt steering</button>
+                ) : tiltState === "unavailable" ? (
+                  <span>Tilt isn't available on this device — pick Wheel in settings.</span>
+                ) : (
+                  <span className="flex items-center gap-2">Tilt to steer
+                    <button type="button" className="rounded-full bg-white/20 px-2 py-0.5 font-bold" onClick={() => (tiltZero.current = null)}>Re-centre</button>
+                    <button type="button" className="rounded-full bg-white/20 px-2 py-0.5 font-bold" onClick={() => setGameSettings({ tiltInvert: !settings.tiltInvert })}>Invert</button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
-          <div className="absolute bottom-4 right-4 flex items-end gap-3 pb-safe">
-            <button type="button" {...hold("drift")} className="size-16 rounded-full bg-[#8b5cf6]/80 font-display text-sm font-bold uppercase text-white">Drift</button>
-            <button type="button" {...hold("brake")} className="size-20 rounded-full bg-[#b4233a]/85 font-display text-base font-bold uppercase text-white">Brake</button>
-            {!autoGas && <button type="button" {...hold("gas")} className="size-24 rounded-full bg-[#1f9d55]/85 font-display text-lg font-bold uppercase text-white">Gas</button>}
+          {/* Pedals (right thumb; left for left-handers). Each is its own touch, so steer + gas + drift work together. */}
+          <div className={cn("absolute bottom-safe flex items-end gap-3", leftHand ? "left-safe flex-row-reverse" : "right-safe")}>
+            <button type="button" {...hold("drift")} className="ctl-sm rounded-full bg-[#8b5cf6]/80 font-display text-xs font-bold uppercase text-white active:scale-95">Drift</button>
+            <button type="button" {...hold("brake")} className="ctl-lg rounded-full bg-[#b4233a]/85 font-display text-sm font-bold uppercase text-white active:scale-95">Brake</button>
+            {!autoGas && <button type="button" {...hold("gas")} className="ctl-xl rounded-full bg-[#1f9d55]/85 font-display text-lg font-bold uppercase text-white active:scale-95">Gas</button>}
           </div>
         </>
       ) : (
-        <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-black/50 px-3 py-2 text-xs text-white/80">
-          Drive: W / ↑ · Brake & reverse: S / ↓ · Steer: A D / ← → · Drift: Space · Back on track: R
+        <div className="pointer-events-none absolute bottom-4 left-safe rounded-xl bg-black/50 px-3 py-2 text-xs text-white/80">
+          Drive: W / ↑ · Brake & reverse: S / ↓ · Steer: A D / ← → · Drift: Space · Back on track: R · Camera: C
         </div>
       ))}
 

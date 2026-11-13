@@ -5,6 +5,7 @@
  * brake lights and headlights, tyre smoke, and a chase camera. Visual only.
  */
 import * as pc from "playcanvas";
+import { camLiveliness, getGameSettings } from "@/lib/game-settings";
 import type { RaceState } from "./sim.ts";
 import { RACE_THEMES, type RaceTheme } from "./themes.ts";
 import { buildTrack, nearest, type Track, type TrackDef } from "./track.ts";
@@ -179,6 +180,8 @@ interface CarView {
   brake: pc.StandardMaterial;
   body: pc.StandardMaterial;
   helmet: pc.StandardMaterial;
+  helmetE: pc.Entity;
+  wheel: pc.Entity;
   spin: number;
 }
 
@@ -435,7 +438,15 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     add(root, "box", black, [0, 1.12, 2.0], [1.7, 0.06, 0.4]); // wing
     add(root, "box", black, [-0.6, 0.95, 2.0], [0.06, 0.3, 0.3]);
     add(root, "box", black, [0.6, 0.95, 2.0], [0.06, 0.3, 0.3]);
-    add(root, "sphere", helmetMat, [0, 0.95, 0.1], [0.32, 0.32, 0.34], false);
+    const helmetE = add(root, "sphere", helmetMat, [0, 0.95, 0.1], [0.32, 0.32, 0.34], false);
+    // Dashboard and steering wheel (seen from the cockpit camera).
+    add(root, "box", black, [0, 0.78, -0.5], [1.4, 0.1, 0.3], false);
+    const wheel = new pc.Entity();
+    wheel.setLocalPosition(0, 0.84, -0.32);
+    wheel.setLocalEulerAngles(-65, 0, 0);
+    root.addChild(wheel);
+    add(wheel, "cylinder", black, [0, 0, 0], [0.34, 0.03, 0.34], false);
+    add(wheel, "box", body, [0, 0.02, 0], [0.3, 0.02, 0.05], false);
     for (const x of [-0.65, 0.65]) {
       add(root, "box", head, [x, 0.52, -2.21], [0.42, 0.1, 0.05], false);
       add(root, "box", brake, [x, 0.6, 2.21], [0.45, 0.1, 0.05], false);
@@ -453,7 +464,7 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       wheels.push(spin);
       if (z < 0) fronts.push(steerPivot);
     }
-    return { root, wheels, fronts, brake, body, helmet: helmetMat, spin: 0 };
+    return { root, wheels, fronts, brake, body, helmet: helmetMat, helmetE, wheel, spin: 0 };
   };
   for (let i = 0; i < cars; i++) carViews.push(makeCar(["#e11d48", "#2f7bff", "#f2c230", "#2fbf71", "#ff7a1a", "#e8eaf0"][i % 6]!, "#ffffff"));
   // Player headlights (only the viewer's car, to keep lights cheap).
@@ -496,6 +507,7 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       v.spin += (fwd / 0.34) * dt * (180 / Math.PI);
       v.wheels.forEach((w) => w.setLocalEulerAngles(-v.spin, 0, 0));
       v.fronts.forEach((f) => f.setLocalEulerAngles(0, (-c.steer * 180) / Math.PI, 0));
+      v.wheel.setLocalEulerAngles(-65, 0, (c.steer * 180 * 2.5) / Math.PI);
       const braking = c.input.brake > 0.1 && fwd > 1;
       v.brake.emissive = braking ? new pc.Color(1, 0.05, 0.05) : new pc.Color(0.25, 0, 0);
       v.brake.update();
@@ -517,35 +529,74 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       if (p.life <= 0) p.e.setPosition(0, -10, 0);
     }
 
-    // Chase camera.
+    // Camera: chase (default), close chase, bonnet or cockpit, chosen in Controls & Camera settings.
     const me = s.cars[viewer];
     if (me) {
+      const settings = getGameSettings();
+      const live = camLiveliness(settings);
+      const view = settings.raceView;
       const portrait = canvas.clientHeight > canvas.clientWidth;
       const fx = Math.sin(me.h), fz = -Math.cos(me.h);
       const speed = Math.hypot(me.vx, me.vz);
-      const back = (portrait ? 7.5 : 6.2) + speed * 0.02;
-      const up = portrait ? 3.1 : 2.3;
+      const cam = camera.camera!;
+      const inside = (view === "bonnet" || view === "cockpit") && s.phase !== "finished" && !me.finished;
+      const mine = carViews[viewer];
+      if (mine) mine.helmetE.enabled = !(inside && view === "cockpit");
+      // Brief, gentle reaction to impacts (no shake), fading in half a second.
+      const bump = Math.max(0, 1 - (s.t - me.hit) / 0.5) * live;
       if (s.phase === "finished" || me.finished) {
         const a = elapsed * 0.3;
         want.set(me.x + Math.sin(a) * 9, 3.5, me.z + Math.cos(a) * 9);
         wantLook.set(me.x, 0.8, me.z);
+        const k = 1 - Math.exp(-dt * 3);
+        camPos.lerp(camPos, want, k);
+        camLook.lerp(camLook, wantLook, k);
+        camera.setPosition(camPos);
+        camera.lookAt(camLook);
+        cam.fov += ((portrait ? 72 : 58) - cam.fov) * k;
+      } else if (inside) {
+        // Rigidly attached to the car: no lag, so steering stays precise.
+        // Bonnet: above the front of the car; cockpit: the driver's eyes (helmet hidden).
+        const fwd = view === "bonnet" ? 0.95 : -0.05, upOff = view === "bonnet" ? 1.12 : 0.98;
+        camPos.set(me.x + fx * fwd, upOff + bump * 0.04, me.z + fz * fwd);
+        camLook.set(me.x + fx * 30, 0.9 - me.input.brake * 0.15 * live, me.z + fz * 30);
+        camera.setPosition(camPos);
+        camera.lookAt(camLook);
+        cam.fov = (portrait ? 78 : view === "cockpit" ? 70 : 64) + (settings.camMode === "steady" ? 0 : Math.min(6, speed * 0.06));
       } else {
-        // Follow the direction of travel a little (shows slides), not just the nose.
-        const vl = Math.max(1, speed);
-        const dx = speed > 3 ? fx * 0.7 + (me.vx / vl) * 0.3 : fx, dz = speed > 3 ? fz * 0.7 + (me.vz / vl) * 0.3 : fz;
-        want.set(me.x - dx * back, up, me.z - dz * back);
-        wantLook.set(me.x + fx * 6, 1.1, me.z + fz * 6);
+        const close = view === "close";
+        // Pull back with speed; look a little into the coming corner, not just along the nose.
+        const back = (close ? (portrait ? 5.4 : 4.3) : portrait ? 7.5 : 6.2) + live * Math.min(2.2, speed * 0.035);
+        const up = close ? (portrait ? 2.4 : 1.65) : portrait ? 3.1 : 2.3;
+        const n = track.n;
+        const ahead = (me.idx + Math.round(8 + speed * 0.2)) % n;
+        const tx = track.x[ahead]! - me.x, tz = track.z[ahead]! - me.z;
+        const tl = Math.max(1, Math.hypot(tx, tz));
+        const corner = 0.3 * live;
+        const lx = fx * (1 - corner) + (tx / tl) * corner, lz = fz * (1 - corner) + (tz / tl) * corner;
+        if (s.phase === "countdown") {
+          want.set(me.x - fx * back, up, me.z - fz * back);
+          wantLook.set(me.x + fx * 6, 1.1, me.z + fz * 6);
+        } else {
+          // Show the slide angle a little when drifting (follow travel direction partly).
+          const vl = Math.max(1, speed);
+          const slide = speed > 3 ? 0.3 * live : 0;
+          const dx = fx * (1 - slide) + (me.vx / vl) * slide, dz = fz * (1 - slide) + (me.vz / vl) * slide;
+          want.set(me.x - dx * back, up + bump * 0.15, me.z - dz * back);
+          wantLook.set(me.x + lx * 7, 1.1, me.z + lz * 7);
+        }
+        // Lead the target by the car's velocity so smoothing never leaves the camera behind.
+        const rate = s.phase === "countdown" ? 2 : close ? 13 : 10;
+        if (s.phase === "racing") want.set(want.x + me.vx / rate, want.y, want.z + me.vz / rate);
+        const k = 1 - Math.exp(-dt * rate);
+        camPos.lerp(camPos, want, k);
+        camLook.lerp(camLook, wantLook, Math.min(1, k * (settings.camMode === "steady" ? 1 : 1.6)));
+        camPos.y = Math.max(camPos.y, 0.8); // never below the road
+        camera.setPosition(camPos);
+        camera.lookAt(camLook);
+        const target = (portrait ? 72 : close ? 62 : 58) + (settings.camMode === "steady" ? 0 : Math.min(10, speed * 0.1));
+        cam.fov += (target - cam.fov) * (1 - Math.exp(-dt * 4));
       }
-      // Lead the target by the car's velocity so the smoothing doesn't leave the camera far behind at speed.
-      const rate = s.phase === "countdown" ? 2 : 10;
-      if (s.phase === "racing" && !me.finished) want.set(want.x + me.vx / rate, want.y, want.z + me.vz / rate);
-      const k = 1 - Math.exp(-dt * rate);
-      camPos.lerp(camPos, want, k);
-      camLook.lerp(camLook, wantLook, Math.min(1, k * 1.6));
-      camera.setPosition(camPos);
-      camera.lookAt(camLook);
-      const cam = camera.camera!;
-      cam.fov = (portrait ? 72 : 58) + Math.min(10, speed * 0.1);
       if (lights.parent !== carViews[viewer]?.root) {
         lights.parent?.removeChild(lights);
         carViews[viewer]?.root.addChild(lights);

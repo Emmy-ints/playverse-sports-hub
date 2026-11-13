@@ -22,6 +22,8 @@ export interface GameSettings {
   raceView: RaceView;
   /** Suggest turning the phone sideways in portrait. */
   landscapeHint: boolean;
+  /** Tilt steering feels reversed on some phones. */
+  tiltInvert: boolean;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
@@ -33,6 +35,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   steering: "wheel",
   raceView: "chase",
   landscapeHint: true,
+  tiltInvert: false,
 };
 
 const KEY = "pv.gameSettings.v1";
