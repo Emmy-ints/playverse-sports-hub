@@ -225,6 +225,14 @@ export class Athlete {
     }
   }
 
+  /** Recolour one material slot (skin, hair, kit_top, kit_bottom, socks, shoe, sole, accessory). */
+  setColor(slot: string, hex: string) {
+    const m = this.mats[slot];
+    if (!m) return;
+    m.diffuse = color(hex);
+    m.update();
+  }
+
   /** Curl the fingers (0 = open, 1 = fist) of one hand; persists until changed. */
   setGrip(side: "L" | "R", amount: number, thumb = amount) {
     const h = this.assets.rig.hand[side];

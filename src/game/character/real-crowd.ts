@@ -8,11 +8,12 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { HAIR_COLORS, KIT_COLORS, SKIN_TONES } from "@/lib/avatar";
 import { Athlete, type AthleteAssets } from "./athlete.ts";
 
-const COLS = 8;
+const COLS = 12;
 const ROWS = 4; // rows 0-1 seated, rows 2-3 the same people cheering
-const PEOPLE = 16;
+const PEOPLE = 24;
 const CELL_W = 0.8;
 const CELL_H = 1.6;
+const PANTS = ["#1f2a44", "#2b3a55", "#3b4a6b", "#1d2333", "#4a3b2a", "#2f2f33", "#55606e", "#e8e2d0"];
 const SHIRTS = [...KIT_COLORS, "#8b5cf6", "#ef4444", "#0ea5e9", "#f4f4f4", "#334155", "#b91c1c"];
 
 export interface CrowdAtlas {
@@ -32,7 +33,7 @@ export function bakeCrowdAtlas(app: pc.AppBase, assets: AthleteAssets, seed = 7)
   const device = app.graphicsDevice;
   const size = device.maxTextureSize >= 2048 && Math.min(window.innerWidth, window.innerHeight) >= 700 ? 2048 : 1024;
   const texture = new pc.Texture(device, {
-    name: "crowd-atlas", width: size, height: size, format: pc.PIXELFORMAT_RGBA8, mipmaps: true,
+    name: "crowd-atlas", width: size, height: Math.round((size * ROWS * CELL_H) / (COLS * CELL_W)), format: pc.PIXELFORMAT_RGBA8, mipmaps: true,
     minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR, addressU: pc.ADDRESS_CLAMP_TO_EDGE, addressV: pc.ADDRESS_CLAMP_TO_EDGE,
   });
   const rt = new pc.RenderTarget({ colorBuffer: texture, depth: true, samples: 4 });
@@ -43,7 +44,7 @@ export function bakeCrowdAtlas(app: pc.AppBase, assets: AthleteAssets, seed = 7)
   const cam = new pc.Entity("crowd-bake-cam");
   cam.addComponent("camera", {
     projection: pc.PROJECTION_ORTHOGRAPHIC, orthoHeight: (ROWS * CELL_H) / 2, clearColor: new pc.Color(0, 0, 0, 0),
-    layers: [layer.id], renderTarget: rt, nearClip: 0.1, farClip: 50, priority: -10, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB,
+    layers: [layer.id], renderTarget: rt, nearClip: 0.1, farClip: 50, priority: -10, toneMapping: pc.TONEMAP_LINEAR, gammaCorrection: pc.GAMMA_SRGB,
   });
   // Looking at the fans from the court, slightly from above (like the broadcast camera).
   cam.setPosition((COLS * CELL_W) / 2, (ROWS * CELL_H) / 2 + 1.2, -12);
@@ -59,7 +60,7 @@ export function bakeCrowdAtlas(app: pc.AppBase, assets: AthleteAssets, seed = 7)
   root.addChild(fill);
 
   const rand = rng(seed);
-  const sit = assets.clips["sit"]!;
+  const sit = assets.clips["sitHigh"]!;
   const cheer = assets.clips["cheer"]!;
   const people: Athlete[] = [];
   for (let i = 0; i < PEOPLE * 2; i++) {
@@ -72,11 +73,13 @@ export function bakeCrowdAtlas(app: pc.AppBase, assets: AthleteAssets, seed = 7)
       outfitColor: pk(SHIRTS) as AvatarConfig["outfitColor"], shoes: "runner", shoeColor: pk(KIT_COLORS), accessory: r2() < 0.18 ? "cap" : "none",
     };
     const a = new Athlete(assets, root, cfg, { shadows: false });
+    a.setColor("kit_bottom", pk(PANTS));
+    a.setColor("socks", pk(["#f4f4f4", "#1d2333", "#f4f4f4"]));
     a.setLayers([layer.id]);
     const col = p % COLS;
     const row = Math.floor(p / COLS) + (i >= PEOPLE ? 2 : 0);
     // Cell origin (bottom centre); model faces −Z (toward the camera).
-    a.root.setPosition(col * CELL_W + CELL_W / 2, (ROWS - 1 - row) * CELL_H + 0.06, 0);
+    a.root.setPosition(col * CELL_W + CELL_W / 2, (ROWS - 1 - row) * CELL_H + 0.02, 0);
     a.root.setEulerAngles(0, (rand() - 0.5) * 24, 0);
     a.pose([{ clip: sit, time: rand() * sit.duration, weight: 1 }]);
     if (i >= PEOPLE) a.pose([{ clip: cheer, time: 1.0 + rand() * 0.6, weight: 1 }], (b) => UPPER.test(b));
@@ -138,7 +141,7 @@ export class RealCrowd {
           if (rand() > opts.fill) continue;
           const s = 0.92 + rand() * 0.14;
           this.fans.push({
-            i: 0, cell: Math.floor(rand() * PEOPLE), x: x + (rand() - 0.5) * 0.06, y: floor, z: z + (rand() - 0.5) * 0.12,
+            i: 0, cell: Math.floor(rand() * PEOPLE), x: x + (rand() - 0.5) * 0.06, y: floor - 0.4, z: z + (rand() - 0.5) * 0.12,
             ax: 0, az: side < 0 ? -1 : 1, w: CELL_W * s, h: CELL_H * s, phase: rand() * Math.PI * 2, excite: 0, cheering: false,
           });
         }
@@ -168,7 +171,7 @@ export class RealCrowd {
     m.useLighting = false;
     m.useSkybox = false;
     m.diffuse = new pc.Color(0, 0, 0);
-    m.emissive = new pc.Color(0.92, 0.92, 0.92);
+    m.emissive = new pc.Color(0.82, 0.82, 0.82);
     m.emissiveMap = atlas.texture;
     m.opacityMap = atlas.texture;
     m.opacityMapChannel = "a";

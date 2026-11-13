@@ -499,6 +499,27 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   const ball = add(app.root, "sphere", M.ball, [0, 1, 0], [BALL_D, BALL_D, BALL_D], true);
   const shadow = add(app.root, "cylinder", M.shadow, [0, 0.005, 0], [0.12, 0.002, 0.12], false);
 
+  // Effects: bounce marks (long-lived on clay), dust puffs, and a flash where the racket meets the ball.
+  const fxRoot = new pc.Entity("fx");
+  app.root.addChild(fxRoot);
+  const clay = theme.surface === "clay";
+  const markMat = mat({ color: clay ? "#8a4325" : theme.surface === "grass" ? "#5c7a3a" : "#ffffff", opacity: clay ? 0.55 : 0.14, noEnv: true });
+  const puffMat = mat({ color: clay ? "#c8714a" : theme.surface === "grass" ? "#9fc27a" : "#e9eef5", opacity: 0.4, noEnv: true });
+  const flashMat = mat({ color: "#ffffff", emissive: "#fff6c8", opacity: 0.7, noEnv: true });
+  (flashMat as pc.StandardMaterial).blendType = pc.BLEND_ADDITIVE;
+  flashMat.update();
+  const marks: { e: pc.Entity; life: number }[] = [];
+  const puffs: { e: pc.Entity; life: number; max: number; vx: number; vy: number; vz: number; grow: number }[] = [];
+  const spawnPuff = (x: number, y: number, z: number, n: number, m: pc.Material, speed: number, size: number, life: number) => {
+    for (let i = 0; i < n; i++) {
+      const e = add(fxRoot, "sphere", m, [x, y, z], [size, size, size], false);
+      const a = Math.random() * Math.PI * 2;
+      puffs.push({ e, life, max: life, vx: Math.cos(a) * speed, vy: speed * (0.4 + Math.random() * 0.6), vz: Math.sin(a) * speed, grow: size * 3 });
+    }
+  };
+  let lastVy = 0;
+  let lastVz = 0;
+
   // Broadcast camera behind the viewer's baseline.
   const camera = new pc.Entity("camera");
   camera.addComponent("camera", { fov: 46, nearClip: 0.1, farClip: 400, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
@@ -536,6 +557,41 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const sz = 0.1 + hgt * 0.02;
     shadow.setPosition(b.x - theme.sunDir[0] * hgt * 0.15, 0.006, b.z - theme.sunDir[2] * hgt * 0.15);
     shadow.setLocalScale(sz, 0.002, sz);
+    // Bounce: vertical velocity flips upward near the ground.
+    if (lastVy < -0.5 && b.vy > 0 && b.y < 0.35 && f.phase === "rally") {
+      const mk = add(fxRoot, "cylinder", markMat, [b.x, 0.004, b.z], [0.09, 0.001, clay ? 0.22 : 0.16], false);
+      mk.setLocalEulerAngles(0, (Math.atan2(b.vx, b.vz) * 180) / Math.PI, 0);
+      marks.push({ e: mk, life: clay ? 30 : 2.5 });
+      if (marks.length > (clay ? 24 : 6)) marks.shift()!.e.destroy();
+      spawnPuff(b.x, 0.05, b.z, clay ? 7 : 3, puffMat, clay ? 0.9 : 0.5, clay ? 0.07 : 0.04, clay ? 0.9 : 0.4);
+    }
+    // Racket contact: the ball reverses direction along the court.
+    if (Math.sign(b.vz) !== Math.sign(lastVz) && Math.abs(b.vz) > 4 && Math.abs(lastVz) > 0.5 && b.y > 0.3) spawnPuff(b.x, b.y, b.z, 1, flashMat, 0, 0.12, 0.12);
+    lastVy = b.vy;
+    lastVz = b.vz;
+    for (let i = puffs.length - 1; i >= 0; i--) {
+      const p = puffs[i]!;
+      p.life -= dt;
+      if (p.life <= 0) {
+        p.e.destroy();
+        puffs.splice(i, 1);
+        continue;
+      }
+      const pos = p.e.getLocalPosition();
+      p.vy -= dt * 0.8;
+      p.e.setLocalPosition(pos.x + p.vx * dt, Math.max(0.02, pos.y + p.vy * dt), pos.z + p.vz * dt);
+      const sc = p.e.getLocalScale().x + p.grow * dt;
+      p.e.setLocalScale(sc, sc, sc);
+    }
+    for (let i = marks.length - 1; i >= 0; i--) {
+      const m = marks[i]!;
+      m.life -= dt;
+      if (m.life <= 0) {
+        m.e.destroy();
+        marks.splice(i, 1);
+      }
+    }
+    if (f.phase === "serve" && !clay) while (marks.length) marks.pop()!.e.destroy();
     const speed = Math.hypot(b.vx, b.vz);
     trail.push(ball.getPosition().clone());
     if (trail.length > 7) trail.shift();
