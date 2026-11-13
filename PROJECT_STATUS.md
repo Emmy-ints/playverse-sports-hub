@@ -106,6 +106,14 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Before every practice game starts, a "How to play" screen shows the goal and controls (Keyboard / Touch tabs, auto-picked by device); Enter/Space or the button starts the game.
 - Online: the guide is shown in the match lobby and on the "waiting for opponent" screen; a ? button in every game opens it any time (it doesn't pause online play). The Help page has every sport's controls plus FAQs.
 
+### Visual transformation — tennis benchmark (realistic athletes)
+- Realistic human athletes (male/female) built from **MakeHuman CC0** body, skeleton and skin weights, dressed with generated kit (shirt, shorts, socks, lofted shoes), six hair styles, cap/headband/wristbands, eyes, brows and skin detail. Colours follow each player's avatar (skin, hair, kit, shoes, accessory; neutral picks a body from the nickname).
+- Motion from the **CMU motion-capture database** (free for any use), retargeted offline onto the MakeHuman skeleton: ready stance, run, walk, forehand, one-handed backhand, serve (pitch upper body on grounded legs), cheer, dejection, two seated poses. Runtime mixer in `src/game/character/athlete.ts` blends clips per bone; tennis timing puts each stroke's contact frame on the simulation's contact time (`src/game/tennis/athlete-anim.ts`). Gameplay, physics, scoring and multiplayer are unchanged (animation reads the same state online and offline).
+- Tennis venue: realistic crowd (24 athlete models baked once into a seated/cheering card atlas, ~1.5k fans in one draw call, cheering on points), seated umpire, crouching ball kids, line judges (high quality), deeper stands, concrete bowl, cantilevered roof with light strips, ball bounce marks (clay marks persist), clay dust, contact flash, proper racket frame/string bed.
+- Settings → Graphics: Realistic (default) / Classic. Falls back to classic characters if the models fail to load.
+- Asset pipeline (Node, no dependencies): `scripts/athlete/` (see its README); outputs `public/assets/athletes/` (~1.1 MB per body + 0.24 MB animations). Credits in `public/assets/athletes/CREDITS.txt`.
+- Next: user review of the benchmark, then roll out to racing, bowling, golf, athletics, parkour.
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 

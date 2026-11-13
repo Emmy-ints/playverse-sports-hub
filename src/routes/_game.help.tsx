@@ -29,6 +29,7 @@ const FAQ: { q: string; a: string }[] = [
   { q: "What happens if I lose connection?", a: "Open the match lobby again and press Rejoin. In live games (tennis, racing, athletics, parkour), if you stay away too long the match is awarded to your opponent." },
   { q: "Do practice games count?", a: "No. Practice is for learning and fun: nothing is ranked or saved." },
   { q: "It runs slowly on my phone.", a: "Tap the screen/monitor icon in any game to switch to Lite graphics." },
+  { q: "Who made the athletes' bodies and motion?", a: "Bodies come from MakeHuman (CC0). Movement is real motion capture from the CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu; created with funding from NSF EIA-0196217). You can switch to the classic characters in game settings → Graphics." },
   { q: "Can I install it like an app?", a: "Yes, from the Install page. It then opens full-screen from your home screen." },
 ];
 
