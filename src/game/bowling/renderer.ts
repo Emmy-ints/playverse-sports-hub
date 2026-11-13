@@ -382,7 +382,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       const cf = new CF(app, camera.camera);
       cf.rendering["toneMapping"] = pc.TONEMAP_ACES;
       cf.rendering["samples"] = 4;
-      cf.bloom["intensity"] = 0.025;
+      cf.bloom["intensity"] = 0.008;
       cf.bloom["blurLevel"] = 14;
       cf.update();
       cameraFrame = cf;

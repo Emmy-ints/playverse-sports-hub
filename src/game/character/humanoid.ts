@@ -136,7 +136,12 @@ export function createHumanoid(parent: pc.Entity, config: AvatarConfig | null, o
     // Torso and pelvis.
     add(hips, "capsule", pants, [0, 0, 0], [0.3 * hipW, 0.26, 0.2]);
     add(spine, "capsule", shirt, [0, 0.25, 0], [0.4 * broad, 0.56, 0.24]);
-    if (c.outfit === "jersey") add(spine, "box", accent, [0, 0.27, -0.118], [0.1, 0.12, 0.004]);
+    if (c.outfit === "jersey") {
+      const white = material("#f2f2f2", 0.3);
+      mats.push(white);
+      add(spine, "box", white, [0, 0.36, -0.002], [0.41 * broad, 0.035, 0.25]); // chest stripe
+      add(spine, "box", white, [0, 0.3, -0.002], [0.41 * broad, 0.015, 0.25]);
+    }
     if (c.outfit === "polo") add(spine, "box", accent, [0, 0.46, -0.1], [0.12, 0.05, 0.02]);
     if (c.outfit === "track") {
       add(spine, "box", accent, [-0.12 * broad, 0.25, -0.1], [0.018, 0.48, 0.02]);

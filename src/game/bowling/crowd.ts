@@ -33,7 +33,7 @@ export class Crowd {
     this.root = new pc.Entity("crowd");
     parent.addChild(this.root);
     const rand = rng(42);
-    const mat = (hex: string, gloss = 0.3) => {
+    const mat = (hex: string, gloss = 0.12) => {
       const key = hex + gloss;
       let m = this.mats.get(key);
       if (!m) {
@@ -42,6 +42,7 @@ export class Crowd {
         m.diffuse = new pc.Color(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
         m.useMetalness = true;
         m.gloss = gloss;
+        m.useSkybox = false; // matte fabric: no studio reflections (keeps bloom off the crowd)
         m.update();
         this.mats.set(key, m);
       }
@@ -71,8 +72,8 @@ export class Crowd {
           root.setLocalEulerAngles(0, side < 0 ? -90 + (rand() - 0.5) * 30 : 90 + (rand() - 0.5) * 30, 0); // face the lanes
           this.root.addChild(root);
           const shirt = mat(SHIRTS[Math.floor(rand() * SHIRTS.length)]!);
-          const skin = mat(SKIN[Math.floor(rand() * SKIN.length)]!, 0.35);
-          const hair = mat(HAIR[Math.floor(rand() * HAIR.length)]!, 0.4);
+          const skin = mat(SKIN[Math.floor(rand() * SKIN.length)]!, 0.2);
+          const hair = mat(HAIR[Math.floor(rand() * HAIR.length)]!, 0.2);
           const scale = 0.9 + rand() * 0.2;
           root.setLocalScale(scale, scale, scale);
           add(root, "capsule", mat("#1d2333"), [0, 0.06, -0.15], [0.26, 0.14, 0.4]); // lap/legs
