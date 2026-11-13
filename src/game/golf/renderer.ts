@@ -6,6 +6,8 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid } from "../character/humanoid.ts";
+import { applyCinematic } from "../shared/cinematic.ts";
+import { addSurfaceDetail } from "../shared/surface.ts";
 import { heightAt, normalAt, surfaceAt, waterLevel, type CourseTheme, type Hole } from "./course.ts";
 import { GolferAnimator, IMPACT_T } from "./golfer.ts";
 import type { ClubId, ShotResult } from "./sim.ts";
@@ -174,7 +176,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
     leaf: stdMat({ color: "#3d7a2e", gloss: 0.15, noEnv: true }),
     leaf2: stdMat({ color: "#4f8f36", gloss: 0.15, noEnv: true }),
     palm: stdMat({ color: "#4f9a3a", gloss: 0.2, noEnv: true }),
-    water: stdMat({ color: "#16465a", gloss: 0.95, clearCoat: 1, opacity: 0.88 }),
+    water: addSurfaceDetail(stdMat({ color: "#16465a", gloss: 0.95, clearCoat: 1, opacity: 0.88 }), device, "water", [8, 8], quality, 0.6),
     pole: stdMat({ color: "#f4f4f4", gloss: 0.6 }),
     flag: stdMat({ color: theme.night ? "#ff7a1a" : "#e11d48", gloss: 0.3, emissive: theme.night ? "#ff7a1a" : "#000000" }),
     cup: stdMat({ color: "#050505", gloss: 0.1, noEnv: true }),
@@ -203,6 +205,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
   const camera = new pc.Entity("camera");
   camera.addComponent("camera", { fov: 55, nearClip: 0.1, farClip: 2500, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
   app.root.addChild(camera);
+  let fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.1 });
   const camPos = new pc.Vec3(0, 60, -200);
   const camTarget = new pc.Vec3(0, 0, 0);
   const desiredPos = new pc.Vec3();
@@ -261,7 +264,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
     const tex = new pc.Texture(device, { width: mapCanvas.width, height: mapCanvas.height, format: pc.PIXELFORMAT_RGBA8, mipmaps: true, minFilter: pc.FILTER_LINEAR_MIPMAP_LINEAR, magFilter: pc.FILTER_LINEAR });
     tex.setSource(mapCanvas);
     tex.anisotropy = 8;
-    const groundMat = stdMat({ map: tex, gloss: 0.18 });
+    const groundMat = addSurfaceDetail(stdMat({ map: tex, gloss: 0.18 }), device, "grass", [W / 1.5, H / 1.5], quality, 0.9);
     const ground = new pc.Entity("terrain");
     ground.addComponent("render", { meshInstances: [new pc.MeshInstance(mesh, groundMat)], castShadows: false, receiveShadows: true });
     holeRoot.addChild(ground);
@@ -455,10 +458,13 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
       quality = q;
       device.maxPixelRatio = q === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25);
       if (hole) buildHole(hole);
+      fx.destroy();
+      fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night ? 0.01 : 0.004, saturation: 1.1 });
       resize();
     },
     destroy() {
       ro.disconnect();
+      fx.destroy();
       app.destroy();
     },
   };

@@ -5,6 +5,8 @@
 import * as pc from "playcanvas";
 import { BALL, GUTTER_OUTER, HALF_LANE, HEAD_PIN_Z, LANE, PIN_PROFILE, PIN_SPOTS, PIT_EDGE_Z, type ThrowInput } from "./constants.ts";
 import type { SimResult } from "./sim.ts";
+import { applyCinematic } from "../shared/cinematic.ts";
+import { addSurfaceDetail } from "../shared/surface.ts";
 import { ballSwirl, carpet, laneGloss, laneWood, maskingSign, maskingSignEmissive, pinDecal } from "./textures.ts";
 import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid } from "../character/humanoid.ts";
@@ -197,6 +199,10 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   const wallMat = std({ noEnv: true, diffuse: hex("#0d1120"), gloss: 0.3 });
   const darkMat = std({ noEnv: true, diffuse: hex("#06070c"), gloss: 0.2 });
   const carpetMat = std({ noEnv: true, diffuseMap: canvasTexture(device, carpet(), true), tiling: [6, 3], gloss: 0.05 });
+  // Fine wood grain and carpet weave on top of the painted maps.
+  addSurfaceDetail(laneMat, device, "wood", [1, laneLen / 1.5], quality, 0.35);
+  addSurfaceDetail(approachMat, device, "wood", [1, 1.5], quality, 0.4);
+  addSurfaceDetail(carpetMat, device, "fabric", [60, 30], quality, 0.8);
   const pinMat = std({ diffuseMap: canvasTexture(device, pinDecal()), gloss: 0.88, clearCoat: 1, clearCoatGloss: 0.95 });
   const ballMat = std({ diffuseMap: canvasTexture(device, ballSwirl()), gloss: 0.9, metalness: 0.1, clearCoat: 1, clearCoatGloss: 0.97 });
   const holeMat = std({ noEnv: true, diffuse: hex("#020203"), gloss: 0.2 });
@@ -367,29 +373,10 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   root.addChild(camera);
 
   // Glow (bloom) on capable devices, when this engine version provides CameraFrame.
-  let cameraFrame: { destroy?: () => void } | null = null;
+  let cameraFrame: { destroy: () => void } | null = null;
   const enableGlow = (on: boolean) => {
-    try {
-      cameraFrame?.destroy?.();
-      cameraFrame = null;
-      const CF = (pc as unknown as Record<string, unknown>)["CameraFrame"] as (new (a: pc.AppBase, c: pc.CameraComponent) => {
-        rendering: Record<string, unknown>;
-        bloom: Record<string, unknown>;
-        update: () => void;
-        destroy?: () => void;
-      }) | undefined;
-      if (!on || !CF || !camera.camera) return;
-      const cf = new CF(app, camera.camera);
-      cf.rendering["toneMapping"] = pc.TONEMAP_ACES;
-      cf.rendering["samples"] = 4;
-      cf.bloom["intensity"] = 0.008;
-      cf.bloom["blurLevel"] = 14;
-      cf.update();
-      cameraFrame = cf;
-    } catch (e) {
-      console.warn("[bowling] glow unavailable", e);
-      cameraFrame = null;
-    }
+    cameraFrame?.destroy();
+    cameraFrame = camera.camera ? applyCinematic(app, camera.camera, on ? "high" : "low", { bloom: 0.008, vignette: 0.4 }) : null;
   };
   enableGlow(quality === "high");
   const camPos = new pc.Vec3(0.4, 1.95, START_Z + 2.7);

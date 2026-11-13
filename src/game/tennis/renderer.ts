@@ -9,6 +9,8 @@ import type { AvatarConfig } from "@/lib/avatar";
 import { Crowd } from "../bowling/crowd.ts";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
 import { TennisPlayerAnimator } from "./player-anim.ts";
+import { applyCinematic } from "../shared/cinematic.ts";
+import { addSurfaceDetail } from "../shared/surface.ts";
 import { COURT } from "./sim.ts";
 import type { CourtTheme } from "./themes.ts";
 
@@ -324,8 +326,9 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     // Court surface.
     const courtTex = canvasTexture(device, paintCourt(theme, quality === "high" ? 48 : 30));
     textures.push(courtTex);
-    add(root, "plane", mat({ map: courtTex, gloss: theme.surface === "hard" || theme.surface === "indoor" ? 0.42 : 0.12 }), [0, 0, 0], [AREA_X * 2, 1, AREA_Z * 2], false);
-    add(root, "plane", mat({ color: theme.runoff, gloss: 0.15, noEnv: true }), [0, -0.01, 0], [120, 1, 140], false);
+    const kind = theme.surface === "clay" ? "clay" : theme.surface === "grass" ? "grass" : "acrylic";
+    add(root, "plane", addSurfaceDetail(mat({ map: courtTex, gloss: theme.surface === "hard" || theme.surface === "indoor" ? 0.42 : 0.12 }), device, kind, [AREA_X * 2 * 1.5, AREA_Z * 2 * 1.5], quality, kind === "grass" ? 0.8 : 0.6), [0, 0, 0], [AREA_X * 2, 1, AREA_Z * 2], false);
+    add(root, "plane", addSurfaceDetail(mat({ color: theme.runoff, gloss: 0.15, noEnv: true }), device, kind === "clay" ? "clay" : "grass", [120, 140], quality, 0.6), [0, -0.01, 0], [120, 1, 140], false);
 
     // Net, posts and the centre strap.
     const netTex = canvasTexture(device, netCanvas());
@@ -433,6 +436,7 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   const camera = new pc.Entity("camera");
   camera.addComponent("camera", { fov: 46, nearClip: 0.1, farClip: 400, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
   app.root.addChild(camera);
+  let fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night || theme.roof ? 0.01 : 0.005 });
   let viewer: 0 | 1 = 0;
   const camPos = new pc.Vec3(0, 14, 34);
   const camTarget = new pc.Vec3(0, 0, 0);
@@ -520,10 +524,13 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
       quality = q;
       device.maxPixelRatio = ratio();
       build();
+      fx.destroy();
+      fx = applyCinematic(app, camera.camera!, quality, { bloom: theme.night || theme.roof ? 0.01 : 0.005 });
       resize();
     },
     destroy() {
       ro.disconnect();
+      fx.destroy();
       crowd.forEach((c) => c.destroy());
       app.destroy();
     },
