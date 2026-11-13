@@ -12,7 +12,7 @@ interface Section { title?: string; keyboard: Row[]; touch: Row[] }
 interface Guide { name: string; goal: string; sections: Section[]; tips: string[] }
 
 const RUN_KB: Row = { keys: ["←", "→"], action: "Run: press the lit arrow, alternating left and right (A / D also work). A steady rhythm is faster than mashing." };
-const RUN_TOUCH: Row = { keys: ["◀", "▶"], action: "Run: tap the glowing pad, alternating left and right, in a steady rhythm." };
+const RUN_TOUCH: Row = { keys: ["◀ left thumb", "▶ right thumb"], action: "Run: tap the glowing pad, left and right thumbs in turn. Keep a steady rhythm: the light under the action button says Great / Too fast / Faster." };
 
 const ATHLETICS: Record<AthleticsEvent, Section> = {
   sprint100: {
@@ -23,7 +23,7 @@ const ATHLETICS: Record<AthleticsEvent, Section> = {
   hurdles110: {
     title: "110m Hurdles",
     keyboard: [RUN_KB, { keys: ["Space", "↑"], action: "Jump: press just before each hurdle. Clipping one slows you down." }],
-    touch: [RUN_TOUCH, { keys: ["Jump"], action: "Tap Jump just before each hurdle." }],
+    touch: [RUN_TOUCH, { keys: ["Jump (middle)"], action: "Tap the middle button just before each hurdle." }],
   },
   longjump: {
     title: "Long Jump",

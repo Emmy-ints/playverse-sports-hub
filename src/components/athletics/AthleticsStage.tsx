@@ -7,7 +7,7 @@ import type { AthleticsView, Quality } from "@/game/athletics/renderer";
 import { EVENTS, placings, type EventId, type EventState, type Key } from "@/game/athletics/sim";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
-import { useTouchMode } from "@/lib/input-mode";
+import { buzz, useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
 import { useGameSettings } from "@/lib/game-settings";
@@ -273,11 +273,26 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
     return () => clearTimeout(t);
   }, [banner]);
 
+  // Rhythm feedback from the gap between your taps (the sim rewards ~0.08–0.45 s; mashing is penalised).
+  const lastTapAt = useRef(0);
+  const [rhythm, setRhythm] = useState<"good" | "fast" | "slow" | null>(null);
+  const rhythmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const noteTap = () => {
+    const now = performance.now() / 1000;
+    const gap = now - lastTapAt.current;
+    lastTapAt.current = now;
+    if (gap > 2) return;
+    setRhythm(gap < 0.075 ? "fast" : gap > 0.45 ? "slow" : "good");
+    if (rhythmTimer.current) clearTimeout(rhythmTimer.current);
+    rhythmTimer.current = setTimeout(() => setRhythm(null), 900);
+  };
   const pad = (key: Key) => ({
     onPointerDown: (e: RPointerEvent) => {
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
       press(key, true);
+      if (key !== "A") noteTap();
+      buzz(6);
     },
     onPointerUp: () => key === "A" && press("A", false),
     onPointerCancel: () => key === "A" && press("A", false),
@@ -314,6 +329,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
       <div className="absolute right-3 top-3 flex max-w-[62vw] flex-wrap justify-end gap-2 pt-safe">
         <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
         <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
+        <GameSettingsButton />
         <ControlsHelpButton sport="athletics" events={[event]} />
         <FullscreenButton />
         {topRight}
@@ -369,14 +385,26 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
       {/* Controls */}
       {phase === "ready" && (touch ? (
         <>
-          <div className="absolute bottom-4 left-4 flex gap-3 pb-safe">
-            <button type="button" aria-label="Left" {...pad("L")} className="flex size-20 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white active:bg-white/40"><ChevronLeft className="size-10" /></button>
-            <button type="button" aria-label="Right" {...pad("R")} className="flex size-20 items-center justify-center rounded-full border border-white/25 bg-white/15 text-white active:bg-white/40"><ChevronRight className="size-10" /></button>
-          </div>
-          {event !== "sprint100" && (
-            <button type="button" {...pad("A")} className="absolute bottom-4 right-4 size-24 rounded-full bg-[#ff7a1a]/90 font-display text-lg font-black uppercase text-white shadow-lg active:scale-95 pb-safe">
-              {event === "hurdles110" ? "Jump" : event === "longjump" ? "Jump" : "Throw"}
+          {/* LEFT thumb · ACTION · RIGHT thumb. The pad to press next glows; the rhythm light says if your pace is right. */}
+          {(["L", "R"] as const).map((k) => (
+            <button key={k} type="button" aria-label={k === "L" ? "Left" : "Right"} {...pad(k)}
+              className={cn("ctl-xl absolute bottom-safe flex items-center justify-center rounded-full border-2 text-white transition-[background,box-shadow,transform] duration-75 active:scale-95",
+                k === "L" ? "left-safe" : "right-safe",
+                hud.live && hud.prompt === k && !hud.aiming ? "border-white bg-[#ff7a1a]/80 shadow-[0_0_28px_#ff7a1a]" : "border-white/25 bg-white/12")}>
+              {k === "L" ? <ChevronLeft className="size-12" /> : <ChevronRight className="size-12" />}
             </button>
+          ))}
+          {event !== "sprint100" && (
+            <button type="button" {...pad("A")} className={cn("ctl-lg absolute bottom-safe left-1/2 -translate-x-1/2 rounded-full font-display text-base font-black uppercase text-white shadow-lg active:scale-95",
+              hud.aiming ? "bg-[#ffd23f] text-black ring-4 ring-white" : "bg-[#8b5cf6]/90")}>
+              {hud.aiming ? "Release!" : event === "hurdles110" ? "Jump" : event === "longjump" ? "Jump" : "Throw"}
+            </button>
+          )}
+          {hud.live && rhythm && (
+            <p className={cn("pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-black uppercase", event === "sprint100" ? "bottom-[calc(var(--safe-bottom)+2rem)]" : "bottom-[calc(var(--safe-bottom)+var(--ctl,1)*clamp(5rem,20vmin,8rem))]",
+              rhythm === "good" ? "bg-[#2fbf71] text-white" : rhythm === "fast" ? "bg-[#ff7a1a] text-white" : "bg-white/80 text-black")} aria-live="polite">
+              {rhythm === "good" ? "Great rhythm" : rhythm === "fast" ? "Too fast — steady!" : "Faster!"}
+            </p>
           )}
         </>
       ) : (

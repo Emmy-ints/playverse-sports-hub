@@ -5,6 +5,7 @@
  * screen and finish-line clock, real-photo sky — plus the athletes and broadcast cameras.
  */
 import * as pc from "playcanvas";
+import { camLiveliness } from "@/lib/game-settings";
 import type { AvatarConfig } from "@/lib/avatar";
 import { Crowd } from "../bowling/crowd.ts";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
@@ -475,15 +476,19 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
           want.set(sx + 8, 1.3, -2.5);
           wantLook.set(sx, 0.6, W / 2 + 0.5);
         } else if (s.phase === "over" || me.phase === "done") {
-          want.set(p.x + 6, 2.2, -4);
-          wantLook.set(p.x - 2, 1.2, W / 2 + 1);
+          // Finish: frame the finish line and the runners coming through it.
+          const fin = worldOf(s.event, EVENTS[s.event].length, 0).x;
+          want.set(fin + 5, 2.4, -4.5);
+          wantLook.set(fin - 3, 1.2, W / 2 + 1);
         } else {
           // Tracking camera along the home straight (like TV): side-on, slightly ahead.
           const lead = Math.max(...s.athletes.map((a) => worldOf(s.event, a.x, 0).x));
           const fx = p.x * 0.75 + lead * 0.25;
           // Infield rail camera looking out at the runners with the packed grandstand behind them.
-          want.set(fx - (portrait ? 5 : 3), portrait ? 4.2 : 2.4, portrait ? -8 : -4.5);
-          wantLook.set(fx + (portrait ? 3 : 5), 1.4, W + 2);
+          // Hurdles: sit a little further ahead so the next hurdle is always in view.
+          const ahead = s.event === "hurdles110" ? 3 * camLiveliness() : 0;
+          want.set(fx - (portrait ? 5 : 3) + ahead, portrait ? 4.2 : 2.4, portrait ? -8 : -4.5);
+          wantLook.set(fx + (portrait ? 3 : 5) + ahead * 1.5, 1.4, W + 2);
         }
       } else {
         const flying = me.phase === "flight";
