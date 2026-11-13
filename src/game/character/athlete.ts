@@ -188,7 +188,7 @@ export class Athlete {
       socks: mk(0.1, { cull: pc.CULLFACE_NONE, diffuse: new pc.Color(0.95, 0.95, 0.95) }),
       shoe: mk(0.55, { clearCoat: 0.25, clearCoatGloss: 0.7 }),
       sole: mk(0.35, { diffuse: new pc.Color(0.94, 0.94, 0.92) }),
-      hair: mk(0.55, { diffuseMap: orig["hair"]?.diffuseMap ?? null, cull: pc.CULLFACE_NONE, twoSidedLighting: true }),
+      hair: mk(0.5, { cull: pc.CULLFACE_NONE, twoSidedLighting: true, sheen: new pc.Color(0.3, 0.28, 0.25), sheenGloss: 0.55 }),
       accessory: mk(0.15, { cull: pc.CULLFACE_NONE }),
     };
     for (const r of renders)

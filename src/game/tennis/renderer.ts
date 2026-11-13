@@ -531,6 +531,9 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
   const wantT = new pc.Vec3();
 
   let frame: ViewFrame | null = null;
+  // QA handle: lets testers inspect the scene (camera override, athletes) from the console.
+  const debug = { app, camera, freeze: false, real: () => real };
+  if (typeof window !== "undefined") (window as unknown as { __playverseTennis?: typeof debug }).__playverseTennis = debug;
   const trail: pc.Vec3[] = [];
   const trailColor = new pc.Color(0.95, 1, 0.6, 1);
   let elapsed = 0;
@@ -623,8 +626,10 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const k = 1 - Math.exp(-dt * (f.phase === "matchOver" ? 1.5 : 3));
     camPos.lerp(camPos, want, k);
     camTarget.lerp(camTarget, wantT, k);
-    camera.setPosition(camPos);
-    camera.lookAt(camTarget);
+    if (!debug.freeze) {
+      camera.setPosition(camPos);
+      camera.lookAt(camTarget);
+    }
   });
 
   const resize = () => {
