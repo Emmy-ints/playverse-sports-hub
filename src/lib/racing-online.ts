@@ -4,7 +4,7 @@
  */
 import type { LocalCarInput, RaceDriver } from "@/game/racing/driver";
 import { applyRaceSnapshot, extrapolateRace, type RaceServerMessage } from "@/game/racing/net";
-import { createRace, type RaceEvent, type RaceState } from "@/game/racing/sim";
+import { applyCarInput, createRace, stepRace, type CarState, type RaceEvent, type RaceState } from "@/game/racing/sim";
 import type { TrackDef } from "@/game/racing/track";
 import type { AvatarConfig } from "./avatar";
 import { getSupabase } from "./supabase";
@@ -36,6 +36,10 @@ export class OnlineRaceDriver implements RaceDriver {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   rtt = 0;
+  /** Unconfirmed inputs and how long each was held, replayed on top of server snapshots. */
+  private history: { seq: number; input: LocalCarInput; dur: number }[] = [];
+  private scratch: RaceState | null = null;
+  private smooth = { x: 0, z: 0, h: 0 };
   onMeta: (m: RaceMeta) => void = () => {};
   onEnd: (e: RaceEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
@@ -95,10 +99,14 @@ export class OnlineRaceDriver implements RaceDriver {
         this.s = createRace(m.track as TrackDef["id"], m.names.length, m.laps);
         this.onMeta({ you: m.you, ids: m.ids, names: m.names, avatars: m.avatars as (AvatarConfig | null)[], laps: m.laps, track: m.track as TrackDef["id"] });
         break;
-      case "s":
+      case "s": {
+        const prev = this.s.cars[this.viewer] ? { x: this.s.cars[this.viewer]!.x, z: this.s.cars[this.viewer]!.z, h: this.s.cars[this.viewer]!.h } : null;
         applyRaceSnapshot(this.s, m.st);
-        this.seq = Math.max(this.seq, m.st.c[this.viewer]?.lastSeq ?? 0);
+        const ack = m.st.c[this.viewer]?.lastSeq ?? 0;
+        this.seq = Math.max(this.seq, ack);
+        this.reconcile(ack, prev);
         break;
+      }
       case "ev":
         this.events.push(...m.e);
         break;
@@ -138,8 +146,60 @@ export class OnlineRaceDriver implements RaceDriver {
     this.resetWanted = true;
   }
 
+  /** One-car scratch race used to run the real car physics locally for prediction. */
+  private scratchFor(car: CarState) {
+    if (!this.scratch) this.scratch = createRace(this.s.trackId, 1, this.s.laps);
+    const sc = this.scratch;
+    sc.t = this.s.t;
+    sc.phase = this.s.phase === "racing" ? "racing" : this.s.phase;
+    sc.startAt = this.s.startAt;
+    sc.finishOrder = [];
+    sc.events = [];
+    sc.cars[0] = { ...car, input: { ...car.input }, lastSeq: -1 };
+    return sc;
+  }
+
+  private reconcile(ack: number, prev: { x: number; z: number; h: number } | null) {
+    const me = this.s.cars[this.viewer];
+    if (!me || this.s.phase !== "racing" || me.finished) return;
+    this.history = this.history.filter((h) => h.seq > ack);
+    const sc = this.scratchFor(me);
+    let seq = 0;
+    for (const h of this.history) {
+      applyCarInput(sc, 0, { ...h.input, seq: ++seq });
+      if (h.dur > 0) stepRace(sc, h.dur);
+    }
+    const p = sc.cars[0]!;
+    if (prev) {
+      let dh = prev.h - p.h;
+      while (dh > Math.PI) dh -= 2 * Math.PI;
+      while (dh < -Math.PI) dh += 2 * Math.PI;
+      this.smooth = { x: prev.x - p.x, z: prev.z - p.z, h: dh };
+      if (Math.hypot(this.smooth.x, this.smooth.z) > 6) this.smooth = { x: 0, z: 0, h: 0 };
+    }
+    Object.assign(me, { ...p, input: me.input, lastSeq: me.lastSeq, x: p.x + this.smooth.x, z: p.z + this.smooth.z, h: p.h + this.smooth.h });
+    this.predicted = { ...p };
+  }
+
+  private predicted: CarState | null = null;
+
   update(dt: number) {
     if (this.playing) extrapolateRace(this.s, dt);
+    // Local prediction: run the real car physics for your own car with your current input.
+    const me = this.s.cars[this.viewer];
+    if (this.playing && me && this.predicted && this.s.phase === "racing" && !me.finished) {
+      const last = this.history[this.history.length - 1];
+      if (last) last.dur += dt;
+      const sc = this.scratchFor(this.predicted);
+      applyCarInput(sc, 0, { ...this.pending, seq: 1 });
+      stepRace(sc, Math.min(dt, 1 / 20));
+      const p = sc.cars[0]!;
+      this.predicted = { ...p };
+      const k = Math.exp(-dt * 6);
+      this.smooth = { x: this.smooth.x * k, z: this.smooth.z * k, h: this.smooth.h * k };
+      Object.assign(me, { ...p, input: { ...me.input, ...this.pending }, lastSeq: me.lastSeq, lap: me.lap, s: me.s, progress: me.progress, finished: me.finished, bestLap: me.bestLap,
+        x: p.x + this.smooth.x, z: p.z + this.smooth.z, h: p.h + this.smooth.h });
+    }
     const now = performance.now();
     const ws = this.ws;
     if (ws && ws.readyState === WebSocket.OPEN && this.playing) {
@@ -149,7 +209,10 @@ export class OnlineRaceDriver implements RaceDriver {
       }
       if (now - this.lastSend > 33) {
         this.lastSend = now;
-        ws.send(JSON.stringify({ t: "in", seq: ++this.seq, ...this.pending }));
+        const seq = ++this.seq;
+        ws.send(JSON.stringify({ t: "in", seq, ...this.pending }));
+        this.history.push({ seq, input: { ...this.pending }, dur: 0 });
+        if (this.history.length > 150) this.history.shift();
       }
     }
     const ev = this.events;

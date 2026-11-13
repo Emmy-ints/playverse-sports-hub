@@ -6,7 +6,7 @@
 import type { LocalInput, TennisDriver } from "@/game/tennis/driver";
 import { applySnapshot, extrapolate, mirrorState, type ServerMessage } from "@/game/tennis/net";
 import type { MatchFormat, Score } from "@/game/tennis/scoring";
-import type { PlayerStats, TennisEvent, TennisState } from "@/game/tennis/sim";
+import { movePlayer, setIntent, type PlayerStats, type TennisEvent, type TennisState } from "@/game/tennis/sim";
 import type { AvatarConfig } from "./avatar";
 import { getSupabase } from "./supabase";
 
@@ -68,6 +68,10 @@ export class OnlineTennisDriver implements TennisDriver {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   private connectStarted = 0;
   rtt = 0;
+  /** Inputs the server hasn't confirmed yet, with how long each was held (for prediction replay). */
+  private history: { seq: number; mx: number; mz: number; sprint: boolean; dur: number }[] = [];
+  private own: { x: number; z: number; vx: number; vz: number } | null = null;
+  private smooth = { x: 0, z: 0 };
   onMeta: (m: OnlineMeta) => void = () => {};
   onEnd: (e: OnlineEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
@@ -131,10 +135,14 @@ export class OnlineTennisDriver implements TennisDriver {
         this.onMeta({ you: m.you, ids: m.ids, names: m.names, avatars: m.avatars as [AvatarConfig | null, AvatarConfig | null], format: m.format, theme: m.theme });
         break;
       }
-      case "s":
+      case "s": {
+        const before = this.own ? { x: this.own.x + this.smooth.x, z: this.own.z + this.smooth.z } : null;
         applySnapshot(this.s, m.st);
-        this.seq = Math.max(this.seq, m.st.p[this.viewer]?.ls ?? 0); // after a reload, continue the server's sequence
+        const ack = m.st.p[this.viewer]?.ls ?? 0;
+        this.seq = Math.max(this.seq, ack); // after a reload, continue the server's sequence
+        this.reconcile(ack, before);
         break;
+      }
       case "ev":
         this.events.push(...m.e);
         break;
@@ -171,14 +179,55 @@ export class OnlineTennisDriver implements TennisDriver {
     this.pending = { ...i, shot: this.playing ? (i.shot ?? this.pending.shot ?? null) : null };
   }
 
+  /**
+   * Client-side prediction for the local player: start from the server's confirmed position and
+   * replay the inputs it hasn't processed yet, so your player moves the instant you press a key.
+   * Small differences are smoothed out instead of snapping.
+   */
+  private reconcile(ack: number, before: { x: number; z: number } | null) {
+    const v = this.viewer;
+    const pl = this.s.players[v];
+    this.history = this.history.filter((h) => h.seq > ack);
+    const scratch = { ...this.s, players: [{ ...this.s.players[0] }, { ...this.s.players[1] }] as TennisState["players"] };
+    for (const h of this.history) {
+      setIntent(scratch, v, { seq: h.seq, mx: h.mx, mz: h.mz, sprint: h.sprint });
+      for (let t = h.dur; t > 1e-6; t -= 1 / 120) movePlayer(scratch, v, Math.min(1 / 120, t));
+    }
+    const p = scratch.players[v];
+    this.own = { x: p.x, z: p.z, vx: p.vx, vz: p.vz };
+    if (before) {
+      this.smooth = { x: before.x - p.x, z: before.z - p.z };
+      if (Math.hypot(this.smooth.x, this.smooth.z) > 3) this.smooth = { x: 0, z: 0 }; // big correction: snap
+    }
+    Object.assign(pl, { x: p.x + this.smooth.x, z: p.z + this.smooth.z, vx: p.vx, vz: p.vz });
+  }
+
   update(dt: number) {
     if (this.playing) extrapolate(this.s, dt);
     const now = performance.now();
     const ws = this.ws;
     if (ws && ws.readyState === WebSocket.OPEN && this.playing && (this.pending.shot || now - this.lastSend > 33)) {
       this.lastSend = now;
-      ws.send(JSON.stringify({ t: "in", seq: ++this.seq, ...this.pending }));
+      const seq = ++this.seq;
+      ws.send(JSON.stringify({ t: "in", seq, ...this.pending }));
+      this.history.push({ seq, mx: this.pending.mx, mz: this.pending.mz, sprint: this.pending.sprint, dur: 0 });
+      if (this.history.length > 120) this.history.shift();
       this.pending = { ...this.pending, shot: null };
+    }
+    // Predict the local player forward with the current input.
+    if (this.playing && this.own) {
+      const v = this.viewer;
+      const last = this.history[this.history.length - 1];
+      if (last) last.dur += dt;
+      const scratch = { ...this.s, players: [{ ...this.s.players[0] }, { ...this.s.players[1] }] as TennisState["players"] };
+      Object.assign(scratch.players[v], this.own);
+      setIntent(scratch, v, { seq: 0, mx: this.pending.mx, mz: this.pending.mz, sprint: this.pending.sprint });
+      movePlayer(scratch, v, dt);
+      const p = scratch.players[v];
+      this.own = { x: p.x, z: p.z, vx: p.vx, vz: p.vz };
+      const k = Math.exp(-dt * 8);
+      this.smooth = { x: this.smooth.x * k, z: this.smooth.z * k };
+      Object.assign(this.s.players[v], { x: p.x + this.smooth.x, z: p.z + this.smooth.z, vx: p.vx, vz: p.vz });
     }
     const ev = this.events;
     this.events = [];

@@ -214,7 +214,16 @@ function tick(s: TennisState, dt: number) {
 }
 
 function movePlayers(s: TennisState, dt: number) {
-  for (const p of [0, 1] as const) {
+  for (const p of [0, 1] as const) movePlayer(s, p, dt);
+}
+
+/** Move one player by their current intent (also used by clients to predict their own movement). */
+export function setIntent(s: TennisState, p: 0 | 1, input: PlayerInput) {
+  (s.players[p] as PlayerState & { intent?: PlayerInput }).intent = input;
+}
+
+export function movePlayer(s: TennisState, p: 0 | 1, dt: number) {
+  {
     const pl = s.players[p] as PlayerState & { intent?: PlayerInput };
     const it = pl.intent;
     const isServer = s.phase === "serve" && currentServer(s.score) === p;
