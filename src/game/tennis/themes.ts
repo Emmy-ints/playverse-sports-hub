@@ -35,7 +35,7 @@ export const COURT_THEMES: Record<CourtTheme["id"], CourtTheme> = {
   },
   grass: {
     id: "grass", name: "Lawn Club", blurb: "Low, skidding bounce. Rewards attack.", surface: "grass",
-    court: "#4a7a36", runoff: "#456f33", line: "#fbfbf6", wall: "#1e4d2b",
+    court: "#4f8c3a", runoff: "#4a8537", line: "#fbfbf6", wall: "#1e4d2b",
     hdr: "/assets/env/countryside.hdr", skyIntensity: 1, sunDir: [-0.3, -0.85, 0.4], sunColor: [1, 0.97, 0.9], sunIntensity: 1.5,
     ambient: [0.2, 0.22, 0.22], night: false, roof: false,
   },

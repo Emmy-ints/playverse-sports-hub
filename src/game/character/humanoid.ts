@@ -76,7 +76,7 @@ function skinMaterial(hex: string) {
   m.clearCoat = 0.12;
   m.clearCoatGloss = 0.55;
   const c = color(hex);
-  m.emissive = new pc.Color(c.r * 0.025, c.g * 0.01, c.b * 0.008); // cheap subsurface glow
+  m.emissive = new pc.Color(c.r * 0.06, c.g * 0.03, c.b * 0.02); // cheap subsurface glow
   m.update();
   return m;
 }
