@@ -188,9 +188,11 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
     if (phase === "ready") {
       meterStart.current = performance.now();
       setPhase("power");
-    } else if (phase === "accuracy") {
-      // Tap timing → accuracy: early (needle above 0) hooks, late slices.
-      const acc = Math.max(-1, Math.min(1, -needle / 0.18));
+    } else if (phase === "accuracy" && meterStart.current !== null) {
+      // Tap timing → accuracy: early (needle above 0) hooks, late slices. Computed from real elapsed time
+      // (not the last drawn frame), so it's correct even if the browser throttles animation.
+      const n = lockedPower.current - (performance.now() - meterStart.current) / 520;
+      const acc = Math.max(-1, Math.min(1, -n / 0.18));
       finish(Math.abs(acc) < 0.08 ? 0 : acc);
     }
   };
