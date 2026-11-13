@@ -54,6 +54,20 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Practice (`/play/golf`): choose course and 3/9/18 holes; scorecard; pick-up at double par.
 - Online 1v1 (`/match/golf/$matchId`): stroke play or match play; lobby countdown starts the round; every shot simulated **on the server** (`golf-shot` edge function, importing the exact rule files from this repo at a pinned commit); farthest-from-hole plays first, honours on the next tee; settlement with ratings, XP, coins, achievements (birdie, hole-in-one), notifications; results + rematch.
 
+### Milestone 4 — Real-time game server
+- `server/realtime/`: plain Node 22 WebSocket server, **no npm dependencies** (a small audited RFC 6455 implementation), running the shared game code from `src/game/*` directly. Deployed on Render (free web service `playverse-realtime`, https://playverse-realtime.onrender.com, auto-deploys from `main`). The free plan sleeps when idle; the lobby wakes it early and the client shows "Waking up the game server…".
+- Chosen instead of Colyseus so the exact server could be run and tested end to end in the authoring environment; it provides the same guarantees (authoritative rooms per match, auth, reconnection, rate limits).
+- Security: Supabase access token verified on join; only the match's two participants can join; origin allow-list; 16 KB message cap; per-socket rate limit; 8 connections per IP; heartbeat. Results are written only through `realtime_settle_tennis(secret, …)` — the database stores a SHA-256 hash of the secret (`app_private.realtime_secret`), the plain secret exists only in Render's environment. Idempotent settlement with retries.
+- Reconnection: a dropped player has 30 s to come back (the match pauses); otherwise they forfeit. No-show after 120 s forfeits.
+
+### Milestone 6 — Tennis
+- Rules: points, deuce/advantage, games, tiebreak at games-all, sets, best of 1/3/5, quick (4-game) or standard (6-game) sets; service rotation (including tiebreaks), deuce/ad court, faults and double faults, lets on the net tape handled as faults.
+- Physics: drag, topspin/slice, surface-specific bounce (hard, clay, grass, indoor), net collision, in/out calls, double bounce; shot error grows with power, incoming pace, running and an awkward contact point; power-shot meter.
+- Five venues (Harbour Hard Court, Terre Battue clay, Lawn Club grass, Arena Indoor, Night Session) with painted courts, net, sponsor boards, stands full of animated spectators, umpire in the chair, live scoreboards, floodlights; players are the users' characters with rackets and run / forehand / backhand / serve animations; broadcast camera (portrait-aware on phones).
+- Controls: keyboard (WASD/arrows, Shift sprint, J/Space topspin, K flat, L lob, U drop, E power shot — hold to charge, release as the ball arrives, aim with left/right) and touch (joystick + shot buttons). Optional auto-run.
+- Umpire calls (browser speech), synthesised racket/bounce sounds, applause and "ooh"s.
+- Practice (`/play/tennis`) vs Rookie/Pro/Champion AI. Online 1v1 (`/match/tennis/$matchId`) from the lobby, server-authoritative at 60 Hz with 30 Hz snapshots; results, ratings, XP, coins, `tennis_ace` achievement, notifications; rematch.
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 
@@ -77,7 +91,9 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Lobby, presence and ready-check are live (Supabase Realtime).
 - **Bowling (turn-based) is fully online and server-authoritative** via the `bowling-throw` edge function — no separate game server needed.
 - **Golf (turn-based) is fully online and server-authoritative** via the `golf-shot` edge function.
-- Tennis and racing (simultaneous real-time play) will need the Colyseus game server (planned on Render).
+- **Tennis is fully online** on the real-time game server (Render).
+- Racing will use the same server (next).
+- Online tennis has no client-side prediction of your own movement yet: with ~300 ms latency your player responds a beat late. Auto-run and armed shots keep it playable.
 
 ## Test results
 - Added `src/test/schemas.test.ts` (avatar schema, register/login schemas, XP curve) alongside the existing routing test.
@@ -93,6 +109,9 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Golf scoring and match rules checks: par names, double-par pick-up, match play; away-player order, water penalty, honours, settlement — all passed.
 - Live browser tests: bowler animation, crowd and glow render; golf course renders (all checks via screenshots), shots fly with tracer; online golf shot simulated on the server and the turn passed to the farther player. Bugs found and fixed: reversed golfer posture, flipped course map, swing accuracy read from a stale frame. Test players/matches deleted.
 - Added `src/test/match-config.test.ts` (formats, error mapping, time helpers).
+- Tennis: scoring tests + AI self-play on every surface (`src/test/tennis.test.ts`) — matches finish, average rally 5–8 shots, clay longest, grass shortest, mix of winners/outs/nets.
+- Real-time server self-test (`server/realtime/selftest.ts`, mock database): foreign origins, bad tokens and non-participants rejected; seats by slot; 500 junk messages ignored; real points played over WebSockets; disconnect → forfeit settled once; winner told the result was saved — all passed.
+- Live test against Render + Supabase (Chrome, preview): lowlog vs a temporary QA bot — server welcomed both, points played (aces, winners), scoreboard and umpire calls updated, the bot disconnected, after 30 s the server settled a forfeit win: match completed, verified_by `server:realtime`, rating +16/−16, `tennis_ace` granted. QA user, match and all stat changes removed afterwards.
 - Syntax check of all new files: passed.
 - `vitest run`, `tsc` and `vite build`: **not yet run** (dependencies could not be installed in the authoring environment). Run in Lovable / CI to confirm.
 
@@ -100,7 +119,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Not published. Preview only: https://id-preview--b857ffc0-2276-46d4-aec2-187db99a0a1e.lovable.app
 
 ## Next milestone
-- **Milestone 4 / 6 / 8 — Real-time game server + Tennis + Racing**: Colyseus (Node/TypeScript) on Render with Supabase-JWT auth, authoritative rooms, prediction/interpolation; then tennis and racing on top of it. Also: match history page.
+- **Milestone 8 — Racing** on the same real-time server. Then: own-player prediction for online tennis, match history page, Milestone 9 (competitive ecosystem) and 10 (PWA).
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
