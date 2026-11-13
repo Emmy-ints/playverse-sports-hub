@@ -69,7 +69,7 @@ export class PracticeDriver implements TennisDriver {
 
 export const SHOT_KEYS: Record<ShotType, { label: string; key: string }> = {
   topspin: { label: "Topspin", key: "J" },
-  flat: { label: "Flat", key: "K" },
+  flat: { label: "Smash", key: "K" },
   lob: { label: "Lob", key: "L" },
-  drop: { label: "Drop", key: "U" },
+  drop: { label: "Slice", key: "U" },
 };

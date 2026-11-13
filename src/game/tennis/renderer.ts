@@ -5,6 +5,7 @@
  * simulation decides everything; this just draws the latest state each frame.
  */
 import * as pc from "playcanvas";
+import { camLiveliness } from "@/lib/game-settings";
 import type { AvatarConfig } from "@/lib/avatar";
 import { Crowd } from "../bowling/crowd.ts";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
@@ -470,18 +471,24 @@ export async function createTennisView(canvas: HTMLCanvasElement, theme: CourtTh
     const cam = camera.camera!;
     cam.horizontalFov = portrait;
     cam.fov = portrait ? 74 : 46;
-    const back = portrait ? 10.2 : 9.6;
-    const up = portrait ? 8.4 : 6.2;
+    const live = camLiveliness();
     const me = f.players[viewer];
-    want.set(b.x * 0.18 + me.x * 0.12, up, side * (COURT.halfLength + back));
-    wantT.set(b.x * 0.25, 0.2, side * (portrait ? 0.5 : -2.5));
+    // Net play: when you come in, the camera moves closer and a little lower.
+    const net = Math.max(0, Math.min(1, (COURT.halfLength - Math.abs(me.z)) / (COURT.halfLength * 0.7))) * live;
+    // High balls (lobs, high bounces): lift the view so the ball stays in frame.
+    const high = Math.max(0, b.y - 3.5) * live;
+    const back = (portrait ? 10.2 : 9.6) - net * 3.2;
+    const up = (portrait ? 8.4 : 6.2) - net * 1.2 + Math.min(3, high * 0.35);
+    // Track your player sideways while keeping the whole court in view.
+    want.set(b.x * 0.15 + me.x * (0.12 + 0.25 * live), up, side * (COURT.halfLength + back));
+    wantT.set(b.x * 0.25 + me.x * 0.1 * live, 0.2 + Math.min(2.5, high * 0.4), side * (portrait ? 0.5 : -2.5) - side * net * 1.5);
     if (f.phase === "matchOver") {
       // Slow orbit at the end.
       const a = elapsed * 0.15;
       want.set(Math.sin(a) * 22, 9, Math.cos(a) * 22);
       wantT.set(0, 1, 0);
     }
-    const k = 1 - Math.exp(-dt * 3);
+    const k = 1 - Math.exp(-dt * (f.phase === "matchOver" ? 1.5 : 3));
     camPos.lerp(camPos, want, k);
     camTarget.lerp(camTarget, wantT, k);
     camera.setPosition(camPos);

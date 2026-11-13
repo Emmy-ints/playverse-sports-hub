@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
-import { useGameSettings } from "@/lib/game-settings";
+import { getGameSettings, useGameSettings } from "@/lib/game-settings";
 
 interface Props {
   theme: CourtTheme;
@@ -50,7 +50,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [quality, setQuality] = useState<Quality>("high");
   const [sound, setSound] = useState(true);
-  const [assist, setAssist] = useState(true);
+  const [assist, setAssist] = useState(false);
   const [score, setScore] = useState<Score>(() => driver.state().score);
   const [banner, setBanner] = useState<{ text: string; tone: "good" | "bad" | "info"; id: number } | null>(null);
   const [meter, setMeter] = useState(0);
@@ -116,6 +116,8 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
 
   const flash = (text: string, tone: "good" | "bad" | "info") => setBanner({ text, tone, id: Date.now() + Math.random() });
 
+  /** Swipe on a shot button while holding it: sideways distance aims the shot. */
+  const swipe = useRef<{ id: number; x: number; dx: number } | null>(null);
   const release = (type: ShotType) => {
     const c = charging.current;
     if (!c || c.type !== type) return;
@@ -125,6 +127,8 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
     const s = driver.state();
     const v = driver.viewer;
     let sx = stick.current.active ? stick.current.x : 0;
+    if (swipe.current && Math.abs(swipe.current.dx) > 22) sx = Math.max(-1, Math.min(1, swipe.current.dx / 70));
+    swipe.current = null;
     if (keys.current.has("ArrowLeft") || keys.current.has("a")) sx -= 1;
     if (keys.current.has("ArrowRight") || keys.current.has("d")) sx += 1;
     // Aim with left/right at release; otherwise aim away from the opponent.
@@ -309,18 +313,28 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
   const onStickDown = (e: RPointerEvent<HTMLDivElement>) => {
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     stick.current = { x: 0, y: 0, active: true, ox: e.clientX, oy: e.clientY, id: e.pointerId };
+    // The stick appears where your thumb lands (floating joystick).
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setStickAt({ x: e.clientX - r.left, y: e.clientY - r.top });
   };
   const onStickMove = (e: RPointerEvent<HTMLDivElement>) => {
     const st = stick.current;
     if (!st.active || st.id !== e.pointerId) return;
-    const dx = (e.clientX - st.ox) / 55, dy = -(e.clientY - st.oy) / 55;
+    const r = (70 - getGameSettings().camSensitivity * 35) * getGameSettings().buttonScale;
+    const dx = (e.clientX - st.ox) / r, dy = -(e.clientY - st.oy) / r;
     const l = Math.hypot(dx, dy);
     st.x = l > 1 ? dx / l : dx;
     st.y = l > 1 ? dy / l : dy;
+    if (knob.current) knob.current.style.transform = `translate(${st.x * 34}px, ${-st.y * 34}px)`;
   };
   const onStickUp = () => {
     stick.current = { ...stick.current, x: 0, y: 0, active: false, id: -1 };
+    if (knob.current) knob.current.style.transform = "translate(0,0)";
+    setStickAt(null);
   };
+  const knob = useRef<HTMLDivElement>(null);
+  const [stickAt, setStickAt] = useState<{ x: number; y: number } | null>(null);
+  const leftHand = settings.hand === "left";
 
   const s = score;
   const srv = currentServer(s);
@@ -366,6 +380,7 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
         <button type="button" onClick={() => setAssist((v) => !v)} aria-pressed={assist} className={cn("glass rounded-full px-3 py-2 text-xs font-bold text-white", assist && "ring-2 ring-[#d9f23a]")}>
           Auto-run {assist ? "on" : "off"}
         </button>
+        <GameSettingsButton />
         <ControlsHelpButton sport="tennis" />
         <FullscreenButton landscape />
         {topRight}
@@ -388,17 +403,21 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
       {!ended && phase === "ready" && (
         <>
           {touch && (
-            <div className="absolute bottom-0 left-0 h-[45%] w-1/2" onPointerDown={onStickDown} onPointerMove={onStickMove} onPointerUp={onStickUp} onPointerCancel={onStickUp} aria-label="Movement joystick: drag to move">
-              <div className="absolute bottom-10 left-10 size-28 rounded-full border-2 border-white/30 bg-white/5 pb-safe" aria-hidden />
+            <div className={cn("absolute bottom-0 h-[55%] w-1/2", leftHand ? "right-0" : "left-0")} onPointerDown={onStickDown} onPointerMove={onStickMove} onPointerUp={onStickUp} onPointerCancel={onStickUp} aria-label="Movement joystick: drag to move">
+              <div className={cn("ctl-lg absolute rounded-full border-2 border-white/35 bg-white/5", !stickAt && (leftHand ? "bottom-safe right-safe" : "bottom-safe left-safe"))}
+                style={stickAt ? { left: stickAt.x, top: stickAt.y, transform: "translate(-50%,-50%)" } : undefined} aria-hidden>
+                <div ref={knob} className="absolute left-1/2 top-1/2 -ml-[22%] -mt-[22%] size-[44%] rounded-full bg-white/45 shadow" />
+              </div>
             </div>
           )}
-          <div className="absolute bottom-4 right-4 grid grid-cols-2 gap-2 pb-safe">
+          <div className={cn("absolute bottom-safe grid grid-cols-2 gap-2", leftHand ? "left-safe" : "right-safe")}>
             {SHOTS.map((t) => (
               <button key={t} type="button"
-                onPointerDown={(e) => { e.preventDefault(); press(t); }}
+                onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); swipe.current = { id: e.pointerId, x: e.clientX, dx: 0 }; press(t); }}
+                onPointerMove={(e) => { if (swipe.current?.id === e.pointerId) swipe.current.dx = e.clientX - swipe.current.x; }}
                 onPointerUp={() => release(t)}
                 onPointerCancel={() => release(t)}
-                className={cn("relative size-16 overflow-hidden rounded-full border border-white/20 font-display text-sm font-bold uppercase text-white sm:size-20",
+                className={cn("ctl-md relative overflow-hidden rounded-full border border-white/20 font-display text-xs font-bold uppercase text-white sm:text-sm",
                   t === "topspin" ? "bg-[#1f6feb]/80" : t === "flat" ? "bg-[#e0307a]/80" : t === "lob" ? "bg-[#2fbf71]/80" : "bg-[#f2c230]/80 text-black")}>
                 <span className="absolute inset-x-0 bottom-0 bg-white/35" style={{ height: `${(charge?.type === t ? charge.p : 0) * 100}%` }} aria-hidden />
                 <span className="relative">{SHOT_KEYS[t].label}</span>
@@ -407,13 +426,13 @@ export function TennisStage({ theme, driver, names, avatars, renderEnd, topRight
             ))}
           </div>
           <button type="button" disabled={meter < 1} onClick={() => { special.current = !special.current; setSpecialOn(special.current); }} aria-pressed={specialOn}
-            className={cn("absolute bottom-48 right-4 flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold uppercase text-white sm:bottom-52",
+            className={cn("absolute bottom-[calc(var(--safe-bottom)+var(--ctl,1)*clamp(7.5rem,32vmin,12rem))] flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold uppercase text-white", leftHand ? "left-safe" : "right-safe",
               meter >= 1 ? (specialOn ? "bg-[#ff7a1a] ring-2 ring-white" : "animate-pulse bg-[#ff7a1a]/80") : "bg-black/50")}>
             <Zap className="size-4" aria-hidden /> Power {Math.round(meter * 100)}%{!touch && " (E)"}
           </button>
           {!touch && (
             <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl bg-black/50 px-3 py-2 text-xs text-white/80">
-              Move: WASD / arrows · Sprint: Shift · Shots: J/Space topspin, K flat, L lob, U drop — hold for power, release as the ball arrives. Aim with left/right as you release.
+              Move: WASD / arrows · Sprint: Shift · Shots: J/Space topspin, K smash, L lob, U slice — hold for power, release as the ball arrives. Aim with left/right as you release.
             </div>
           )}
         </>
