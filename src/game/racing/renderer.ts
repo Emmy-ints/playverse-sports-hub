@@ -523,8 +523,8 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       const portrait = canvas.clientHeight > canvas.clientWidth;
       const fx = Math.sin(me.h), fz = -Math.cos(me.h);
       const speed = Math.hypot(me.vx, me.vz);
-      const back = (portrait ? 8.5 : 7) + speed * 0.03;
-      const up = portrait ? 3.4 : 2.6;
+      const back = (portrait ? 7.5 : 6.2) + speed * 0.02;
+      const up = portrait ? 3.1 : 2.3;
       if (s.phase === "finished" || me.finished) {
         const a = elapsed * 0.3;
         want.set(me.x + Math.sin(a) * 9, 3.5, me.z + Math.cos(a) * 9);
@@ -536,13 +536,16 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
         want.set(me.x - dx * back, up, me.z - dz * back);
         wantLook.set(me.x + fx * 6, 1.1, me.z + fz * 6);
       }
-      const k = 1 - Math.exp(-dt * (s.phase === "countdown" ? 2 : 7));
+      // Lead the target by the car's velocity so the smoothing doesn't leave the camera far behind at speed.
+      const rate = s.phase === "countdown" ? 2 : 10;
+      if (s.phase === "racing" && !me.finished) want.set(want.x + me.vx / rate, want.y, want.z + me.vz / rate);
+      const k = 1 - Math.exp(-dt * rate);
       camPos.lerp(camPos, want, k);
       camLook.lerp(camLook, wantLook, Math.min(1, k * 1.6));
       camera.setPosition(camPos);
       camera.lookAt(camLook);
       const cam = camera.camera!;
-      cam.fov = (portrait ? 74 : 60) + Math.min(14, speed * 0.12);
+      cam.fov = (portrait ? 72 : 58) + Math.min(10, speed * 0.1);
       if (lights.parent !== carViews[viewer]?.root) {
         lights.parent?.removeChild(lights);
         carViews[viewer]?.root.addChild(lights);
