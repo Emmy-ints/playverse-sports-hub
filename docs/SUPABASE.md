@@ -53,6 +53,17 @@ report as someone else; editing their own display name worked.
 - Lobby channels `lobby:<match uuid>` are **private**: RLS on `realtime.messages` only lets the match's
   active participants subscribe or send presence.
 
+## Online games (server-authoritative)
+
+| Sport | Edge function | Tables | Settlement function |
+|---|---|---|---|
+| Bowling | `bowling-throw` (Rapier physics in Deno; shared files copied from `src/game/bowling/`) | `bowling_games`, `bowling_throws` | `apply_bowling_throw` (service role only) |
+| Golf | `golf-shot` (imports `src/game/golf/*.ts` from the public GitHub repo at a pinned commit) | `golf_games`, `golf_shots` | `apply_golf_shot` (service role only) |
+
+Clients only send inputs (aim/power/spin or club/aim/power/accuracy) plus the expected turn sequence number.
+The server checks the turn, simulates, scores and records atomically. If the GitHub repo is ever made private,
+redeploy `golf-shot` with the rule files bundled instead of imported by URL.
+
 ## Schema
 
 The applied SQL is in `docs/database/`. Apply changes with new migrations in the Supabase
