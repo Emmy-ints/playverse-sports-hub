@@ -10,33 +10,249 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GameRouteImport } from './routes/_game'
+import { Route as GameAchievementsRouteImport } from './routes/_game.achievements'
+import { Route as GameFriendsRouteImport } from './routes/_game.friends'
+import { Route as GameHelpRouteImport } from './routes/_game.help'
+import { Route as GameHistoryRouteImport } from './routes/_game.history'
+import { Route as GameHubRouteImport } from './routes/_game.hub'
+import { Route as GameInstallRouteImport } from './routes/_game.install'
+import { Route as GameInvitationsRouteImport } from './routes/_game.invitations'
+import { Route as GameMenuRouteImport } from './routes/_game.menu'
+import { Route as GameNotificationsRouteImport } from './routes/_game.notifications'
+import { Route as GamePrivacyRouteImport } from './routes/_game.privacy'
+import { Route as GameProfileRouteImport } from './routes/_game.profile'
+import { Route as GameRankingsRouteImport } from './routes/_game.rankings'
+import { Route as GameSettingsRouteImport } from './routes/_game.settings'
+import { Route as GameTermsRouteImport } from './routes/_game.terms'
+import { Route as GameTournamentsRouteImport } from './routes/_game.tournaments'
+import { Route as GameSportsIndexRouteImport } from './routes/_game.sports.index'
+import { Route as GameSportsSportRouteImport } from './routes/_game.sports.$sport'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameRoute = GameRouteImport.update({
+  id: '/_game',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GameAchievementsRoute = GameAchievementsRouteImport.update({
+  id: '/achievements',
+  path: '/achievements',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameFriendsRoute = GameFriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameHelpRoute = GameHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameHistoryRoute = GameHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameHubRoute = GameHubRouteImport.update({
+  id: '/hub',
+  path: '/hub',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameInstallRoute = GameInstallRouteImport.update({
+  id: '/install',
+  path: '/install',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameInvitationsRoute = GameInvitationsRouteImport.update({
+  id: '/invitations',
+  path: '/invitations',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameMenuRoute = GameMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameNotificationsRoute = GameNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => GameRoute,
+} as any)
+const GamePrivacyRoute = GamePrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameProfileRoute = GameProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameRankingsRoute = GameRankingsRouteImport.update({
+  id: '/rankings',
+  path: '/rankings',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameSettingsRoute = GameSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameTermsRoute = GameTermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameTournamentsRoute = GameTournamentsRouteImport.update({
+  id: '/tournaments',
+  path: '/tournaments',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameSportsIndexRoute = GameSportsIndexRouteImport.update({
+  id: '/sports/',
+  path: '/sports/',
+  getParentRoute: () => GameRoute,
+} as any)
+const GameSportsSportRoute = GameSportsSportRouteImport.update({
+  id: '/sports/$sport',
+  path: '/sports/$sport',
+  getParentRoute: () => GameRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/achievements': typeof GameAchievementsRoute
+  '/friends': typeof GameFriendsRoute
+  '/help': typeof GameHelpRoute
+  '/history': typeof GameHistoryRoute
+  '/hub': typeof GameHubRoute
+  '/install': typeof GameInstallRoute
+  '/invitations': typeof GameInvitationsRoute
+  '/menu': typeof GameMenuRoute
+  '/notifications': typeof GameNotificationsRoute
+  '/privacy': typeof GamePrivacyRoute
+  '/profile': typeof GameProfileRoute
+  '/rankings': typeof GameRankingsRoute
+  '/settings': typeof GameSettingsRoute
+  '/terms': typeof GameTermsRoute
+  '/tournaments': typeof GameTournamentsRoute
+  '/sports/$sport': typeof GameSportsSportRoute
+  '/sports/': typeof GameSportsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/achievements': typeof GameAchievementsRoute
+  '/friends': typeof GameFriendsRoute
+  '/help': typeof GameHelpRoute
+  '/history': typeof GameHistoryRoute
+  '/hub': typeof GameHubRoute
+  '/install': typeof GameInstallRoute
+  '/invitations': typeof GameInvitationsRoute
+  '/menu': typeof GameMenuRoute
+  '/notifications': typeof GameNotificationsRoute
+  '/privacy': typeof GamePrivacyRoute
+  '/profile': typeof GameProfileRoute
+  '/rankings': typeof GameRankingsRoute
+  '/settings': typeof GameSettingsRoute
+  '/terms': typeof GameTermsRoute
+  '/tournaments': typeof GameTournamentsRoute
+  '/sports/$sport': typeof GameSportsSportRoute
+  '/sports': typeof GameSportsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_game': typeof GameRouteWithChildren
+  '/_game/achievements': typeof GameAchievementsRoute
+  '/_game/friends': typeof GameFriendsRoute
+  '/_game/help': typeof GameHelpRoute
+  '/_game/history': typeof GameHistoryRoute
+  '/_game/hub': typeof GameHubRoute
+  '/_game/install': typeof GameInstallRoute
+  '/_game/invitations': typeof GameInvitationsRoute
+  '/_game/menu': typeof GameMenuRoute
+  '/_game/notifications': typeof GameNotificationsRoute
+  '/_game/privacy': typeof GamePrivacyRoute
+  '/_game/profile': typeof GameProfileRoute
+  '/_game/rankings': typeof GameRankingsRoute
+  '/_game/settings': typeof GameSettingsRoute
+  '/_game/terms': typeof GameTermsRoute
+  '/_game/tournaments': typeof GameTournamentsRoute
+  '/_game/sports/$sport': typeof GameSportsSportRoute
+  '/_game/sports/': typeof GameSportsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/achievements'
+    | '/friends'
+    | '/help'
+    | '/history'
+    | '/hub'
+    | '/install'
+    | '/invitations'
+    | '/menu'
+    | '/notifications'
+    | '/privacy'
+    | '/profile'
+    | '/rankings'
+    | '/settings'
+    | '/terms'
+    | '/tournaments'
+    | '/sports/$sport'
+    | '/sports/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/achievements'
+    | '/friends'
+    | '/help'
+    | '/history'
+    | '/hub'
+    | '/install'
+    | '/invitations'
+    | '/menu'
+    | '/notifications'
+    | '/privacy'
+    | '/profile'
+    | '/rankings'
+    | '/settings'
+    | '/terms'
+    | '/tournaments'
+    | '/sports/$sport'
+    | '/sports'
+  id:
+    | '__root__'
+    | '/'
+    | '/_game'
+    | '/_game/achievements'
+    | '/_game/friends'
+    | '/_game/help'
+    | '/_game/history'
+    | '/_game/hub'
+    | '/_game/install'
+    | '/_game/invitations'
+    | '/_game/menu'
+    | '/_game/notifications'
+    | '/_game/privacy'
+    | '/_game/profile'
+    | '/_game/rankings'
+    | '/_game/settings'
+    | '/_game/terms'
+    | '/_game/tournaments'
+    | '/_game/sports/$sport'
+    | '/_game/sports/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GameRoute: typeof GameRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +264,180 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_game': {
+      id: '/_game'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof GameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_game/achievements': {
+      id: '/_game/achievements'
+      path: '/achievements'
+      fullPath: '/achievements'
+      preLoaderRoute: typeof GameAchievementsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/friends': {
+      id: '/_game/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof GameFriendsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/help': {
+      id: '/_game/help'
+      path: '/help'
+      fullPath: '/help'
+      preLoaderRoute: typeof GameHelpRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/history': {
+      id: '/_game/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof GameHistoryRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/hub': {
+      id: '/_game/hub'
+      path: '/hub'
+      fullPath: '/hub'
+      preLoaderRoute: typeof GameHubRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/install': {
+      id: '/_game/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof GameInstallRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/invitations': {
+      id: '/_game/invitations'
+      path: '/invitations'
+      fullPath: '/invitations'
+      preLoaderRoute: typeof GameInvitationsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/menu': {
+      id: '/_game/menu'
+      path: '/menu'
+      fullPath: '/menu'
+      preLoaderRoute: typeof GameMenuRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/notifications': {
+      id: '/_game/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof GameNotificationsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/privacy': {
+      id: '/_game/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof GamePrivacyRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/profile': {
+      id: '/_game/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof GameProfileRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/rankings': {
+      id: '/_game/rankings'
+      path: '/rankings'
+      fullPath: '/rankings'
+      preLoaderRoute: typeof GameRankingsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/settings': {
+      id: '/_game/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof GameSettingsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/terms': {
+      id: '/_game/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof GameTermsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/tournaments': {
+      id: '/_game/tournaments'
+      path: '/tournaments'
+      fullPath: '/tournaments'
+      preLoaderRoute: typeof GameTournamentsRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/sports/': {
+      id: '/_game/sports/'
+      path: '/sports'
+      fullPath: '/sports/'
+      preLoaderRoute: typeof GameSportsIndexRouteImport
+      parentRoute: typeof GameRoute
+    }
+    '/_game/sports/$sport': {
+      id: '/_game/sports/$sport'
+      path: '/sports/$sport'
+      fullPath: '/sports/$sport'
+      preLoaderRoute: typeof GameSportsSportRouteImport
+      parentRoute: typeof GameRoute
+    }
   }
 }
 
+interface GameRouteChildren {
+  GameAchievementsRoute: typeof GameAchievementsRoute
+  GameFriendsRoute: typeof GameFriendsRoute
+  GameHelpRoute: typeof GameHelpRoute
+  GameHistoryRoute: typeof GameHistoryRoute
+  GameHubRoute: typeof GameHubRoute
+  GameInstallRoute: typeof GameInstallRoute
+  GameInvitationsRoute: typeof GameInvitationsRoute
+  GameMenuRoute: typeof GameMenuRoute
+  GameNotificationsRoute: typeof GameNotificationsRoute
+  GamePrivacyRoute: typeof GamePrivacyRoute
+  GameProfileRoute: typeof GameProfileRoute
+  GameRankingsRoute: typeof GameRankingsRoute
+  GameSettingsRoute: typeof GameSettingsRoute
+  GameTermsRoute: typeof GameTermsRoute
+  GameTournamentsRoute: typeof GameTournamentsRoute
+  GameSportsSportRoute: typeof GameSportsSportRoute
+  GameSportsIndexRoute: typeof GameSportsIndexRoute
+}
+
+const GameRouteChildren: GameRouteChildren = {
+  GameAchievementsRoute: GameAchievementsRoute,
+  GameFriendsRoute: GameFriendsRoute,
+  GameHelpRoute: GameHelpRoute,
+  GameHistoryRoute: GameHistoryRoute,
+  GameHubRoute: GameHubRoute,
+  GameInstallRoute: GameInstallRoute,
+  GameInvitationsRoute: GameInvitationsRoute,
+  GameMenuRoute: GameMenuRoute,
+  GameNotificationsRoute: GameNotificationsRoute,
+  GamePrivacyRoute: GamePrivacyRoute,
+  GameProfileRoute: GameProfileRoute,
+  GameRankingsRoute: GameRankingsRoute,
+  GameSettingsRoute: GameSettingsRoute,
+  GameTermsRoute: GameTermsRoute,
+  GameTournamentsRoute: GameTournamentsRoute,
+  GameSportsSportRoute: GameSportsSportRoute,
+  GameSportsIndexRoute: GameSportsIndexRoute,
+}
+
+const GameRouteWithChildren = GameRoute._addFileChildren(GameRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GameRoute: GameRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
