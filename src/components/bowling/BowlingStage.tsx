@@ -42,6 +42,8 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   const chargeStart = useRef<number | null>(null);
   const swipe = useRef<SwipeSample[] | null>(null);
   const playedReplays = useRef(new Set<string>());
+  /** Hard guard against overlapping throws (state updates are async). */
+  const throwing = useRef(false);
   const busy = phase === "rolling" || phase === "loading";
 
   // Boot the 3D engine (client only).
@@ -93,15 +95,19 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
 
   const doThrow = useCallback(
     async (input: ThrowInput) => {
-      if (!canThrow || busy) return;
+      if (!canThrow || busy || throwing.current) return;
+      throwing.current = true;
+      console.info("[bowling] throw", JSON.stringify(input));
       setPhase("rolling");
       try {
         const result = await onThrow(input);
+        console.info("[bowling] result", JSON.stringify({ knocked: result.knocked, standing: result.standing, gutter: result.gutter, frames: result.frames.length }));
         await playResult(result);
         onThrowShown?.(result);
       } catch (e) {
         setError(e instanceof Error ? e.message : "That throw couldn't be processed.");
       } finally {
+        throwing.current = false;
         setPhase("ready");
         setPower(0);
       }
@@ -264,7 +270,6 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
                     disabled={busy}
                     onPointerDown={(e) => { e.stopPropagation(); startCharge(); }}
                     onPointerUp={(e) => { e.stopPropagation(); releaseCharge(); }}
-                    onPointerLeave={() => phase === "charging" && releaseCharge()}
                     className={cn("h-14 rounded-2xl px-8 font-display text-xl font-black uppercase tracking-wider text-accent-foreground shadow-hot transition-transform active:scale-95 disabled:opacity-50", phase === "charging" ? "bg-gold" : "bg-gradient-hot")}
                   >
                     {phase === "charging" ? "Release!" : phase === "rolling" ? "Rolling…" : "Hold to roll"}

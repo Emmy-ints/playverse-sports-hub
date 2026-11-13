@@ -114,7 +114,7 @@ function canvasTexture(device: pc.GraphicsDevice, source: HTMLCanvasElement, rep
   return tex;
 }
 
-function std(opts: Partial<{ diffuse: pc.Color; gloss: number; metalness: number; clearCoat: number; clearCoatGloss: number; emissive: pc.Color; emissiveIntensity: number; diffuseMap: pc.Texture; glossMap: pc.Texture; emissiveMap: pc.Texture; tiling: [number, number] }>) {
+function std(opts: Partial<{ noEnv: boolean; diffuse: pc.Color; gloss: number; metalness: number; clearCoat: number; clearCoatGloss: number; emissive: pc.Color; emissiveIntensity: number; diffuseMap: pc.Texture; glossMap: pc.Texture; emissiveMap: pc.Texture; tiling: [number, number] }>) {
   const m = new pc.StandardMaterial();
   m.useMetalness = true;
   m.metalness = opts.metalness ?? 0;
@@ -137,6 +137,8 @@ function std(opts: Partial<{ diffuse: pc.Color; gloss: number; metalness: number
     m.emissiveIntensity = opts.emissiveIntensity ?? 1;
   }
   if (opts.emissiveMap) m.emissiveMap = opts.emissiveMap;
+  // Matte room surfaces shouldn't mirror the studio HDR at grazing angles.
+  if (opts.noEnv) m.useSkybox = false;
   m.update();
   return m;
 }
@@ -185,13 +187,13 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   const laneMat = std({ diffuseMap: laneTex, tiling: [1, laneLen / 3], glossMap: glossTex, gloss: 0.72, clearCoat: 1, clearCoatGloss: 0.93 });
   const approachMat = std({ diffuseMap: laneTex, tiling: [1, 1.5], gloss: 0.6, clearCoat: 0.6, clearCoatGloss: 0.85 });
   const deckMat = std({ diffuseMap: deckTex, tiling: [1, 0.5], gloss: 0.7, clearCoat: 0.8 });
-  const gutterMat = std({ diffuse: hex("#1a1d26"), metalness: 0.7, gloss: 0.6 });
-  const wallMat = std({ diffuse: hex("#0d1120"), gloss: 0.3 });
-  const darkMat = std({ diffuse: hex("#06070c"), gloss: 0.2 });
-  const carpetMat = std({ diffuseMap: canvasTexture(device, carpet(), true), tiling: [6, 3], gloss: 0.05 });
+  const gutterMat = std({ diffuse: hex("#1a1d26"), metalness: 0.6, gloss: 0.45 });
+  const wallMat = std({ noEnv: true, diffuse: hex("#0d1120"), gloss: 0.3 });
+  const darkMat = std({ noEnv: true, diffuse: hex("#06070c"), gloss: 0.2 });
+  const carpetMat = std({ noEnv: true, diffuseMap: canvasTexture(device, carpet(), true), tiling: [6, 3], gloss: 0.05 });
   const pinMat = std({ diffuseMap: canvasTexture(device, pinDecal()), gloss: 0.88, clearCoat: 1, clearCoatGloss: 0.95 });
   const ballMat = std({ diffuseMap: canvasTexture(device, ballSwirl()), gloss: 0.9, metalness: 0.1, clearCoat: 1, clearCoatGloss: 0.97 });
-  const holeMat = std({ diffuse: hex("#020203"), gloss: 0.2 });
+  const holeMat = std({ noEnv: true, diffuse: hex("#020203"), gloss: 0.2 });
   const arrowMat = std({ diffuse: hex("#3b1d0c"), gloss: 0.7, clearCoat: 1 });
   const neonBlue = std({ diffuse: hex("#000000"), emissive: hex("#2f8bff"), emissiveIntensity: 3 });
   const neonOrange = std({ diffuse: hex("#000000"), emissive: hex("#ff7a1a"), emissiveIntensity: 3 });
@@ -297,7 +299,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
       const lighting = pc.EnvLighting.generateLightingSource(tex);
       app.scene.envAtlas = pc.EnvLighting.generateAtlas(lighting);
       lighting.destroy();
-      app.scene.skyboxIntensity = 0.35;
+      app.scene.skyboxIntensity = 0.22;
     } catch (e) {
       console.warn("[bowling] environment lighting unavailable", e);
     }
