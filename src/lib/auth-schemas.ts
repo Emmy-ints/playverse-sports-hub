@@ -39,3 +39,7 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return out;
 }
+
+export const newPasswordSchema = z
+  .object({ password: passwordSchema, confirmPassword: z.string() })
+  .refine((d) => d.password === d.confirmPassword, { message: "Passwords don't match", path: ["confirmPassword"] });

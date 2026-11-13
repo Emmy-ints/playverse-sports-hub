@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-export function FormField({ label, error, id, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string; id: string }) {
+export function FormField({ label, error, id, className, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string; error?: string | undefined; id: string }) {
   return (
     <div className={className}>
       <label htmlFor={id} className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</label>

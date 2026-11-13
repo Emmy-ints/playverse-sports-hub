@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { AuthLayout, NotConnectedNotice } from "@/components/game/AuthLayout";
+import { AuthLayout } from "@/components/game/AuthLayout";
 import { FormField } from "@/components/game/FormField";
 import { FormStatus } from "@/components/game/FormStatus";
 import { GameButton } from "@/components/game/GameButton";
@@ -29,9 +29,8 @@ function ForgotPassword() {
       subtitle="We'll email you a link to choose a new password."
       footer={<Link to="/login" className="font-semibold text-primary hover:underline">Back to log in</Link>}
     >
-      <NotConnectedNotice />
       <form noValidate onSubmit={(e) => onSubmit(e, { email })} className="space-y-4">
-        <FormField id="email" label="Email" type="email" autoComplete="email" value={email} error={errors.email} onChange={(e) => setEmail(e.target.value)} />
+        <FormField id="email" label="Email" type="email" autoComplete="email" value={email} error={errors["email"]} onChange={(e) => setEmail(e.target.value)} />
         <FormStatus status={status} />
         <GameButton type="submit" variant="hot" size="lg" className="w-full" disabled={pending}>
           {pending ? "Sending…" : "Send reset link"}

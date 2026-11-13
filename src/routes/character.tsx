@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Dices, RotateCcw, Save } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { AvatarPreview } from "@/components/game/AvatarPreview";
 import { GameButton } from "@/components/game/GameButton";
 import { GlassPanel } from "@/components/game/GlassPanel";
@@ -20,6 +21,8 @@ import {
   SKIN_TONES,
   type AvatarConfig,
 } from "@/lib/avatar";
+import { useMyProfile } from "@/lib/session";
+import { getSupabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/character")({
@@ -58,20 +61,32 @@ function randomAvatar(nickname: string): AvatarConfig {
 }
 
 function CharacterStudio() {
-  const saved = avatarStore.useValue();
+  const localSaved = avatarStore.useValue();
+  const { profile } = useMyProfile();
+  const saved = profile?.avatar_config ?? localSaved;
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<AvatarConfig>(saved ?? DEFAULT_AVATAR);
   const [tab, setTab] = useState<Tab>("Body");
   const [error, setError] = useState<string | null>(null);
 
   // localStorage is read after hydration; adopt the saved character once it appears.
+  const adopted = useRef(false);
   useEffect(() => {
-    if (saved) setDraft(saved);
-  }, [saved]);
+    if (adopted.current) return;
+    if (saved) {
+      setDraft(saved);
+      adopted.current = true;
+    } else if (profile) {
+      setDraft((d) => ({ ...d, nickname: profile.username }));
+      adopted.current = true;
+    }
+  }, [saved, profile]);
 
   const set = <K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) => setDraft((d) => ({ ...d, [key]: value }));
 
-  const save = () => {
+  const save = async () => {
     const result = avatarConfigSchema.safeParse({ ...draft, nickname: draft.nickname.trim() });
     if (!result.success) {
       setError(result.error.issues[0]?.message ?? "Check your character details");
@@ -79,6 +94,21 @@ function CharacterStudio() {
       return;
     }
     avatarStore.write(result.data);
+    const sb = getSupabase();
+    if (profile && sb) {
+      setSaving(true);
+      const { error: dbError } = await sb
+        .from("profiles")
+        .update({ avatar_config: result.data, display_name: result.data.nickname })
+        .eq("id", profile.id);
+      setSaving(false);
+      if (dbError) {
+        setError("Couldn't save to your account. Check your connection and try again.");
+        setTab("Extras");
+        return;
+      }
+      await qc.invalidateQueries({ queryKey: ["my-profile"] });
+    }
     navigate({ to: "/hub" });
   };
 
@@ -181,8 +211,8 @@ function CharacterStudio() {
           </GlassPanel>
 
           <div className="mt-5 flex flex-wrap gap-3">
-            <GameButton variant="hot" size="lg" onClick={save}>
-              <Save aria-hidden /> Save player
+            <GameButton variant="hot" size="lg" onClick={save} disabled={saving}>
+              <Save aria-hidden /> {saving ? "Saving…" : "Save player"}
             </GameButton>
             <GameButton variant="glass" size="lg" onClick={() => setDraft(randomAvatar(draft.nickname))}>
               <Dices aria-hidden /> Randomize

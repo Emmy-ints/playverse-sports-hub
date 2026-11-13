@@ -20,11 +20,3 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
     </div>
   );
 }
-
-export function NotConnectedNotice() {
-  return (
-    <p role="note" className="mb-5 rounded-xl border border-accent/40 bg-accent/10 px-4 py-3 text-sm text-foreground/90">
-      Accounts aren't live yet. Forms check your details, but sign-in connects in the next update.
-    </p>
-  );
-}

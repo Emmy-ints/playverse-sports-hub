@@ -1,6 +1,7 @@
+import type { FormStatusValue } from "@/hooks/use-auth-form";
 import { cn } from "@/lib/utils";
 
-export function FormStatus({ status }: { status: { tone: "info" | "error" | "success"; text: string } | null }) {
+export function FormStatus({ status }: { status: FormStatusValue }) {
   if (!status) return null;
   return (
     <p
