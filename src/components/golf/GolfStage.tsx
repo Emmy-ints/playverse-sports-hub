@@ -245,6 +245,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
       const pw = Math.max(0.02, Math.min(1, dy / (150 * getGameSettings().buttonScale)));
       // Keep the meter in step with the pull.
       meterStart.current = performance.now() - pw * 1100;
+      setPower(pw);
       p.pts.push({ x: e.clientX, t: performance.now() });
       if (p.pts.length > 30) p.pts.shift();
     }
