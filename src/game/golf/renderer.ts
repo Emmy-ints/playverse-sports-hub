@@ -242,7 +242,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
         pos.push(x, heightAt(h, x, z), z);
         const n = normalAt(h, x, z);
         nor.push(n[0], n[1], n[2]);
-        uv.push(i / (nx - 1), 1 - j / (nz - 1));
+        uv.push(i / (nx - 1), j / (nz - 1)); // canvas row 0 = minZ
       }
     }
     for (let j = 0; j < nz - 1; j++) {

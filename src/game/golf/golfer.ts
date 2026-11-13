@@ -97,22 +97,24 @@ export class GolferAnimator {
     const turn = putt ? 0 : keyframes([[0, 0], [0.85, 80 * this.power], [IMPACT_T, 10], [IMPACT_T + 0.35, -85], [END_T, -90]], t);
     const lean = putt ? 38 : 30;
 
+    // Note: negative X tilts the spine forward over the ball; negative knee X bends the knees naturally.
+    const leanNow = lean * (putt ? 1 : t > IMPACT_T + 0.3 ? 0.35 : 1);
     h.hips.setLocalPosition(0, putt ? 0.88 : 0.9, 0);
-    h.spine.setLocalEulerAngles(lean * (putt ? 1 : t > IMPACT_T + 0.3 ? 0.4 : 1), turn * 0.6, 0);
-    h.head.setLocalEulerAngles(putt ? 15 : 10, -turn * 0.35, 0);
-    h.hipL.setLocalEulerAngles(-8, 0, -3);
-    h.hipR.setLocalEulerAngles(-8, 0, 3);
-    h.kneeL.setLocalEulerAngles(16, 0, 0);
-    h.kneeR.setLocalEulerAngles(16, 0, 0);
-    // Arms hang toward the ball and come together at the grip; both swing through the same arc.
-    const fwd = putt ? 32 : 26;
+    h.spine.setLocalEulerAngles(-leanNow, turn * 0.6, 0);
+    h.head.setLocalEulerAngles(putt ? -12 : -8, -turn * 0.35, 0);
+    h.hipL.setLocalEulerAngles(14, 0, -3);
+    h.hipR.setLocalEulerAngles(14, 0, 3);
+    h.kneeL.setLocalEulerAngles(-20, 0, 0);
+    h.kneeR.setLocalEulerAngles(-20, 0, 0);
+    // Arms hang straight down from the tilted shoulders toward the ball and meet at the grip.
+    const fwd = leanNow + (putt ? 4 : 8);
     h.shoulderL.setLocalEulerAngles(fwd, 0, 16 + arc);
     h.shoulderR.setLocalEulerAngles(fwd, 0, -16 + arc);
     const hinge = putt ? 0 : keyframes([[0, 0], [0.85, 70 * this.power], [IMPACT_T, 0], [IMPACT_T + 0.35, 0], [END_T, 60]], t);
     h.elbowL.setLocalEulerAngles(4, 0, 0);
     h.elbowR.setLocalEulerAngles(4 + hinge * 0.4, 0, 0);
     // Club points out of the hands toward the ball.
-    this.clubEntity.setLocalEulerAngles(putt ? 8 : 20 + hinge, 0, 0);
+    this.clubEntity.setLocalEulerAngles(putt ? 10 : 28 + hinge, 0, 0);
   }
 
   private reactPose(t: number) {
