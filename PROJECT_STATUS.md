@@ -89,7 +89,7 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 
 ### Controls guide (all games)
 - Before every practice game starts, a "How to play" screen shows the goal and controls (Keyboard / Touch tabs, auto-picked by device); Enter/Space or the button starts the game.
-- Online: the guide is shown in the match lobby and on the "waiting for opponent" screen; a ? button in every game opens it any time (it doesn't pause online play).
+- Online: the guide is shown in the match lobby and on the "waiting for opponent" screen; a ? button in every game opens it any time (it doesn't pause online play). The Help page has every sport's controls plus FAQs.
 
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
@@ -97,7 +97,6 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 ## Outstanding tasks
 - PNG app icons (192/512) for full Android installability → Milestone 10.
 - Service worker, install prompt flow → Milestone 10.
-- Help & support content.
 - Settings toggles (sound/music/haptics) are saved but have nothing to control until gameplay exists.
 
 ## Known bugs
