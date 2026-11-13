@@ -16,7 +16,7 @@ export interface GameView {
   frames: FrameView[];
   total: number;
   complete: boolean;
-  /** 0-based frame index the next roll belongs to (9 for the tenth), or null when complete. */
+  /** 0-based frame index the next roll belongs to, or null when complete. */
   currentFrame: number | null;
   /** 1-based ball number within the current frame. */
   ballInFrame: number;
@@ -24,23 +24,25 @@ export interface GameView {
   pinsStanding: number;
 }
 
-export function isValidRoll(rolls: readonly number[], pins: number): boolean {
+export function isValidRoll(rolls: readonly number[], pins: number, frameCount = 10): boolean {
   if (!Number.isInteger(pins) || pins < 0 || pins > 10) return false;
-  const g = scoreGame(rolls);
+  const g = scoreGame(rolls, frameCount);
   if (g.complete) return false;
   return pins <= g.pinsStanding;
 }
 
-export function scoreGame(rolls: readonly number[]): GameView {
+/** Score a game of `frameCount` frames (10 normally; shorter challenges use 3 or 5). The last frame gets bonus balls. */
+export function scoreGame(rolls: readonly number[], frameCount = 10): GameView {
+  const N = Math.max(1, Math.min(10, Math.floor(frameCount)));
   const frames: FrameView[] = [];
   let i = 0;
   let running = 0;
   let scoringOpen = true;
 
-  for (let f = 0; f < 10; f++) {
+  for (let f = 0; f < N; f++) {
     const rest = rolls.slice(i);
     if (rest.length === 0) break;
-    if (f < 9) {
+    if (f < N - 1) {
       const a = rest[0] ?? 0;
       if (a === 10) {
         const b1 = rolls[i + 1], b2 = rolls[i + 2];
@@ -64,7 +66,7 @@ export function scoreGame(rolls: readonly number[]): GameView {
         i += 2;
       }
     } else {
-      // Tenth frame: up to three balls.
+      // Final frame: up to three balls.
       const [a, b, c] = rest;
       const marks: string[] = [];
       const fr: number[] = [];
@@ -88,7 +90,7 @@ export function scoreGame(rolls: readonly number[]): GameView {
   }
 
   const last = frames[frames.length - 1];
-  const tenth = frames.length === 10 ? frames[9] : undefined;
+  const tenth = frames.length === N ? frames[N - 1] : undefined;
   const complete = !!tenth && tenth.total !== null;
 
   // Where does the next ball go, and how many pins are up?
@@ -98,7 +100,7 @@ export function scoreGame(rolls: readonly number[]): GameView {
   if (!complete) {
     if (!last) {
       currentFrame = 0;
-    } else if (frames.length < 10) {
+    } else if (frames.length < N) {
       const lastIdx = frames.length - 1;
       const fr = last.rolls;
       if (fr.length === 1 && fr[0] !== 10) {
@@ -109,7 +111,7 @@ export function scoreGame(rolls: readonly number[]): GameView {
         currentFrame = lastIdx + 1;
       }
     } else {
-      currentFrame = 9;
+      currentFrame = N - 1;
       const fr = tenth!.rolls;
       ballInFrame = fr.length + 1;
       if (fr.length === 1) pinsStanding = fr[0] === 10 ? 10 : 10 - (fr[0] ?? 0);
@@ -132,16 +134,16 @@ export function scoreGame(rolls: readonly number[]): GameView {
 }
 
 /** True when the next ball should be thrown at a full rack. */
-export function nextRackIsFresh(rolls: readonly number[]): boolean {
-  return scoreGame(rolls).pinsStanding === 10;
+export function nextRackIsFresh(rolls: readonly number[], frameCount = 10): boolean {
+  return scoreGame(rolls, frameCount).pinsStanding === 10;
 }
 
-export function countStrikes(rolls: readonly number[]): number {
-  return scoreGame(rolls).frames.reduce((n, f) => n + f.marks.filter((m) => m === "X").length, 0);
+export function countStrikes(rolls: readonly number[], frameCount = 10): number {
+  return scoreGame(rolls, frameCount).frames.reduce((n, f) => n + f.marks.filter((m) => m === "X").length, 0);
 }
 
-export function countSpares(rolls: readonly number[]): number {
-  return scoreGame(rolls).frames.reduce((n, f) => n + f.marks.filter((m) => m === "/").length, 0);
+export function countSpares(rolls: readonly number[], frameCount = 10): number {
+  return scoreGame(rolls, frameCount).frames.reduce((n, f) => n + f.marks.filter((m) => m === "/").length, 0);
 }
 
 function mark(n: number): string {

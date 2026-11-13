@@ -101,6 +101,17 @@ function describe(n: NotificationView): { text: string; action?: React.ReactNode
     }
     case "match_declined":
       return { text: `${from(n)} declined your ${sportName} challenge.` };
+    case "match_result": {
+      const matchId = n.payload["match_id"] as string | undefined;
+      const won = n.payload["won"] === true, draw = n.payload["draw"] === true;
+      const score = n.payload["score"], opp = n.payload["opponent_score"];
+      return {
+        text: `${draw ? "Draw" : won ? "You won" : "You lost"} your ${sportName} match ${String(score)}–${String(opp)}.`,
+        action: matchId && sport === "bowling" ? <GameButton asChild size="sm" variant="primary"><Link to="/match/bowling/$matchId" params={{ matchId }}>View</Link></GameButton> : undefined,
+      };
+    }
+    case "achievement":
+      return { text: `Achievement unlocked: ${String(n.payload["achievement"] ?? "").replace(/_/g, " ")}!`, action: <GameButton asChild size="sm" variant="glass"><Link to="/achievements">See all</Link></GameButton> };
     default:
       return { text: "Notification" };
   }
