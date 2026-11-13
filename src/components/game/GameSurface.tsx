@@ -130,7 +130,7 @@ export function GameSettingsPanel({ racing = true }: { racing?: boolean }) {
       <Seg label="Camera behaviour" value={s.camMode} onChange={(v) => set({ camMode: v })} options={[
         { id: "dynamic", name: "Dynamic", hint: "The camera follows the action, looks ahead and reacts to speed." },
         { id: "steady", name: "Steady", hint: "Minimal camera movement: calmer framing, no speed effects." },
-        { id: "manual", name: "Manual", hint: "Like Dynamic, and you can drag on empty screen space to look around (golf, bowling, tennis)." },
+        { id: "manual", name: "Manual", hint: "Like Dynamic, plus free look where a game supports it (golf: drag the view to look along your aim)." },
       ]} />
       <Seg label="Dominant hand" value={s.hand} onChange={(v) => set({ hand: v })} options={[
         { id: "right", name: "Right-handed", hint: "Actions on the right, movement and aim on the left." },
