@@ -459,9 +459,9 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
 
     // Broadcast cameras.
     const me = s.athletes[viewer];
+    const race = EVENTS[s.event].kind === "race";
     if (me) {
       const p = worldOf(s.event, me.x, viewer);
-      const race = EVENTS[s.event].kind === "race";
       if (race) {
         if (s.phase === "ready") {
           // Low front view of the athletes in the blocks.
@@ -469,14 +469,15 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
           want.set(sx + 9, 1.4, W / 2 + 3.5);
           wantLook.set(sx, 0.6, W / 2);
         } else if (s.phase === "over" || me.phase === "done") {
-          want.set(p.x + 6, 3.2, W + 7);
-          wantLook.set(p.x - 1, 1, W / 2);
+          want.set(p.x + 7, 2.6, W + 2.6);
+          wantLook.set(p.x - 2, 1, W / 2);
         } else {
           // Tracking camera along the home straight (like TV): side-on, slightly ahead.
           const lead = Math.max(...s.athletes.map((a) => worldOf(s.event, a.x, 0).x));
           const fx = p.x * 0.75 + lead * 0.25;
-          want.set(fx + 2, portrait ? 6.5 : 4.6, W + (portrait ? 17 : 12.5));
-          wantLook.set(fx + 3.5, 0.9, W / 2 - 1);
+          // Trackside rail camera just outside lane 8 (in front of the grandstand).
+          want.set(fx - (portrait ? 4 : 2), portrait ? 5.2 : 3.4, W + 2.8);
+          wantLook.set(fx + (portrait ? 3 : 6), 0.7, W / 2 - 1.5);
         }
       } else {
         const flying = me.phase === "flight";
@@ -498,7 +499,7 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       camLook.lerp(camLook, wantLook, Math.min(1, k * 1.5));
       camera.setPosition(camPos);
       camera.lookAt(camLook);
-      camera.camera!.fov = portrait ? 62 : 42;
+      camera.camera!.fov = portrait ? 70 : race && s.phase === "live" ? 58 : 48;
     }
     // Finish clock.
     if (EVENTS[s.event].kind === "race") {
