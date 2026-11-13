@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
 import { getGameSettings, useGameSettings } from "@/lib/game-settings";
+import { useTouchMode } from "@/lib/input-mode";
 
 export interface GolfReplay { id: string; result: ShotResult; input: ShotInput; from: { x: number; z: number; lie: Surface }; avatar?: AvatarConfig | null }
 
@@ -45,6 +46,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
+  const touch = useTouchMode();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<GolfView | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
@@ -415,7 +417,7 @@ export function GolfStage({ theme, hole, ball, canShoot, avatar, onShot, onShotS
                     {phase === "accuracy" ? "Tap!" : phase === "power" ? "Release" : club === "putter" ? "Putt" : "Swing"}
                   </button>
                 </div>
-                <p className="mt-1.5 text-center text-[11px] text-white/70">
+                <p className={cn("mt-1.5 text-center text-[11px] text-white/70", touch && "hidden sm:block")}>
                   Drag the view to aim · on Swing: pull down then flick up, or hold, release and tap on the gold line (early hooks, late slices) · ←/→ aim · ↑/↓ club · Space
                 </p>
               </div>

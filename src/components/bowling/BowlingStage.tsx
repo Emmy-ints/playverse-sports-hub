@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
 import { getGameSettings, useGameSettings } from "@/lib/game-settings";
+import { useTouchMode } from "@/lib/input-mode";
 
 export interface StageReplay { id: string; result: SimResult; avatar?: AvatarConfig | null }
 
@@ -52,6 +53,8 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
+  const touch = useTouchMode();
+  const [fineTune, setFineTune] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<BowlingView | null>(null);
   const audioRef = useRef<AlleyAudio | null>(null);
@@ -342,14 +345,19 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
             {error && <p role="alert" className="mx-auto mb-2 w-fit rounded-lg bg-destructive/80 px-3 py-1.5 text-sm">{error}</p>}
             {canThrow ? (
               <div className="mx-auto max-w-xl px-3 pb-3">
-                <div className="glass grid grid-cols-3 gap-3 rounded-2xl p-3 text-xs">
+                {touch && (
+                  <button type="button" onClick={() => setFineTune((v) => !v)} aria-expanded={fineTune} className="glass mx-auto mb-2 block rounded-full px-3 py-1 text-xs font-bold uppercase">
+                    {fineTune ? "Hide fine-tune" : "Fine-tune aim, position & hook"}
+                  </button>
+                )}
+                {(!touch || fineTune) && <div className="glass grid grid-cols-3 gap-3 rounded-2xl p-3 text-xs">
                   <Slider label="Position" value={aim.x} min={-THROW_LIMITS.maxStartX} max={THROW_LIMITS.maxStartX} step={0.005} disabled={busy}
                     onChange={(v) => setAim((a) => ({ ...a, x: v }))} format={(v) => `${Math.round(20 - v / (1.0541 / 39))} board`} />
                   <Slider label="Aim" value={aim.angle} min={-THROW_LIMITS.maxAngle} max={THROW_LIMITS.maxAngle} step={0.001} disabled={busy}
                     onChange={(v) => setAim((a) => ({ ...a, angle: v }))} format={(v) => `${((v * 180) / Math.PI).toFixed(1)}°`} />
                   <Slider label="Hook" value={-aim.spin} min={-1} max={1} step={0.05} disabled={busy}
                     onChange={(v) => setAim((a) => ({ ...a, spin: -v }))} format={(v) => (Math.abs(v) < 0.05 ? "Straight" : `${Math.round(Math.abs(v) * 100)}% ${v < 0 ? "left" : "right"}`)} />
-                </div>
+                </div>}
                 <div className="mt-2 flex items-center gap-3">
                   <div className="h-3 flex-1 overflow-hidden rounded-full bg-muted" role="meter" aria-label="Power" aria-valuenow={Math.round(power * 100)} aria-valuemin={0} aria-valuemax={100}>
                     <div className="h-full rounded-full bg-gradient-hot" style={{ width: `${power * 100}%` }} />
@@ -364,7 +372,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
                     {phase === "charging" ? "Release!" : phase === "rolling" ? "Rolling…" : "Hold to roll"}
                   </button>
                 </div>
-                <p className="mt-1.5 text-center text-[11px] text-white/60">
+                <p className={cn("mt-1.5 text-center text-[11px] text-white/60", touch && "hidden sm:block")}>
                   Drag sideways to aim · pull back then swipe up to bowl (curl the swipe for hook) · or hold the button / Space · ←/→ move · A/D aim · Q/E hook
                 </p>
               </div>
