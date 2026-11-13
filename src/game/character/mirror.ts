@@ -80,7 +80,10 @@ export class HumanoidMirror {
     }
     this.feet = ["foot.L", "foot.R"].map((n) => ath.bone(n)).filter((x): x is pc.Entity => !!x);
     this.rootBone = ath.bone("root");
-    this.scale = this.rootBone ? modelPos(this.rootBone).y / HUMANOID_HIP_Y : 1;
+    // Match the classic rig's size so cameras, props and hit points framed for it still line up.
+    const k = this.rootBone ? HUMANOID_HIP_Y / modelPos(this.rootBone).y : 1;
+    ath.model.setLocalScale(k, k, k);
+    this.scale = 1;
     // Follow the humanoid's root.
     if (h.root.parent) ath.root.reparent(h.root.parent);
     this.hideSource();
