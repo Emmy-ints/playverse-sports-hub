@@ -14,6 +14,7 @@ import { setActivity } from "@/lib/presence";
 import { parseProfile } from "@/lib/profile";
 import { useSession } from "@/lib/session";
 import { startBowlingMatch } from "@/lib/bowling-online";
+import { startGolfMatch } from "@/lib/golf-online";
 import { friendlyError, leaveLobby, type PlayerSummary } from "@/lib/social";
 import { getSport, type SportId } from "@/lib/sports";
 import { getSupabase } from "@/lib/supabase";
@@ -183,10 +184,11 @@ function Lobby({ matchId }: { matchId: string }) {
   // Bowling is playable online: when the countdown ends, start the server game and go to the lane.
   const [startError, setStartError] = useState<string | null>(null);
   useEffect(() => {
-    if (countdown !== 0 || data?.sport !== "bowling") return;
+    if (countdown !== 0 || (data?.sport !== "bowling" && data?.sport !== "golf")) return;
     let cancelled = false;
-    startBowlingMatch(matchId)
-      .then(() => !cancelled && navigate({ to: "/match/bowling/$matchId", params: { matchId } }))
+    const start = data.sport === "bowling" ? startBowlingMatch(matchId) : startGolfMatch(matchId);
+    start
+      .then(() => !cancelled && (data.sport === "bowling" ? navigate({ to: "/match/bowling/$matchId", params: { matchId } }) : navigate({ to: "/match/golf/$matchId", params: { matchId } })))
       .catch((e) => !cancelled && setStartError(friendlyError(e)));
     return () => {
       cancelled = true;
@@ -274,15 +276,21 @@ function Lobby({ matchId }: { matchId: string }) {
             <p className="text-sm text-muted-foreground">
               {data.status === "abandoned" ? "A player left before the match started. No result or rating change was recorded." : data.status === "in_progress" ? "This match is underway." : `Match status: ${data.status}.`}
             </p>
-            {data.sport === "bowling" && (data.status === "in_progress" || data.status === "completed") && (
-              <GameButton asChild variant="hot" className="mt-3"><Link to="/match/bowling/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link></GameButton>
+            {(data.sport === "bowling" || data.sport === "golf") && (data.status === "in_progress" || data.status === "completed") && (
+              <GameButton asChild variant="hot" className="mt-3">
+                {data.sport === "bowling" ? (
+                  <Link to="/match/bowling/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link>
+                ) : (
+                  <Link to="/match/golf/$matchId" params={{ matchId }}>{data.status === "in_progress" ? "Rejoin match" : "View result"}</Link>
+                )}
+              </GameButton>
             )}
           </GlassPanel>
         ) : countdown !== null && countdown > 0 ? (
           <div role="timer" aria-live="assertive" className="font-display text-8xl font-black text-gradient-gold">{countdown}</div>
-        ) : countdown === 0 && data.sport === "bowling" ? (
+        ) : countdown === 0 && (data.sport === "bowling" || data.sport === "golf") ? (
           <GlassPanel>
-            {startError ? <p role="alert" className="text-destructive">{startError}</p> : <p className="font-display text-2xl font-bold uppercase">Heading to the lane…</p>}
+            {startError ? <p role="alert" className="text-destructive">{startError}</p> : <p className="font-display text-2xl font-bold uppercase">{data.sport === "bowling" ? "Heading to the lane…" : "Heading to the first tee…"}</p>}
           </GlassPanel>
         ) : countdown === 0 ? (
           <GlassPanel>
