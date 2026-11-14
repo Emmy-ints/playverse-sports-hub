@@ -346,3 +346,21 @@ export function useFriendsLive(enabled = true) {
 }
 
 export const WATCHABLE: readonly SportId[] = ["racing", "parkour", "tennis", "athletics"];
+
+export interface WeeklyEvent { week: string; sport: SportId; name: string; ends_at: string; tiers: { tier: number; title: string; goal: number; progress: number; xp: number; claimed: boolean }[] }
+
+/** This week's featured-sport event (Mon–Sun UTC); progress counts verified online results only. */
+export function useWeeklyEvent() {
+  const { session } = useSession();
+  return useQuery({ queryKey: ["weekly-event", session?.user.id], enabled: !!session, refetchInterval: 60_000, queryFn: () => rpc<WeeklyEvent>("weekly_event", {}) });
+}
+export function useClaimEventTier() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tier: number) => rpc<{ xp: number; total_xp: number }>("claim_event_tier", { p_tier: tier }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["weekly-event"] });
+      void qc.invalidateQueries({ queryKey: ["my-profile"] });
+    },
+  });
+}
