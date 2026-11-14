@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Gamepad2, Loader2, Monitor, RotateCcw, 
 import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { RaceAudio } from "@/game/racing/audio";
+import { ghostAt, GhostRecorder, loadGhost, saveGhost, type GhostLap } from "@/game/racing/ghost";
 import type { RaceDriver } from "@/game/racing/driver";
 import type { Quality, RaceView } from "@/game/racing/renderer";
 import { aiDrive, standings, type RaceState } from "@/game/racing/sim";
@@ -22,6 +23,8 @@ interface Props {
   helmets: string[];
   renderEnd: (r: { rows: RaceResultRow[]; final: boolean; viewer: number }) => ReactNode;
   topRight?: ReactNode;
+  /** Practice only: race your personal-best lap ghost (stored on this device). */
+  ghost?: boolean;
 }
 
 export function formatTime(t: number) {
@@ -41,7 +44,8 @@ function nextView(dir: number) {
   setGameSettings({ raceView: RACE_VIEWS[(i + dir + RACE_VIEWS.length) % RACE_VIEWS.length]!.id });
 }
 
-export function RaceStage({ track: trackId, driver, names, colors, helmets, renderEnd, topRight }: Props) {
+export function RaceStage({ track: trackId, driver, names, colors, helmets, renderEnd, topRight, ghost: ghostOn = false }: Props) {
+  const [pb, setPb] = useState<number | null>(() => (ghostOn ? loadGhost(trackId)?.time ?? null : null));
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
@@ -164,6 +168,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   useEffect(() => {
     if (phase !== "ready") return;
     let raf = 0, last = performance.now(), hudAt = 0, lastCount = -1;
+    let ghostLap: GhostLap | null = ghostOn ? loadGhost(trackId) : null;
+    const rec = new GhostRecorder();
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const dt = Math.min(0.1, (now - last) / 1000);
@@ -241,7 +247,24 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         if (count > 0 && count <= 3) audio?.beep(false);
         lastCount = count;
       }
+      if (ghostOn) {
+        const lapT = s.t - me.lapStart;
+        if (s.phase === "racing" && !me.finished) rec.sample(lapT, me.x, me.z, me.h);
+        viewRef.current?.setGhost(ghostLap && s.phase === "racing" && !me.finished ? ghostAt(ghostLap, lapT) : null);
+      }
       for (const e of events) {
+        if (ghostOn && e.kind === "lap" && e.car === v) {
+          const t = Number((e.detail ?? "").split(":")[1]);
+          const g = rec.finish(t);
+          rec.start();
+          if (g && t > 5 && (!ghostLap || t < ghostLap.time)) {
+            const first = !ghostLap;
+            ghostLap = g;
+            saveGhost(trackId, g);
+            setPb(t);
+            if (!first) setTimeout(() => setBanner({ text: `New personal best! ${formatTime(t)}`, id: performance.now() }), 1400);
+          }
+        }
         if (e.kind === "start") {
           audio?.beep(true);
           setBanner({ text: "GO!", id: now });
@@ -274,7 +297,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [phase, driver, track, map, names, colors]);
+  }, [phase, driver, track, map, names, colors, ghostOn, trackId]);
 
   useEffect(() => {
     if (!banner) return;
@@ -388,6 +411,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         <div className="mt-1 rounded-lg bg-black/45 px-3 py-1 text-xs tabular-nums text-white/80">
           Last {hud.last ? formatTime(hud.last) : "—"} · Best {hud.best ? formatTime(hud.best) : "—"}
         </div>
+        {ghostOn && <div className="mt-1 rounded-lg bg-[#7fdcff]/20 px-3 py-1 text-xs tabular-nums text-[#bfefff]">Ghost PB {pb ? formatTime(pb) : "— set a lap"}</div>}
         {status && <div className="mt-1 max-w-xs rounded-lg bg-black/60 px-3 py-1 text-xs">{status}</div>}
       </div>
 

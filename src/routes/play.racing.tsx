@@ -96,6 +96,7 @@ function Race({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => voi
       names={names}
       colors={colors}
       helmets={helmets}
+      ghost
       topRight={<button type="button" onClick={onExit} className="glass rounded-full px-3 py-2 text-xs font-bold text-white">Leave</button>}
       renderEnd={({ rows, final, viewer }) => {
         const mine = rows.findIndex((r) => r.car === viewer) + 1;

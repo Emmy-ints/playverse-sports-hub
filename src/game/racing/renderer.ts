@@ -22,6 +22,8 @@ export interface RaceView {
   setQuality(q: Quality): void;
   /** Hold to look behind (V / gamepad B / touch eye button) without changing the chosen camera. */
   setLookBehind(on: boolean): void;
+  /** Translucent ghost car (personal-best lap); null hides it. */
+  setGhost(pose: { x: number; z: number; h: number } | null): void;
   destroy(): void;
 }
 
@@ -639,6 +641,7 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   type RaceViewId = RaceCamId | "orbit";
   let curView: RaceViewId | "" = "";
   let lookBack = false;
+  let ghost: CarView | null = null;
   let blend = 1;
   let fromFov = 62;
   const fromPos = new pc.Vec3(), fromLook = new pc.Vec3(), blendPos = new pc.Vec3(), blendLook = new pc.Vec3();
@@ -860,6 +863,30 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     },
     setLookBehind(on) {
       lookBack = on;
+    },
+    setGhost(pose) {
+      if (!pose) {
+        if (ghost) ghost.root.enabled = false;
+        return;
+      }
+      if (!ghost) {
+        ghost = makeCar("#7fdcff", "#ffffff");
+        const gm = new pc.StandardMaterial();
+        gm.diffuse = new pc.Color(0.3, 0.75, 1);
+        gm.emissive = new pc.Color(0.15, 0.45, 0.7);
+        gm.opacity = 0.32;
+        gm.blendType = pc.BLEND_NORMAL;
+        gm.depthWrite = false;
+        gm.update();
+        for (const r of ghost.root.findComponents("render") as pc.RenderComponent[]) {
+          r.castShadows = false;
+          for (const mi of r.meshInstances) mi.material = gm;
+        }
+        ghost.interior.enabled = false;
+      }
+      ghost.root.enabled = true;
+      ghost.root.setPosition(pose.x, 0.02, pose.z);
+      ghost.root.setEulerAngles(0, (-pose.h * 180) / Math.PI, 0);
     },
     setCars(list) {
       list.forEach((c, i) => {
