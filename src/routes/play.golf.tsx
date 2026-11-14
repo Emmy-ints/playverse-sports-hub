@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PersonalBest } from "@/components/game/PersonalBest";
 import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, Flag, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
@@ -134,6 +135,7 @@ function Round({ theme, holeCount, seed, onRestart }: { theme: CourseTheme; hole
             <p className="font-display text-sm font-bold uppercase tracking-[0.3em] text-accent">Round complete</p>
             <p className="font-display text-6xl font-black text-gradient-gold">{card.reduce<number>((s, v) => s + (v ?? 0), 0)}</p>
             <p className="text-white/80">{formatToPar(toPar(card, pars))} to par</p>
+            <PersonalBest id={`golf.${theme.id}.${holeCount}`} value={toPar(card, pars)} lowerIsBetter format={formatToPar} label={`Best ${holeCount}-hole round`} />
             <div className="mt-4 flex justify-center gap-2">
               <GameButton variant="hot" onClick={onRestart}><RotateCcw aria-hidden /> New round</GameButton>
               <GameButton asChild variant="glass"><Link to="/hub">Hub</Link></GameButton>

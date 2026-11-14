@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PersonalBest } from "@/components/game/PersonalBest";
 import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -100,6 +101,7 @@ function BowlingPractice() {
             <p className="font-display text-sm font-bold uppercase tracking-[0.3em] text-accent">Final score</p>
             <p className="font-display text-7xl font-black text-gradient-gold">{game.total}</p>
             <p className="text-sm text-white/70">{countStrikes(rolls)} strikes · {countSpares(rolls)} spares</p>
+            <PersonalBest id="bowling.score" value={game.total} label="Best game" />
             <div className="mt-4 flex justify-center gap-2">
               <GameButton variant="hot" onClick={restart}><RotateCcw aria-hidden /> Play again</GameButton>
               <GameButton asChild variant="glass"><Link to="/hub">Hub</Link></GameButton>

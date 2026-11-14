@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PersonalBest } from "@/components/game/PersonalBest";
 import { ControlsGate } from "@/components/game/ControlsGuide";
 import { ArrowLeft, Medal, Play, RotateCcw, Trophy } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -119,6 +120,7 @@ function Championship({ setup, onExit, onRestart }: { setup: Setup; onExit: () =
             </ol>
           </>
         )}
+        <PersonalBest key={results.length} id={`athletics.${last.event}`} value={last.marks[0] ?? null} lowerIsBetter={EVENTS[last.event].kind === "race"} format={(v) => markText(last.event, v)} />
         {done && (
           <p className="mt-4 flex items-center gap-2 font-display text-2xl font-black uppercase">
             {table[0]!.i === 0 ? <><Trophy className="text-[#ffd23f]" aria-hidden /> Champion!</> : <><Medal aria-hidden /> {table.findIndex((r) => r.i === 0) + 1}{["st", "nd", "rd"][table.findIndex((r) => r.i === 0)] ?? "th"} overall</>}

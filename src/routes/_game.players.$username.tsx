@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { DivisionBadge } from "@/components/game/DivisionBadge";
 import { useQuery } from "@tanstack/react-query";
 import { Ban, Loader2, Medal, UserPlus } from "lucide-react";
 import { Avatar3D } from "@/components/game/Avatar3D";
@@ -103,7 +104,10 @@ function PlayerProfile({ username }: { username: string }) {
                   const rt = stats.data.ratings.find((r) => r.scope === s.id);
                   return (
                     <li key={s.id} className="rounded-xl bg-secondary/60 p-3">
-                      <p className="font-display text-lg font-bold uppercase">{s.name}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-display text-lg font-bold uppercase">{s.name}</p>
+                        {rt && <DivisionBadge rating={rt.rating} games={rt.games_rated} />}
+                      </div>
                       <p className="text-sm text-muted-foreground">{st ? `${st.wins}W · ${st.losses}L` : "—"} · Rating {rt?.rating ?? "—"}</p>
                     </li>
                   );

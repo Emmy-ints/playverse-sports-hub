@@ -193,3 +193,9 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 
 ## Notes
 - Routing uses TanStack Router (fixed by the Lovable TanStack Start template) instead of React Router; same page structure.
+
+## Competitive wave (Nov 2026)
+- **Racing ghost** (practice): best lap per circuit recorded at 20 Hz on this device (`src/game/racing/ghost.ts`), replayed as a translucent car; HUD shows "Ghost PB"; banner on a new personal best. Unit-checked recorder/interp (heading wrap OK).
+- **Skill divisions** (`src/lib/divisions.ts`, `DivisionBadge`): Placement (<5 rated games) → Bronze <1100 → Silver <1250 → Gold <1400 → Platinum <1600 → Diamond, from server Elo. Shown on rankings rows, "Your rank" card (with progress bar), own profile and public profiles.
+- **All-Rounder Championship**: `all_rounder(p_month, friends_only, lim)` RPC (security definer, read-only) over verified `match_results` this calendar month (UTC): 1 pt per match up to 10/sport, +3 per win, +1 per draw, cap 40/sport, +5 per sport entered. Rankings page "All-Rounder" tab with per-sport chips, days left and the sports you haven't played. Tested against live data (2 players, Nov 2026).
+- **Practice personal bests** (`PersonalBest` component, localStorage `pv.pb.v1`, device-only, never ranked): bowling game score, golf to-par per course+length, parkour time per course length, athletics mark per event.

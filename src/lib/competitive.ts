@@ -91,3 +91,17 @@ export const useCreateTournament = () =>
 export const useJoinTournament = () => useTourMutation((id: string) => rpc("join_tournament", { t: id }));
 export const useLeaveTournament = () => useTourMutation((id: string) => rpc("leave_tournament", { t: id }));
 export const useStartTournament = () => useTourMutation((id: string) => rpc("start_tournament", { t: id }));
+
+export interface AllRounderRow { rank: number; points: number; sports: number; played: number; wins: number; by_sport: Partial<Record<SportId, number>>; player: PlayerRef }
+export interface AllRounder { season: string; ends_at: string; rows: AllRounderRow[]; me: { rank: number; points: number; sports: number; by_sport: Partial<Record<SportId, number>> } | null }
+
+/** Monthly All-Rounder Championship: points from verified online results across all six sports. */
+export function useAllRounder(friendsOnly: boolean, enabled = true) {
+  const { session } = useSession();
+  return useQuery({
+    queryKey: ["all-rounder", friendsOnly, session?.user.id ?? null],
+    enabled: enabled && (!friendsOnly || !!session),
+    staleTime: 30_000,
+    queryFn: () => rpc<AllRounder>("all_rounder", { p_month: null, friends_only: friendsOnly, lim: 100 }),
+  });
+}

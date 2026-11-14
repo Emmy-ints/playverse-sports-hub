@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PersonalBest } from "@/components/game/PersonalBest";
+import { formatRaceTime } from "@/components/parkour/ParkourStage";
 import { ArrowLeft, Flag, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ControlsGate } from "@/components/game/ControlsGuide";
@@ -91,7 +93,7 @@ function Run({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => void
       avatars={avatars}
       colors={colors}
       topRight={<button type="button" onClick={onExit} className="glass rounded-full px-3 py-2 text-xs font-bold text-white">Leave</button>}
-      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} actions={
+      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} note={<PersonalBest id={`parkour.${setup.length}`} value={s.runners[0]!.finish} lowerIsBetter format={(v) => `${formatRaceTime(v)} s`} label="Best run" />} actions={
         <>
           <GameButton variant="hot" onClick={onRestart}><RotateCcw aria-hidden /> Run again</GameButton>
           <GameButton variant="glass" onClick={onExit}>Change setup</GameButton>
