@@ -131,7 +131,7 @@ function CharacterStudio() {
             </div>
           </GlassPanel>
           <p className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            2D preview · 3D character viewer coming later
+            Drag to turn · tap to celebrate
           </p>
           <p className="mt-3 text-center font-display text-3xl font-black uppercase">{draft.nickname || "—"}</p>
         </section>

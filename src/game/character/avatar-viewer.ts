@@ -23,8 +23,8 @@ export async function createAvatarViewer(canvas: HTMLCanvasElement, config: Avat
 
   const camera = new pc.Entity("cam");
   camera.addComponent("camera", { clearColor: new pc.Color(0, 0, 0, 0), fov: 26, nearClip: 0.1, farClip: 30, toneMapping: pc.TONEMAP_ACES, gammaCorrection: pc.GAMMA_SRGB });
-  camera.setPosition(0, 1.02, 5.6);
-  camera.lookAt(0, 0.93, 0);
+  camera.setPosition(0, 1.0, 4.35);
+  camera.lookAt(0, 0.9, 0);
   app.root.addChild(camera);
   const key = new pc.Entity();
   key.addComponent("light", { type: "directional", color: new pc.Color(1, 0.96, 0.9), intensity: 1.7, castShadows: true, shadowResolution: 1024, shadowDistance: 6, normalOffsetBias: 0.05, shadowBias: 0.2 });
