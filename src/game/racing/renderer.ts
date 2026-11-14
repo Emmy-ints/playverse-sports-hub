@@ -453,23 +453,76 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   const head = mat({ color: "#ffffff", emissive: "#fff3cf" });
   const black = mat({ color: "#0a0a0a", gloss: 0.5 });
   const carViews: CarView[] = [];
+  // Smooth lofted car shells (shared by every car): a low GT body and a glass greenhouse.
+  const loft = (secs: { z: number; w: number; y0: number; y1: number; topW?: number }[], ring = 24, flatBottom = true) => {
+    const pos: number[] = [], idx: number[] = [];
+    for (const sc of secs) {
+      const cy = (sc.y0 + sc.y1) / 2, hh = (sc.y1 - sc.y0) / 2;
+      for (let r = 0; r < ring; r++) {
+        const a = (r / ring) * Math.PI * 2;
+        const c = Math.cos(a), sn = Math.sin(a);
+        const up = sn > 0;
+        const w = up && sc.topW !== undefined ? sc.w + (sc.topW - sc.w) * Math.pow(sn, 1.5) : sc.w;
+        const x = w * Math.sign(c) * Math.pow(Math.abs(c), up ? 0.55 : 0.3);
+        const y = cy + hh * Math.sign(sn) * Math.pow(Math.abs(sn), up ? 0.75 : flatBottom ? 0.2 : 0.6);
+        pos.push(x, y, sc.z);
+      }
+    }
+    for (let k = 0; k < secs.length - 1; k++)
+      for (let r = 0; r < ring; r++) {
+        const a = k * ring + r, b = k * ring + ((r + 1) % ring), c = (k + 1) * ring + r, d = (k + 1) * ring + ((r + 1) % ring);
+        idx.push(a, b, c, b, d, c);
+      }
+    // caps
+    for (const k of [0, secs.length - 1]) {
+      const ci = pos.length / 3;
+      const sc = secs[k]!;
+      pos.push(0, (sc.y0 + sc.y1) / 2, sc.z);
+      for (let r = 0; r < ring; r++) {
+        const a = k * ring + r, b = k * ring + ((r + 1) % ring);
+        if (k === 0) idx.push(ci, b, a);
+        else idx.push(ci, a, b);
+      }
+    }
+    const m = new pc.Mesh(device);
+    m.setPositions(pos);
+    m.setNormals(pc.calculateNormals(pos, idx));
+    m.setIndices(idx);
+    m.update(pc.PRIMITIVE_TRIANGLES);
+    return m;
+  };
+  // z: nose (−2.2) to tail (2.2). Wheel arches swell at ±1.35.
+  const bodyProfile: [number, number, number, number][] = [
+    // z, half-width, bottom, top
+    [-2.22, 0.62, 0.2, 0.36], [-2.12, 0.8, 0.17, 0.46], [-1.9, 0.88, 0.16, 0.52], [-1.6, 0.95, 0.16, 0.6], [-1.35, 0.97, 0.16, 0.64], [-1.05, 0.95, 0.16, 0.66],
+    [-0.75, 0.93, 0.16, 0.7], [-0.45, 0.92, 0.16, 0.74], [0, 0.92, 0.16, 0.75], [0.6, 0.94, 0.16, 0.76], [1.05, 0.97, 0.16, 0.77], [1.35, 0.98, 0.16, 0.78],
+    [1.7, 0.96, 0.17, 0.78], [2.0, 0.9, 0.2, 0.76], [2.2, 0.8, 0.26, 0.72], [2.26, 0.6, 0.32, 0.66],
+  ];
+  const bodyMesh = loft(bodyProfile.map(([z, w, y0, y1]) => ({ z, w, y0, y1 })), 28);
+  const cabinMesh = loft(
+    [[-0.62, 0.7, 0.66, 0.7], [-0.45, 0.72, 0.68, 0.86], [-0.2, 0.72, 0.68, 1.0], [0.15, 0.71, 0.68, 1.06], [0.5, 0.7, 0.7, 1.05], [0.85, 0.7, 0.72, 0.98], [1.15, 0.68, 0.74, 0.86], [1.32, 0.66, 0.75, 0.78]].map(([z, w, y0, y1]) => ({ z: z!, w: w!, y0: y0!, y1: y1!, topW: w! * 0.78 })),
+    24,
+  );
   const makeCar = (color: string, helmet: string): CarView => {
     const root = new pc.Entity("car");
     app.root.addChild(root);
     const body = mat({ color, metal: 0.35, gloss: 0.75, clearCoat: 1 });
     const brake = mat({ color: "#3a0000", emissive: "#3a0000" });
     const helmetMat = mat({ color: helmet, gloss: 0.8, clearCoat: 0.6 });
-    // Car faces −Z. Length 4.4 m, width 1.9 m.
-    add(root, "box", body, [0, 0.48, 0], [1.9, 0.5, 4.4]);
-    add(root, "box", body, [0, 0.82, 0.25], [1.6, 0.36, 2.0]);
-    add(root, "box", glass, [0, 0.86, -0.55], [1.5, 0.3, 0.5], false, [-35, 0, 0]);
-    add(root, "box", glass, [0, 0.86, 1.2], [1.5, 0.28, 0.45], false, [30, 0, 0]);
-    add(root, "box", body, [0, 0.36, -2.1], [1.85, 0.22, 0.4]); // nose
-    add(root, "box", black, [0, 0.25, -2.25], [1.7, 0.12, 0.25]); // splitter
+    // Car faces −Z. Length 4.4 m, width 1.9 m. Smooth body shell + glass greenhouse.
+    const shell = new pc.Entity("body");
+    shell.addComponent("render", { meshInstances: [new pc.MeshInstance(bodyMesh, body)], castShadows: true, receiveShadows: true });
+    root.addChild(shell);
+    const cabin = new pc.Entity("cabin");
+    cabin.addComponent("render", { meshInstances: [new pc.MeshInstance(cabinMesh, glass)], castShadows: true, receiveShadows: false });
+    root.addChild(cabin);
+    add(root, "box", black, [0, 0.2, -2.18], [1.6, 0.06, 0.22], false); // splitter
+    add(root, "box", black, [0, 0.34, -2.2], [1.0, 0.1, 0.04], false); // grille
+    for (const x of [-1, 1]) add(root, "box", black, [x * 0.97, 0.2, 0], [0.04, 0.08, 2.0], false); // side skirts
     add(root, "box", black, [0, 1.12, 2.0], [1.7, 0.06, 0.4]); // wing
     add(root, "box", black, [-0.6, 0.95, 2.0], [0.06, 0.3, 0.3]);
     add(root, "box", black, [0.6, 0.95, 2.0], [0.06, 0.3, 0.3]);
-    const helmetE = add(root, "sphere", helmetMat, [0, 0.95, 0.1], [0.32, 0.32, 0.34], false);
+    const helmetE = add(root, "sphere", helmetMat, [0, 0.9, 0.15], [0.3, 0.3, 0.32], false);
     // Dashboard and steering wheel (seen from the cockpit camera).
     add(root, "box", black, [0, 0.78, -0.5], [1.4, 0.1, 0.3], false);
     const wheel = new pc.Entity();
@@ -479,8 +532,8 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     add(wheel, "cylinder", black, [0, 0, 0], [0.34, 0.03, 0.34], false);
     add(wheel, "box", body, [0, 0.02, 0], [0.3, 0.02, 0.05], false);
     for (const x of [-0.65, 0.65]) {
-      add(root, "box", head, [x, 0.52, -2.21], [0.42, 0.1, 0.05], false);
-      add(root, "box", brake, [x, 0.6, 2.21], [0.45, 0.1, 0.05], false);
+      add(root, "box", head, [x * 0.95, 0.42, -2.08], [0.38, 0.08, 0.12], false, [-12, 0, 0]);
+      add(root, "box", brake, [x, 0.6, 2.22], [0.45, 0.08, 0.06], false);
     }
     const wheels: pc.Entity[] = [], fronts: pc.Entity[] = [];
     for (const [x, z] of [[-0.92, -1.35], [0.92, -1.35], [-0.92, 1.35], [0.92, 1.35]] as const) {
