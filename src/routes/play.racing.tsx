@@ -29,7 +29,7 @@ const LEVELS = [
 ] as const;
 const AI_NAMES = ["Vega", "Kato", "Rossi", "Okafor", "Lind", "Mendes", "Novak"];
 
-interface Setup { track: TrackDef["id"]; laps: number; opponents: number; level: (typeof LEVELS)[number]; color: string; key: number }
+interface Setup { track: TrackDef["id"]; laps: number; opponents: number; level: (typeof LEVELS)[number]; color: string; wet: number; key: number }
 
 function RacingPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -59,6 +59,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
   const [opponents, setOpponents] = useState(5);
   const [level, setLevel] = useState<(typeof LEVELS)[number]["id"]>("pro");
   const [color, setColor] = useState<string>(CAR_COLORS[0]);
+  const [wet, setWet] = useState(0);
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(circle_at_top,#3a1d4f,#0b1020)] p-4 pt-safe pb-safe">
       <div className="glass w-full max-w-xl rounded-3xl p-6">
@@ -69,13 +70,14 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
         <Pick label="Laps" value={laps} onChange={setLaps} cols={1} options={[1, 3, 5].map((n) => ({ id: n, name: `${n} lap${n > 1 ? "s" : ""}` }))} />
         <Pick label="Opponents" value={opponents} onChange={setOpponents} cols={1} options={[1, 3, 5].map((n) => ({ id: n, name: `${n} AI` }))} />
         <Pick label="Difficulty" value={level} onChange={setLevel} cols={1} options={LEVELS.map((l) => ({ id: l.id, name: l.name }))} />
+        <Pick label="Weather" value={wet} onChange={setWet} cols={1} options={[{ id: 0, name: "Dry" }, { id: 0.5, name: "Damp", hint: "Less grip" }, { id: 1, name: "Rain", hint: "Brake early" }]} />
         <fieldset className="mt-4">
           <legend className="mb-2 text-xs font-bold uppercase tracking-wider text-white/70">Car colour</legend>
           <div className="flex flex-wrap gap-2">
             {CAR_COLORS.map((c) => <button key={c} type="button" aria-label={`Colour ${c}`} aria-pressed={color === c} onClick={() => setColor(c)} className={cn("size-10 rounded-full border-2", color === c ? "border-white ring-2 ring-white/60" : "border-white/20")} style={{ background: c }} />)}
           </div>
         </fieldset>
-        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ track, laps, opponents, level: LEVELS.find((l) => l.id === level)!, color, key: Date.now() })}>
+        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ track, laps, opponents, level: LEVELS.find((l) => l.id === level)!, color, wet, key: Date.now() })}>
           <Flag aria-hidden /> To the grid
         </GameButton>
       </div>
@@ -85,7 +87,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
 
 function Race({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => void; onExit: () => void }) {
   const player = usePlayer();
-  const driver = useMemo(() => new PracticeRaceDriver(setup.track, setup.opponents, setup.laps, setup.level.level), [setup]);
+  const driver = useMemo(() => new PracticeRaceDriver(setup.track, setup.opponents, setup.laps, setup.level.level, setup.wet), [setup]);
   const names = useMemo(() => [player.name, ...AI_NAMES.slice(0, setup.opponents)], [player.name, setup.opponents]);
   const colors = useMemo(() => [setup.color, ...CAR_COLORS.filter((c) => c !== setup.color).slice(0, setup.opponents)], [setup.color, setup.opponents]);
   const helmets = useMemo(() => [player.avatar?.outfitColor ?? "#ffffff", ...Array(setup.opponents).fill("#e8eaf0")], [player.avatar, setup.opponents]);

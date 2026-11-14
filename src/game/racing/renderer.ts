@@ -24,6 +24,8 @@ export interface RaceView {
   setLookBehind(on: boolean): void;
   /** Translucent ghost car (personal-best lap); null hides it. */
   setGhost(pose: { x: number; z: number; h: number } | null): void;
+  /** 0 = dry, 1 = heavy rain (visuals only; grip lives in the sim). */
+  setWeather(wet: number): void;
   destroy(): void;
 }
 
@@ -197,6 +199,15 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   let quality = initialQuality;
   const theme = RACE_THEMES[trackId];
   const track = buildTrack(trackId);
+  let roadMat: pc.StandardMaterial | null = null;
+  let wet = 0;
+  const base = { sun: 0, sky: 0, amb: new pc.Color() };
+  const applyWet = () => {
+    if (!roadMat) return;
+    roadMat.gloss = (theme.night ? 0.5 : 0.3) + wet * 0.45;
+    roadMat.diffuse = new pc.Color(1 - wet * 0.35, 1 - wet * 0.35, 1 - wet * 0.3);
+    roadMat.update();
+  };
   const app = new pc.Application(canvas, { graphicsDeviceOptions: { antialias: true, alpha: false, powerPreference: "high-performance" } });
   const device = app.graphicsDevice;
   const ratio = () => (quality === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25));
@@ -221,7 +232,8 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       const lighting = pc.EnvLighting.generateLightingSource(tex);
       app.scene.envAtlas = pc.EnvLighting.generateAtlas(lighting);
       lighting.destroy();
-      app.scene.skyboxIntensity = theme.skyIntensity;
+      app.scene.skyboxIntensity = theme.skyIntensity * (1 - wet * 0.55);
+      base.sky = theme.skyIntensity;
     } catch (e) {
       console.warn("[racing] sky unavailable", e);
     }
@@ -287,7 +299,9 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     meshEntity(root, ribbon(device, track, (i) => L(i, -wall, 0.005), (i) => L(i, wall, 0.005), 1 / 8), mat({ color: theme.runoff, gloss: 0.12, noEnv: true }));
     const asphalt = canvasTex(device, asphaltCanvas(theme));
     textures.push(asphalt);
-    meshEntity(root, ribbon(device, track, (i) => L(i, -hw, 0.02), (i) => L(i, hw, 0.02), 1 / 14), mat({ map: asphalt, gloss: theme.night ? 0.5 : 0.3 }));
+    roadMat = mat({ map: asphalt, gloss: theme.night ? 0.5 : 0.3 });
+    applyWet();
+    meshEntity(root, ribbon(device, track, (i) => L(i, -hw, 0.02), (i) => L(i, hw, 0.02), 1 / 14), roadMat);
     const kerbTex = canvasTex(device, stripeCanvas("#d71f1f", "#f4f4f4", 2));
     textures.push(kerbTex);
     const kerbMat = mat({ map: kerbTex, gloss: 0.3 });
@@ -658,8 +672,36 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   }
   let tvCam = -1;
 
+  // Rain: streaks drawn around the camera each frame.
+  const RAIN_N = 260;
+  const rain = new Float32Array(RAIN_N * 3);
+  for (let i = 0; i < RAIN_N; i++) {
+    rain[i * 3] = (Math.random() - 0.5) * 40;
+    rain[i * 3 + 1] = Math.random() * 16;
+    rain[i * 3 + 2] = (Math.random() - 0.5) * 40;
+  }
+  const rainPos: pc.Vec3[] = [];
+  const rainCol: pc.Color[] = [];
+  const rainColor = new pc.Color(0.75, 0.8, 0.9, 0.35);
+  for (let i = 0; i < RAIN_N * 2; i++) {
+    rainPos.push(new pc.Vec3());
+    rainCol.push(rainColor);
+  }
   app.on("update", (dt: number) => {
     standCrowd?.update(dt);
+    if (wet > 0.01) {
+      const cp = camera.getPosition();
+      const n = Math.round(RAIN_N * wet);
+      for (let i = 0; i < n; i++) {
+        let y = rain[i * 3 + 1]! - dt * 22;
+        if (y < 0) y += 16;
+        rain[i * 3 + 1] = y;
+        const x = cp.x + rain[i * 3]!, z = cp.z + rain[i * 3 + 2]!, yy = cp.y - 6 + y;
+        rainPos[i * 2]!.set(x, yy, z);
+        rainPos[i * 2 + 1]!.set(x + 0.05, yy - 0.7, z);
+      }
+      app.drawLines(rainPos.slice(0, n * 2), rainCol.slice(0, n * 2), true);
+    }
     const rlMode = getGameSettings().racingLine;
     if (lineFull) lineFull.enabled = rlMode === "full";
     if (lineCorners) lineCorners.enabled = rlMode === "corners";
@@ -863,6 +905,25 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     },
     setLookBehind(on) {
       lookBack = on;
+    },
+    setWeather(w) {
+      const prev = wet;
+      wet = Math.max(0, Math.min(1, w));
+      if (!base.sun) {
+        base.sun = sun.light!.intensity;
+        base.sky = app.scene.skyboxIntensity;
+        base.amb.copy(app.scene.ambientLight);
+      }
+      sun.light!.intensity = base.sun * (1 - wet * 0.65);
+      app.scene.skyboxIntensity = (base.sky || theme.skyIntensity) * (1 - wet * 0.55);
+      app.scene.ambientLight = new pc.Color(base.amb.r * (1 - wet * 0.2), base.amb.g * (1 - wet * 0.15), base.amb.b * (1 - wet * 0.05));
+      if (wet > 0) {
+        app.scene.fog.type = pc.FOG_LINEAR;
+        app.scene.fog.color = theme.night ? new pc.Color(0.05, 0.06, 0.09) : new pc.Color(0.42, 0.45, 0.5);
+        app.scene.fog.start = 40 + (1 - wet) * 120;
+        app.scene.fog.end = 320 + (1 - wet) * 400;
+      } else if (prev > 0 && !theme.night) app.scene.fog.type = pc.FOG_NONE;
+      applyWet();
     },
     setGhost(pose) {
       if (!pose) {

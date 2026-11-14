@@ -111,6 +111,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         const view = await createRaceView(canvasRef.current, trackId, driver.state().cars.length, q);
         if (disposed) return view.destroy();
         view.setViewer(driver.viewer);
+        view.setWeather(driver.state().wet ?? 0);
         viewRef.current = view;
         setQuality(q);
         setPhase("ready");

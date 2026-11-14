@@ -53,6 +53,8 @@ export interface RaceState {
   cars: CarState[];
   finishOrder: number[];
   events: RaceEvent[];
+  /** Practice weather: 0 dry (default, used online) … 1 soaking. Less grip and longer braking. */
+  wet?: number;
 }
 
 const MAX_SPEED = 72; // m/s ≈ 260 km/h
@@ -144,7 +146,8 @@ function driveCar(s: RaceState, t: Track, c: CarState, i: number, dt: number) {
   const top = grass ? MAX_SPEED * 0.45 : MAX_SPEED;
   let a = 0;
   if (inp.throttle > 0) a += inp.throttle * ACCEL * Math.max(0.15, 1 - (vF / top) ** 2) * (vF < 18 ? 1.25 : 1);
-  if (inp.brake > 0) a -= vF > 0.5 ? inp.brake * BRAKE : vF > -12 ? inp.brake * 7 : 0;
+  const wet = s.wet ?? 0;
+  if (inp.brake > 0) a -= vF > 0.5 ? inp.brake * BRAKE * (1 - wet * 0.3) : vF > -12 ? inp.brake * 7 : 0;
   a -= DRAG * vF * Math.abs(vF) + (grass ? 2.2 : 0.35) * Math.sign(vF);
   if (inp.handbrake) a -= Math.sign(vF) * 6;
   vF += a * dt;
@@ -155,7 +158,7 @@ function driveCar(s: RaceState, t: Track, c: CarState, i: number, dt: number) {
   c.steer += (inp.steer * lock - c.steer) * Math.min(1, dt * 9);
   const targetYaw = (vF / WHEELBASE) * Math.tan(c.steer);
   // Tyre grip: lateral velocity bleeds off; handbrake/grass reduce grip so the rear slides.
-  const grip = inp.handbrake ? 1.6 : grass ? 3.2 : 9.5;
+  const grip = (inp.handbrake ? 1.6 : grass ? 3.2 : 9.5) * (1 - wet * 0.4);
   const yawResponse = inp.handbrake ? 3.5 : 7;
   c.yaw += (targetYaw * (inp.handbrake ? 1.35 : 1) - c.yaw) * Math.min(1, dt * yawResponse);
   c.h += c.yaw * dt;
@@ -166,7 +169,7 @@ function driveCar(s: RaceState, t: Track, c: CarState, i: number, dt: number) {
   const nrx = -nfz, nrz = nfx;
   // Rotate the velocity a little toward the new heading (grip), the rest becomes slide.
   const turn = c.yaw * dt;
-  const keep = vF * Math.cos(turn), slide = vR - vF * Math.sin(turn) * (inp.handbrake ? 0.75 : 0.15);
+  const keep = vF * Math.cos(turn), slide = vR - vF * Math.sin(turn) * ((inp.handbrake ? 0.75 : 0.15) + wet * 0.12);
   c.vx = nfx * keep + nrx * slide;
   c.vz = nfz * keep + nrz * slide;
   c.drift = Math.min(1, Math.abs(slide) / 6);
@@ -309,7 +312,7 @@ export function aiDrive(s: RaceState, car: number, skill = 0.8, seq = 0): CarInp
   while (d < -Math.PI) d += 2 * Math.PI;
   const steer = Math.max(-1, Math.min(1, d * 2.6));
   // Corner speed: the tightest curvature in the braking zone ahead.
-  const latG = 14 + 10 * skill; // m/s² of grip the driver dares to use
+  const latG = (14 + 10 * skill) * (1 - (s.wet ?? 0) * 0.35); // m/s² of grip the driver dares to use
   let vMax = MAX_SPEED;
   for (let ahead = 0; ahead < 140; ahead += 6) {
     const k = Math.abs(t.curv[indexAt(t, c.s + ahead)]!);
