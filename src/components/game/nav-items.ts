@@ -1,4 +1,4 @@
-import { Bell, Gamepad2, HelpCircle, History, Home, Medal, Menu, Settings, Swords, Trophy, User, Users, Download, Crown } from "lucide-react";
+import { Bell, Gamepad2, HelpCircle, History, Home, Medal, Menu, Settings, Swords, Trophy, User, Users, Download, Crown, Shield } from "lucide-react";
 export const PRIMARY_NAV = [
   { to: "/hub", label: "Hub", icon: Home },
   { to: "/sports", label: "Play", icon: Gamepad2 },
@@ -13,6 +13,7 @@ export const SECONDARY_NAV = [
   { to: "/history", label: "Match history", icon: History },
   { to: "/achievements", label: "Achievements", icon: Medal },
   { to: "/tournaments", label: "Tournaments", icon: Trophy },
+  { to: "/clubs", label: "Clubs", icon: Shield },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/install", label: "Install app", icon: Download },
   { to: "/help", label: "Help & support", icon: HelpCircle },

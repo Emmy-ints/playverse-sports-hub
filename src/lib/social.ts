@@ -10,6 +10,13 @@ export type PlayerSummary = Pick<PlayerProfile, "id" | "username" | "display_nam
 const SUMMARY_COLS = "id, username, display_name, public_id, level, avatar_config";
 
 const ERRORS: Record<string, string> = {
+  ALREADY_IN_CLUB: "You're already in a club. Leave it first.",
+  CLUB_TAKEN: "That club name or tag is taken.",
+  CLUB_NOT_FOUND: "That club no longer exists.",
+  CLUB_FULL: "That club is full (30 members).",
+  NOT_CLUB_OWNER: "Only the club owner can do that.",
+  clubs_tag_u: "That tag is taken.",
+  "check constraint": "Check the name (3–32 characters) and tag (2–5 letters or numbers).",
   INVALID_SIZE: "Tournaments have 4 or 8 players.",
   INVALID_NAME: "Give the tournament a name (3–40 characters).",
   TOO_MANY_TOURNAMENTS: "You can run up to 3 tournaments at once.",
