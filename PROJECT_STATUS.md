@@ -113,7 +113,10 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Settings → Graphics: Realistic (default) / Classic. Falls back to classic characters if the models fail to load.
 - Asset pipeline (Node, no dependencies): `scripts/athlete/` (see its README); outputs `public/assets/athletes/` (~1.1 MB per body + 0.24 MB animations). Credits in `public/assets/athletes/CREDITS.txt`.
 - Bowling (done): the player's bowler and the neighbouring-lane bowlers are realistic athletes. `src/game/character/mirror.ts` copies the existing procedural bowling animation from the hidden classic rig onto the athlete every frame (per-limb direction correction, athlete sized to the rig so cameras and the held ball line up); the ball sits in the athlete's palm. Galleries and the lounge use the realistic crowd.
-- Next: golf, athletics, parkour (same mirror approach), racing (drivers/cars).
+- Golf, athletics, parkour (done): realistic athletes via `RealisticRig` (mirror + two-bone arm IK so hands meet the classic grip: clubs, javelins). Athletics grandstands and the racing start-straight grandstand use the realistic crowd.
+- Racing (done): smooth lofted GT bodies with a glass greenhouse, splitter, grille and skirts replace the box cars; realistic grandstand crowd.
+- Avatar (done): 3D realistic character viewer (`Avatar3D`, drag to turn, tap to celebrate) on Character studio, Profile, Player pages and the match lobby; 2D preview stays for small badges and as the fallback. Outfit variants now render on the 3D athletes everywhere: tennis (tee + shorts), jersey (cap-sleeve top), polo (tee + collar), track (long sleeves + pants); runner/court/high-top shoes; cap, headband, wristbands, sunglasses.
+- Not yet: facial expression choice (focused/smile/fierce) is not shown on the 3D face; racing drivers are helmets only; a racing car can be nudged forward at the start by neighbouring AI cars (seen once, not yet investigated).
 
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
