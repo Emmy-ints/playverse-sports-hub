@@ -445,6 +445,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       <div className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 pt-safe text-center font-display text-white">
         <span className="text-4xl font-black tabular-nums drop-shadow">{Math.round(hud.speed)}</span>
         <span className="ml-1 text-sm text-white/70">km/h</span>
+        <GearReadout kmh={hud.speed} />
       </div>
 
       <div className="absolute right-3 top-3 flex flex-col items-end gap-2 pt-safe">
@@ -550,6 +551,26 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       {end && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/45 p-4">{renderEnd({ ...end, viewer: driver.viewer })}</div>
       )}
+    </div>
+  );
+}
+
+/** Automatic gearbox readout: gear and rev bar derived from road speed (6 speeds). */
+const GEAR_TOP = [0, 70, 115, 160, 205, 250, 330];
+function GearReadout({ kmh }: { kmh: number }) {
+  const v = Math.abs(kmh);
+  let g = 1;
+  while (g < 6 && v > GEAR_TOP[g]! * 0.97) g++;
+  const lo = g === 1 ? 0 : GEAR_TOP[g - 1]! * 0.72;
+  const rev = Math.max(0.12, Math.min(1, (v - lo) / (GEAR_TOP[g]! - lo)));
+  return (
+    <div className="mt-0.5 flex items-center justify-center gap-2" aria-hidden>
+      <span className="font-display text-lg font-black">{v < 1 ? "N" : g}</span>
+      <span className="flex gap-0.5">
+        {Array.from({ length: 10 }, (_, i) => (
+          <span key={i} className={cn("h-2 w-1.5 rounded-sm", i / 10 < rev ? (i >= 8 ? "bg-[#ff3b5c]" : i >= 6 ? "bg-[#ffd23f]" : "bg-[#2fbf71]") : "bg-white/15")} />
+        ))}
+      </span>
     </div>
   );
 }
