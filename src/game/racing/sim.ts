@@ -320,6 +320,19 @@ export function aiDrive(s: RaceState, car: number, skill = 0.8, seq = 0): CarInp
     vMax = Math.min(vMax, reach);
   }
   vMax *= 0.9 + 0.1 * skill;
+  // Don't drive into a slower car directly ahead (e.g. someone stopped on the grid): follow or slow down.
+  const fx = Math.sin(c.h), fz = -Math.cos(c.h);
+  for (let j = 0; j < s.cars.length; j++) {
+    if (j === car) continue;
+    const o = s.cars[j]!;
+    const dx = o.x - c.x, dz = o.z - c.z;
+    const along = dx * fx + dz * fz;
+    if (along <= 0 || along > 14) continue;
+    const side = Math.abs(dx * -fz + dz * fx);
+    if (side > 2.1) continue;
+    const ov = o.vx * fx + o.vz * fz;
+    vMax = Math.min(vMax, Math.max(0, ov + (along - 5) * 1.2));
+  }
   const throttle = speed < vMax - 1 ? 1 : speed < vMax + 1 ? 0.4 : 0;
   const brake = speed > vMax + 3 ? Math.min(1, (speed - vMax) / 8) : 0;
   return { seq, steer, throttle, brake, handbrake: false };
