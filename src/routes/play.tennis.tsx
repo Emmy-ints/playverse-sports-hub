@@ -41,12 +41,36 @@ const RIVALS: { id: AiStyle; name: string; hint: string; avatar: AvatarConfig }[
   { id: "counter", name: "Mila Reyes", hint: "Counter-puncher: lobs, drop shots, retrieves everything", avatar: { ...AI_AVATAR, nickname: "Mila", genderPresentation: "feminine", skinTone: "#a8714b", hairstyle: "curly", hairColor: "#140c08", outfitColor: "#18b56b", accessory: "headband" } },
 ];
 
-interface Setup { theme: CourtTheme; level: (typeof LEVELS)[number]; rival: (typeof RIVALS)[number]; bestOf: 1 | 3; games: 4 | 6; key: number }
+interface Setup { theme: CourtTheme; level: (typeof LEVELS)[number]; rival: (typeof RIVALS)[number]; bestOf: 1 | 3; games: 4 | 6; key: number; cup?: number }
+
+/** Practice Cup: three knockout rounds against tougher rivals. */
+const CUP: { round: string; rival: AiStyle; level: (typeof LEVELS)[number]["id"] }[] = [
+  { round: "Quarter-final", rival: "counter", level: "rookie" },
+  { round: "Semi-final", rival: "baseliner", level: "pro" },
+  { round: "Final", rival: "power", level: "champion" },
+];
+const CUP_KEY = "pv.tennis.cups.v1";
+function cupWins() {
+  try {
+    return Number(localStorage.getItem(CUP_KEY) ?? 0) || 0;
+  } catch {
+    return 0;
+  }
+}
+function cupSetup(base: Setup, round: number): Setup {
+  const c = CUP[round]!;
+  return { ...base, cup: round, rival: RIVALS.find((r) => r.id === c.rival)!, level: LEVELS.find((l) => l.id === c.level)!, key: Date.now() };
+}
 
 function TennisPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
   if (!setup) return <SetupScreen onStart={setSetup} />;
-  return <ControlsGate key={setup.key} sport="tennis"><Match setup={setup} onRematch={() => setSetup({ ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)} /></ControlsGate>;
+  return (
+    <ControlsGate key={setup.key} sport="tennis">
+      <Match setup={setup} onRematch={() => setSetup(setup.cup !== undefined ? cupSetup(setup, 0) : { ...setup, key: setup.key + 1 })} onExit={() => setSetup(null)}
+        onNextRound={setup.cup !== undefined && setup.cup < CUP.length - 1 ? () => setSetup(cupSetup(setup, setup.cup! + 1)) : undefined} />
+    </ControlsGate>
+  );
 }
 
 function Choice<T extends string | number>({ label, options, value, onChange }: { label: string; options: { id: T; name: string; hint?: string }[]; value: T; onChange: (v: T) => void }) {
@@ -87,7 +111,13 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
           { id: "one", name: "Full set", hint: "First to 6 games, tiebreak at 6–6" },
           { id: "three", name: "Best of 3", hint: "Sets to 4 games" },
         ]} />
-        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({
+        <GameButton variant="glass" size="lg" className="mt-6 w-full" onClick={() => onStart(cupSetup({
+          theme: COURT_THEMES[theme], level: LEVELS[0], rival: RIVALS[0]!, bestOf: length === "three" ? 3 : 1, games: length === "one" ? 6 : 4, key: 0,
+        }, 0))}>
+          <Trophy aria-hidden /> Play the Practice Cup{cupWins() ? ` · won ${cupWins()}×` : ""}
+        </GameButton>
+        <p className="mt-1 text-center text-xs text-white/55">Quarter-final, semi-final and final against tougher rivals. Lose once and you're out.</p>
+        <GameButton variant="hot" size="lg" className="mt-4 w-full" onClick={() => onStart({
           theme: COURT_THEMES[theme], level: LEVELS.find((l) => l.id === level)!, rival: RIVALS.find((r) => r.id === rival)!, bestOf: length === "three" ? 3 : 1, games: length === "one" ? 6 : 4, key: Date.now(),
         })}>
           Walk on court
@@ -97,7 +127,8 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
   );
 }
 
-function Match({ setup, onRematch, onExit }: { setup: Setup; onRematch: () => void; onExit: () => void }) {
+function Match({ setup, onRematch, onExit, onNextRound }: { setup: Setup; onRematch: () => void; onExit: () => void; onNextRound?: (() => void) | undefined }) {
+  const cup = setup.cup !== undefined ? CUP[setup.cup] : undefined;
   const player = usePlayer();
   const driver = useMemo(() => new PracticeDriver({ bestOf: setup.bestOf, gamesPerSet: setup.games }, setup.theme.surface, setup.level.level, undefined, setup.rival.id), [setup]);
   const names: [string, string] = [player.name, setup.rival.name];
@@ -114,7 +145,9 @@ function Match({ setup, onRematch, onExit }: { setup: Setup; onRematch: () => vo
       renderEnd={({ winner, score, stats }) => (
         <div className="glass w-full max-w-md rounded-3xl p-6 text-center text-white animate-rise">
           <Trophy className={cn("mx-auto size-10", winner === 0 ? "text-[#ffd23f]" : "text-white/50")} aria-hidden />
-          <h2 className="mt-2 font-display text-4xl font-black uppercase">{winner === 0 ? "You win!" : `${names[1]} wins`}</h2>
+          {cup && <p className="mt-1 text-xs font-bold uppercase tracking-[0.3em] text-accent">Practice Cup · {cup.round}</p>}
+          <h2 className="mt-2 font-display text-4xl font-black uppercase">{cup && winner === 0 && !onNextRound ? "Cup champion!" : winner === 0 ? "You win!" : `${names[1]} wins`}</h2>
+          {cup && winner === 0 && !onNextRound && <CupWon />}
           <p className="mt-1 font-display text-2xl">{score.history.map((h) => `${h[0]}–${h[1]}`).join("  ")}</p>
           <table className="mx-auto mt-4 w-full text-sm">
             <thead><tr className="text-white/60"><th className="text-left font-normal">Stat</th><th>{names[0]}</th><th>{names[1]}</th></tr></thead>
@@ -129,11 +162,28 @@ function Match({ setup, onRematch, onExit }: { setup: Setup; onRematch: () => vo
             </tbody>
           </table>
           <div className="mt-5 flex justify-center gap-2">
-            <GameButton variant="hot" onClick={onRematch}><RotateCcw aria-hidden /> Rematch</GameButton>
+            {cup && winner === 0 && onNextRound ? (
+              <GameButton variant="hot" onClick={onNextRound}><Trophy aria-hidden /> {CUP[setup.cup! + 1]!.round}</GameButton>
+            ) : (
+              <GameButton variant="hot" onClick={onRematch}><RotateCcw aria-hidden /> {cup ? "New cup run" : "Rematch"}</GameButton>
+            )}
             <GameButton variant="glass" onClick={onExit}>Change setup</GameButton>
           </div>
         </div>
       )}
     />
   );
+}
+
+function CupWon() {
+  const [n] = useState(() => {
+    const v = cupWins() + 1;
+    try {
+      localStorage.setItem(CUP_KEY, String(v));
+    } catch {
+      /* ignore */
+    }
+    return v;
+  });
+  return <p className="text-sm text-white/75">Practice Cups won on this device: {n}</p>;
 }
