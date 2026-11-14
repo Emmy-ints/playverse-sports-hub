@@ -1,7 +1,7 @@
 import { RotateCw, Settings2, X } from "lucide-react";
 import { useEffect, useState, type CSSProperties, type RefObject } from "react";
 import { GameButton } from "@/components/game/GameButton";
-import { DEFAULT_SETTINGS, RACE_VIEWS, useGameSettings, type GameSettings } from "@/lib/game-settings";
+import { DEFAULT_RACE_KEYS, DEFAULT_SETTINGS, keyLabel, RACE_ACTIONS, RACE_VIEWS, useGameSettings, type GameSettings, type RaceAction } from "@/lib/game-settings";
 import { useTouchMode } from "@/lib/input-mode";
 import { cn } from "@/lib/utils";
 
@@ -149,7 +149,8 @@ export function GameSettingsPanel({ racing = true, haptics = true }: { racing?: 
             { id: "tilt", name: "Tilt", hint: "Tilt your phone like a steering wheel. Re-centre any time; sensitivity follows the slider above." },
             { id: "tap", name: "Tap", hint: "Tap or hold the left or right side of the screen to steer." },
           ]} />
-          <p className="text-xs text-white/55">Keyboard (WASD / arrows) and game controllers (left stick, RT gas, LT brake, A drift, B look back, Y camera) always work alongside your touch choice.</p>
+          <p className="text-xs text-white/55">Keyboard and game controllers (left stick, RT gas, LT brake, A drift, B look back, Y camera) always work alongside your touch choice.</p>
+          <KeyBindings value={s.raceKeys} onChange={(raceKeys) => set({ raceKeys })} />
           <Seg label="Steering assist" value={s.steerAssist} onChange={(v) => set({ steerAssist: v })} options={[
             { id: "off", name: "Off", hint: "You steer everything." },
             { id: "low", name: "Low", hint: "Gentle help toward the racing line when you aren't steering hard." },
@@ -182,6 +183,49 @@ export function GameSettingsPanel({ racing = true, haptics = true }: { racing?: 
         <input type="checkbox" className="size-5 accent-[#ff7a1a]" checked={s.landscapeHint} onChange={(e) => set({ landscapeHint: e.target.checked })} />
       </label>
       <button type="button" className="text-xs text-white/60 underline" onClick={() => set({ ...DEFAULT_SETTINGS })}>Reset to defaults</button>
+    </div>
+  );
+}
+
+/** Remap racing keys: focus a box and press the new key. Arrow keys always work as well. */
+function KeyBindings({ value, onChange }: { value: Record<RaceAction, string>; onChange: (v: Record<RaceAction, string>) => void }) {
+  const [listening, setListening] = useState<RaceAction | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  return (
+    <div>
+      <p className="mb-1 text-sm font-bold">Keyboard keys</p>
+      <div className="grid grid-cols-2 gap-1.5">
+        {RACE_ACTIONS.map((a) => (
+          <label key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1 text-xs">
+            <span>{a.label}</span>
+            <input
+              readOnly
+              aria-label={`Key for ${a.label}`}
+              value={listening === a.id ? "Press a key…" : keyLabel(value[a.id])}
+              onFocus={() => setListening(a.id)}
+              onBlur={() => setListening(null)}
+              onKeyDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.key === "Escape" || e.key === "Tab") return (e.currentTarget as HTMLInputElement).blur();
+                if (e.key.startsWith("Arrow")) return setNote("Arrow keys always work, so pick another key.");
+                const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+                const clash = RACE_ACTIONS.find((o) => o.id !== a.id && value[o.id] === k);
+                const next = { ...value, [a.id]: k };
+                if (clash) next[clash.id] = value[a.id];
+                setNote(clash ? `Swapped with ${clash.label}.` : null);
+                onChange(next);
+                (e.currentTarget as HTMLInputElement).blur();
+              }}
+              className={cn("w-24 cursor-pointer rounded-md px-2 py-1 text-center font-mono font-bold outline-none", listening === a.id ? "bg-[#ff7a1a] text-black" : "bg-white/10")}
+            />
+          </label>
+        ))}
+      </div>
+      <div className="mt-1 flex items-center justify-between text-xs text-white/55">
+        <span>{note ?? "Click a box, then press the key you want."}</span>
+        <button type="button" className="underline" onClick={() => { onChange({ ...DEFAULT_RACE_KEYS }); setNote(null); }}>Default keys</button>
+      </div>
     </div>
   );
 }

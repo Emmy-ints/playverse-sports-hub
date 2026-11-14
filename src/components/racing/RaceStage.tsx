@@ -145,13 +145,14 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
       keys.current.add(norm(e));
       audioRef.current?.unlock();
-      if (norm(e) === "r" && !e.repeat) driver.reset();
-      if (norm(e) === "c" && !e.repeat) nextView(e.shiftKey ? -1 : 1);
-      if (norm(e) === "v") viewRef.current?.setLookBehind(true);
+      const map = getGameSettings().raceKeys;
+      if (norm(e) === map.reset && !e.repeat) driver.reset();
+      if (norm(e) === map.camera && !e.repeat) nextView(e.shiftKey ? -1 : 1);
+      if (norm(e) === map.lookBack) viewRef.current?.setLookBehind(true);
     };
     const up = (e: KeyboardEvent) => {
       keys.current.delete(norm(e));
-      if (norm(e) === "v") viewRef.current?.setLookBehind(lookBackTouch.current);
+      if (norm(e) === getGameSettings().raceKeys.lookBack) viewRef.current?.setLookBehind(lookBackTouch.current);
     };
     const blur = () => keys.current.clear();
     window.addEventListener("keydown", down);
@@ -175,8 +176,9 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const K = keys.current, T = touchIn.current;
-      const left = K.has("ArrowLeft") || K.has("a") || T.left;
-      const right = K.has("ArrowRight") || K.has("d") || T.right;
+      const KM = getGameSettings().raceKeys;
+      const left = K.has("ArrowLeft") || K.has(KM.left) || T.left;
+      const right = K.has("ArrowRight") || K.has(KM.right) || T.right;
       const digital = (right ? 1 : 0) - (left ? 1 : 0);
       if (analog.current !== null && digital === 0) {
         // Wheel / tilt: follow the thumb closely (a touch of smoothing removes jitter).
@@ -214,8 +216,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       }
       if (padSteer !== 0) steer.current += (padSteer - steer.current) * (1 - Math.exp(-dt * 16));
       const st = getGameSettings();
-      let brake = Math.max(K.has("ArrowDown") || K.has("s") || T.brake ? 1 : 0, padBrake);
-      let gas = Math.max(K.has("ArrowUp") || K.has("w") || T.gas || (autoGasRef.current && !brake) ? 1 : 0, padGas);
+      let brake = Math.max(K.has("ArrowDown") || K.has(KM.brake) || T.brake ? 1 : 0, padBrake);
+      let gas = Math.max(K.has("ArrowUp") || K.has(KM.gas) || T.gas || (autoGasRef.current && !brake) ? 1 : 0, padGas);
       let steerOut = steer.current;
       // Driving assists: follow the AI's racing line / corner speeds, blended with what the player is doing.
       const pre = driver.state();
@@ -231,7 +233,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           gas = Math.min(gas, 1 - w);
         }
       }
-      driver.input({ steer: steerOut, throttle: gas, brake, handbrake: K.has(" ") || T.drift || padDrift });
+      driver.input({ steer: steerOut, throttle: gas, brake, handbrake: K.has(KM.drift) || T.drift || padDrift });
       const events = driver.update(dt);
       const s = driver.state();
       viewRef.current?.setState(s);

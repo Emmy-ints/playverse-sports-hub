@@ -53,6 +53,18 @@ export interface GameSettings {
   lookApex: boolean;
   /** Gamepad rumble strength (0–1). */
   padRumble: number;
+  /** Remapped racing keys (arrow keys always work too). */
+  raceKeys: Record<RaceAction, string>;
+}
+export type RaceAction = "gas" | "brake" | "left" | "right" | "drift" | "reset" | "camera" | "lookBack";
+export const RACE_ACTIONS: { id: RaceAction; label: string }[] = [
+  { id: "gas", label: "Accelerate" }, { id: "brake", label: "Brake / reverse" }, { id: "left", label: "Steer left" }, { id: "right", label: "Steer right" },
+  { id: "drift", label: "Handbrake / drift" }, { id: "reset", label: "Back on track" }, { id: "camera", label: "Change camera" }, { id: "lookBack", label: "Look behind (hold)" },
+];
+export const DEFAULT_RACE_KEYS: Record<RaceAction, string> = { gas: "w", brake: "s", left: "a", right: "d", drift: " ", reset: "r", camera: "c", lookBack: "v" };
+/** Human-readable key name. */
+export function keyLabel(k: string) {
+  return k === " " ? "Space" : k.length === 1 ? k.toUpperCase() : k.replace(/^Arrow/, "") ;
 }
 export type Graphics = "realistic" | "classic";
 
@@ -76,6 +88,7 @@ export const DEFAULT_SETTINGS: GameSettings = {
   camShake: 0.4,
   lookApex: true,
   padRumble: 0.7,
+  raceKeys: DEFAULT_RACE_KEYS,
 };
 
 const KEY = "pv.gameSettings.v1";
@@ -108,6 +121,12 @@ function load(): GameSettings {
   s.padRumble = num(s.padRumble, 0, 1, 0.7);
   s.lookApex = s.lookApex !== false;
   if (!["realistic", "classic"].includes(s.graphics)) s.graphics = "realistic";
+  const rk = (s.raceKeys && typeof s.raceKeys === "object" ? s.raceKeys : {}) as Partial<Record<RaceAction, unknown>>;
+  s.raceKeys = { ...DEFAULT_RACE_KEYS };
+  for (const a of RACE_ACTIONS) {
+    const v = rk[a.id];
+    if (typeof v === "string" && v.length > 0 && v.length <= 12) s.raceKeys[a.id] = v;
+  }
   current = s;
   return s;
 }
