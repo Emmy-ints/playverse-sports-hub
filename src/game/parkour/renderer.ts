@@ -10,7 +10,8 @@ import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
 import { RealisticRig } from "../character/mirror.ts";
 import { ParkourAnimator } from "./anim.ts";
 import { getGameSettings, camLiveliness } from "@/lib/game-settings";
-import { LANE_W, laneZ, RUN_SPEED, type Course, type RaceState } from "./sim.ts";
+import { LANE_W, laneZ, RUN_SPEED, type Course, type RaceState, type Runner } from "./sim.ts";
+import type { GhostPose } from "./ghost.ts";
 
 export type Quality = "high" | "low";
 
@@ -20,6 +21,8 @@ export interface ParkourView {
   setState(s: RaceState, viewer: number, celebrate: number[]): void;
   fx(kind: "perfect" | "pad" | "land" | "hit" | "finish", i: number): void;
   setQuality(q: Quality): void;
+  /** Translucent personal-best runner (null hides it). */
+  setGhost(pose: GhostPose | null): void;
   destroy(): void;
 }
 
@@ -531,6 +534,15 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   const camPos = new pc.Vec3(8, 3, 6), camLook = new pc.Vec3(0, 1, 0);
   const want = new pc.Vec3(), wantLook = new pc.Vec3();
   let state: RaceState | null = null;
+  let ghost: { h: Humanoid; anim: ParkourAnimator; last: number } | null = null;
+  let ghostPose: GhostPose | null = null;
+  const ghostMat = new pc.StandardMaterial();
+  ghostMat.diffuse = new pc.Color(0.35, 0.85, 1);
+  ghostMat.emissive = new pc.Color(0.2, 0.55, 0.85);
+  ghostMat.opacity = 0.35;
+  ghostMat.blendType = pc.BLEND_NORMAL;
+  ghostMat.depthWrite = false;
+  ghostMat.update();
   let viewer = 0;
   let celebrate: number[] = [];
   let elapsed = 0;
@@ -574,6 +586,13 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     }
     const s = state;
     if (!s || !course) return;
+    if (ghost) {
+      ghost.h.root.enabled = !!ghostPose;
+      if (ghostPose) {
+        ghost.h.root.setPosition(ghostPose.x, ghostPose.y, ghostPose.z);
+        ghost.anim.update(ghostPose as unknown as Runner, dt, 0, false);
+      }
+    }
     const portrait = cv.clientHeight > cv.clientWidth * 1.05;
     const settings = getGameSettings();
     const live = camLiveliness(settings);
@@ -696,6 +715,18 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       build();
       if (course) setupRunners(lanes);
       resize();
+    },
+    setGhost(pose) {
+      ghostPose = pose;
+      if (pose && !ghost) {
+        const h = createHumanoid(runnerRoot, null, { shadows: false, detail: "simple" });
+        h.root.setLocalEulerAngles(0, -90, 0);
+        for (const r of h.root.findComponents("render") as pc.RenderComponent[]) {
+          r.castShadows = false;
+          for (const mi of r.meshInstances) mi.material = ghostMat;
+        }
+        ghost = { h, anim: new ParkourAnimator(h), last: 0 };
+      }
     },
     destroy() {
       rigs.forEach((r) => r.destroy());

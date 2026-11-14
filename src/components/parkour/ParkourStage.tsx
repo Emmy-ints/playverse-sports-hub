@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Hand, Loader2, Monitor, MoveUp, RotateCcw, Smartphone, Volume2, VolumeX } from "lucide-react";
+import { loadParkourGhost, ParkourGhostRecorder, parkourGhostAt, saveParkourGhost } from "@/game/parkour/ghost";
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
@@ -20,6 +21,8 @@ interface Props {
   /** Shown over the scene once the race is over. */
   renderEnd: (s: RaceState) => ReactNode;
   topRight?: ReactNode;
+  /** Practice on a fixed-seed course: race your personal-best ghost stored under this id. */
+  ghostId?: string;
 }
 
 const ORD = ["1st", "2nd", "3rd", "4th", "5th", "6th"];
@@ -47,7 +50,7 @@ interface Hud {
   airborne: boolean;
 }
 
-export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRight }: Props) {
+export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRight, ghostId }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
@@ -151,6 +154,9 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
   useEffect(() => {
     if (phase !== "ready") return;
     let raf = 0, last = performance.now(), hudAt = 0, lastCount = -1, endTimer: ReturnType<typeof setTimeout> | null = null, music = false;
+    const ghostLap = ghostId ? loadParkourGhost(ghostId) : null;
+    const rec = ghostId ? new ParkourGhostRecorder() : null;
+    let ghostSaved = false;
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
       const dt = Math.min(0.1, (now - last) / 1000);
@@ -165,6 +171,16 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
       const order = placings(s);
       const celebrate = s.runners.map((r, i) => (r.finish === null ? 0 : order.indexOf(i) === 0 ? 1 : s.phase === "over" && order.indexOf(i) === s.runners.length - 1 ? -1 : 0));
       view?.setState(s, v, celebrate);
+      if (ghostId && rec) {
+        const t = s.t - s.goAt;
+        if (s.phase === "live" && me.finish === null) rec.sample(t, me);
+        view?.setGhost(ghostLap && t >= 0 ? parkourGhostAt(ghostLap, t) : null);
+        if (me.finish !== null && !ghostSaved) {
+          ghostSaved = true;
+          const g = rec.finish(me.finish);
+          if (g && (!ghostLap || me.finish < ghostLap.time)) saveParkourGhost(ghostId, g);
+        }
+      }
 
       if (s.phase === "ready") {
         const c = Math.ceil(s.goAt - s.t);
@@ -298,7 +314,7 @@ export function ParkourStage({ driver, names, avatars, colors, renderEnd, topRig
       if (endTimer) clearTimeout(endTimer);
       audioRef.current?.music(false);
     };
-  }, [phase, driver]);
+  }, [phase, driver, ghostId]);
 
   useEffect(() => {
     if (!banner) return;

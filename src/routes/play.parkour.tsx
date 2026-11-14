@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { dailySeed } from "@/game/parkour/ghost";
 import { PersonalBest } from "@/components/game/PersonalBest";
 import { formatRaceTime } from "@/components/parkour/ParkourStage";
 import { ArrowLeft, Flag, RotateCcw } from "lucide-react";
@@ -31,7 +32,7 @@ const LEVELS = [
   { id: "legend", name: "Legend", skills: [0.95, 0.85, 0.75] },
 ] as const;
 
-interface Setup { length: CourseLength; rivals: number; level: (typeof LEVELS)[number]; key: number }
+interface Setup { length: CourseLength; rivals: number; level: (typeof LEVELS)[number]; daily: boolean; key: number }
 
 function ParkourPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -63,6 +64,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
   const [length, setLength] = useState<CourseLength>("standard");
   const [rivals, setRivals] = useState(3);
   const [level, setLevel] = useState<(typeof LEVELS)[number]["id"]>("pro");
+  const [daily, setDaily] = useState(true);
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(circle_at_top,#5a2a4a,#0b1020)] p-4 pt-safe pb-safe">
       <div className="glass w-full max-w-xl rounded-3xl p-6">
@@ -70,9 +72,10 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
         <h1 className="font-display text-4xl font-black uppercase">Rooftop Rush</h1>
         <p className="text-sm text-white/70">Vault, slide, leap and climb across the city at sunset. Practice — not ranked.</p>
         <Pick label="Course" value={length} onChange={setLength} options={[{ id: "sprint", name: "Sprint", hint: "≈ 25 s" }, { id: "standard", name: "Standard", hint: "≈ 40 s" }, { id: "marathon", name: "Marathon", hint: "≈ 60 s" }]} />
+        <Pick label="Layout" value={daily ? 1 : 0} onChange={(v) => setDaily(v === 1)} options={[{ id: 1, name: "Today's course", hint: "Same for everyone · race your ghost" }, { id: 0, name: "Random", hint: "New layout every run" }]} />
         <Pick label="Rivals" value={rivals} onChange={setRivals} options={[1, 2, 3].map((n) => ({ id: n, name: `${n} runner${n > 1 ? "s" : ""}` }))} />
         <Pick label="Rival level" value={level} onChange={setLevel} options={LEVELS.map((l) => ({ id: l.id, name: l.name }))} />
-        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ length, rivals, level: LEVELS.find((l) => l.id === level)!, key: Date.now() })}>
+        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ length, rivals, level: LEVELS.find((l) => l.id === level)!, daily, key: Date.now() })}>
           <Flag aria-hidden /> To the rooftops
         </GameButton>
       </div>
@@ -82,7 +85,9 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
 
 function Run({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => void; onExit: () => void }) {
   const player = usePlayer();
-  const driver = useMemo(() => new PracticeParkourDriver(setup.level.skills.slice(0, setup.rivals), setup.length), [setup]);
+  const seed = useMemo(() => (setup.daily ? dailySeed() : undefined), [setup]);
+  const driver = useMemo(() => new PracticeParkourDriver(setup.level.skills.slice(0, setup.rivals), setup.length, seed), [setup, seed]);
+  const ghostId = seed ? `${seed}.${setup.length}` : undefined;
   const names = useMemo(() => [player.name, ...CREW.slice(0, setup.rivals).map((c) => c.name)], [player.name, setup.rivals]);
   const avatars = useMemo(() => [player.avatar ?? null, ...CREW.slice(0, setup.rivals).map((c) => c.avatar)], [player.avatar, setup.rivals]);
   const colors = useMemo(() => RUNNER_COLORS.slice(0, setup.rivals + 1), [setup.rivals]);
@@ -92,8 +97,9 @@ function Run({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => void
       names={names}
       avatars={avatars}
       colors={colors}
+      {...(ghostId ? { ghostId } : {})}
       topRight={<button type="button" onClick={onExit} className="glass rounded-full px-3 py-2 text-xs font-bold text-white">Leave</button>}
-      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} note={<PersonalBest id={`parkour.${setup.length}`} value={s.runners[0]!.finish} lowerIsBetter format={(v) => `${formatRaceTime(v)} s`} label="Best run" />} actions={
+      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} note={<PersonalBest id={ghostId ? `parkour.daily.${ghostId}` : `parkour.${setup.length}`} label={ghostId ? "Today's best" : "Best run"} value={s.runners[0]!.finish} lowerIsBetter format={(v) => `${formatRaceTime(v)} s`} />} actions={
         <>
           <GameButton variant="hot" onClick={onRestart}><RotateCcw aria-hidden /> Run again</GameButton>
           <GameButton variant="glass" onClick={onExit}>Change setup</GameButton>
