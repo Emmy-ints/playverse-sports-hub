@@ -575,15 +575,17 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     const interior = new pc.Entity("interior");
     root.addChild(interior);
     interior.enabled = false;
-    add(interior, "box", black, [0, 1.07, 0.3], [1.36, 0.03, 1.5], false);
-    for (const x of [-0.7, 0.7]) {
-      add(interior, "box", black, [x, 0.92, -0.42], [0.07, 0.36, 0.07], false, [-38, 0, x > 0 ? -6 : 6]);
-      add(interior, "box", black, [x * 1.02, 0.84, 0.35], [0.05, 0.12, 1.3], false); // door top
+    const trim = mat({ color: "#3a3e46", gloss: 0.25, noEnv: true });
+    add(interior, "box", trim, [0, 1.11, 0.45], [1.3, 0.025, 1.2], false); // roof liner, behind the windscreen header
+    add(interior, "box", trim, [0, 1.09, -0.16], [1.3, 0.05, 0.06], false); // windscreen header
+    for (const x of [-0.68, 0.68]) {
+      add(interior, "box", trim, [x, 0.95, -0.36], [0.06, 0.38, 0.06], false, [-36, 0, x > 0 ? -6 : 6]);
+      add(interior, "box", trim, [x * 1.02, 0.82, 0.35], [0.05, 0.1, 1.3], false); // door top
     }
-    add(interior, "box", black, [0, 1.0, -0.3], [0.24, 0.06, 0.02], false); // mirror
-    add(interior, "box", glass, [0, 1.0, -0.31], [0.21, 0.045, 0.005], false);
+    add(interior, "box", black, [0, 1.04, -0.12], [0.24, 0.06, 0.02], false); // mirror
+    add(interior, "box", glass, [0, 1.04, -0.131], [0.21, 0.045, 0.005], false);
     // Dashboard and steering wheel (seen from the cockpit camera).
-    add(root, "box", black, [0, 0.78, -0.5], [1.4, 0.1, 0.3], false);
+    add(root, "box", black, [0, 0.76, -0.55], [1.4, 0.08, 0.26], false);
     const wheel = new pc.Entity();
     wheel.setLocalPosition(0, 0.84, -0.32);
     wheel.setLocalEulerAngles(-65, 0, 0);
