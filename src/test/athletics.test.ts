@@ -26,6 +26,7 @@ describe("athletics", () => {
     if (ev === "hurdles110") { expect(best).toBeGreaterThan(11); expect(best).toBeLessThan(19); }
     if (ev === "longjump") { expect(best).toBeGreaterThan(6); expect(best).toBeLessThan(9.6); }
     if (ev === "javelin") { expect(best).toBeGreaterThan(45); expect(best).toBeLessThan(100); }
+    if (ev === "polevault") { expect(best).toBeGreaterThan(3.5); expect(best).toBeLessThan(6.6); }
     if (EVENTS[ev].kind === "field") expect(s.athletes[0]!.marks.length).toBe(3);
   });
 

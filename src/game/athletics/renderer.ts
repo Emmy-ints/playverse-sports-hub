@@ -14,7 +14,7 @@ import { loadAthleteAssets } from "../character/athlete.ts";
 import { RealCrowd, bakeCrowdAtlas, type CrowdAtlas } from "../character/real-crowd.ts";
 import { getGameSettings } from "@/lib/game-settings";
 import { AthleteAnimator } from "./anim.ts";
-import { EVENTS, HURDLES, type EventId, type EventState } from "./sim.ts";
+import { PV, EVENTS, HURDLES, type EventId, type EventState } from "./sim.ts";
 
 export type Quality = "high" | "low";
 
@@ -47,6 +47,7 @@ export function worldOf(event: EventId, simX: number, i: number) {
     case "hurdles110": return { x: simX - 10, z: LANE_W * (i + 0.5) };
     case "longjump": return { x: 62 + simX, z: -6 - i * 2.2 };
     case "javelin": return { x: 6 + simX, z: -30 - i * 2.6 };
+    case "polevault": return { x: 90 + simX, z: -56 - i * 2 };
   }
 }
 
@@ -203,6 +204,8 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
     return e;
   };
 
+  const vaultMat = mat({ color: "#1f4fd1", gloss: 0.25 });
+  const vaultMatTop = mat({ color: "#2a63ff", gloss: 0.3 });
   const M = {
     white: mat({ color: "#f4f4f2", gloss: 0.3 }),
     lineWhite: mat({ color: "#ffffff", gloss: 0.2, emissive: "#202020" }),
@@ -306,6 +309,15 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       add(root, "box", M.lineWhite, [6, 0.024, z], [0.07, 0.004, 1.2], false);
     }
     for (const d of [40, 50, 60, 70, 80]) add(root, "box", M.lineWhite, [6 + d, 0.02, -30 - 3.5 * 2.6], [0.06, 0.004, 8 * 2.6 + 6], false);
+    // Pole vault: runways, plant boxes, one wide landing mat and the uprights (bar is set per attempt).
+    for (let i = 0; i < 8; i++) {
+      const z = -56 - i * 2;
+      add(root, "box", M.runway, [90 - 18, 0.012, z], [36, 0.02, 1.1], false);
+      add(root, "box", M.concrete, [90 - 0.4, 0.015, z], [0.8, 0.02, 0.6], false);
+    }
+    add(root, "box", vaultMat, [90 + 3.2, 0.4, -56 - 7], [5, 0.8, 17.5], true);
+    add(root, "box", vaultMatTop, [90 + 3.2, 0.81, -56 - 7], [5, 0.02, 17.5], false);
+    for (const z of [-56 + 1.6, -56 - 15.6]) add(root, "box", M.steel, [90 + 0.6, 3.5, z], [0.12, 7, 0.12], true);
     // Grandstand (home straight) with roof, back stand (back straight).
     const standX = (STRAIGHT_FROM + STRAIGHT_TO) / 2, standLen = STRAIGHT_TO - STRAIGHT_FROM + 20;
     const tiers = quality === "high" ? 7 : 4;
@@ -372,12 +384,29 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
   let anims: AthleteAnimator[] = [];
   let shadows: pc.Entity[] = [];
   let javelins: pc.Entity[] = [];
+  let poles: pc.Entity[] = [];
+  const poleMat = mat({ color: "#e8d34a", gloss: 0.6 });
+  const bar = new pc.Entity("pv-bar");
+  add(bar, "box", M.hurdleBar, [0, 0, 0], [0.05, 0.05, 17], true);
+  add(bar, "box", M.hurdleStripe, [0, 0, -3], [0.055, 0.055, 1], false);
+  add(bar, "box", M.hurdleStripe, [0, 0, 3], [0.055, 0.055, 1], false);
+  bar.setPosition(90 + 0.6, 4.5, -56 - 7);
+  bar.enabled = false;
+  app.root.addChild(bar);
+  const placePole = (pole: pc.Entity, ax: number, ay: number, az: number, bx: number, by: number, bz: number) => {
+    pole.setPosition((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+    pole.lookAt(bx, by, bz);
+    const len = Math.hypot(bx - ax, by - ay, bz - az);
+    pole.children[0]!.setLocalScale(0.035, len, 0.035);
+  };
   const setupAthletes = (count: number) => {
     rigs.forEach((r) => r.destroy());
     rigs = [];
     humans.forEach((h) => h.destroy());
     shadows.forEach((s) => s.destroy());
     javelins.forEach((j) => j.destroy());
+    poles.forEach((p) => p.destroy());
+    poles = [];
     humans = [];
     anims = [];
     shadows = [];
@@ -395,6 +424,12 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       jv.enabled = false;
       app.root.addChild(jv);
       javelins.push(jv);
+      const pole = new pc.Entity("pole");
+      const shaft = add(pole, "cylinder", poleMat, [0, 0, 0], [0.035, 4.6, 0.035], true);
+      shaft.setLocalEulerAngles(90, 0, 0);
+      pole.enabled = false;
+      app.root.addChild(pole);
+      poles.push(pole);
     }
   };
 
@@ -460,6 +495,20 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       anims[i]!.update(a, s.event, dt, celebrate[i] ?? 0);
       rigs[i]?.update();
       shadows[i]!.setPosition(p.x, 0.03, p.z);
+      // Pole vault: carried pole, then planted in the box during the vault.
+      const pole = poles[i];
+      if (pole) {
+        if (s.event !== "polevault" || (a.phase === "done" && s.phase !== "ready") || (a.phase === "flight" && a.airT > a.airDur * 0.45)) pole.enabled = false;
+        else {
+          pole.enabled = true;
+          if (a.phase === "aiming" || a.phase === "flight") {
+            const box = worldOf("polevault", PV.box, i);
+            placePole(pole, box.x, 0.05, p.z, p.x - 0.1, yOff + 2.0, p.z);
+          } else {
+            placePole(pole, p.x - 1.2, yOff + 1.45, p.z + 0.15, p.x + 3.2, yOff + 0.9, p.z + 0.1);
+          }
+        }
+      }
       // Knocked hurdles tip over.
       if (s.event === "hurdles110") {
         hurdles[i]?.forEach((hd, k) => hd.setLocalEulerAngles(0, 0, a.knocked.includes(k) ? -75 : 0));
@@ -488,6 +537,12 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       }
     });
 
+    // Pole vault bar at the viewer's best height (or the opening height).
+    bar.enabled = s.event === "polevault";
+    if (bar.enabled) {
+      const best = s.athletes[viewer]?.finish ?? null;
+      bar.setPosition(90 + 0.6, best !== null ? Math.max(3.5, Math.floor(best * 20) / 20) : 4.5, -56 - 7);
+    }
     // Broadcast cameras.
     const me = s.athletes[viewer];
     const race = EVENTS[s.event].kind === "race";
@@ -524,6 +579,9 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
           const jp = worldOf("javelin", me.jx, viewer);
           want.set(jp.x - 6, 4, jp.z - 9);
           wantLook.set(jp.x, 0.3, jp.z);
+        } else if (s.event === "polevault" && (flying || me.phase === "aiming")) {
+          want.set(p.x - 4, 3.5 + me.y * 0.5, p.z - (portrait ? 13 : 9.5));
+          wantLook.set(p.x + 1.5, 1.2 + me.y * 0.8, p.z);
         } else {
           want.set(p.x - 3, portrait ? 4 : 2.6, p.z - (portrait ? 11 : 7.5));
           wantLook.set(p.x + (flying ? 3 : 5), 1, p.z);

@@ -92,6 +92,36 @@ export class AthleteAnimator {
       h.elbowL.setLocalEulerAngles(60, 0, 0);
       return;
     }
+    if (a.phase === "aiming" && event === "polevault") {
+      // Plant: both arms drive the pole overhead, take-off leg drives up.
+      h.spine.setLocalEulerAngles(-12, 0, 0);
+      h.shoulderL.setLocalEulerAngles(170, 0, -10);
+      h.shoulderR.setLocalEulerAngles(175, 0, 10);
+      h.elbowL.setLocalEulerAngles(15, 0, 0);
+      h.elbowR.setLocalEulerAngles(5, 0, 0);
+      h.hipL.setLocalEulerAngles(75, 0, 0);
+      h.kneeL.setLocalEulerAngles(-85, 0, 0);
+      h.hipR.setLocalEulerAngles(-25, 0, 0);
+      h.kneeR.setLocalEulerAngles(-10, 0, 0);
+      return;
+    }
+    if (a.phase === "flight" && event === "polevault") {
+      // Swing up, invert, turn over the bar and fall back onto the mat.
+      const k = Math.min(1, a.airT / Math.max(0.01, a.airDur));
+      h.hips.setLocalPosition(0, 0.9, 0);
+      const swing = Math.min(1, k / 0.35), over = Math.max(0, Math.min(1, (k - 0.35) / 0.25)), fall = Math.max(0, (k - 0.6) / 0.4);
+      h.spine.setLocalEulerAngles(lerp(lerp(-15, -70, swing), -30, over) + fall * 10, 0, 0);
+      h.shoulderL.setLocalEulerAngles(lerp(175, 120, over) - fall * 60, 0, -20);
+      h.shoulderR.setLocalEulerAngles(lerp(175, 120, over) - fall * 60, 0, 20);
+      h.elbowL.setLocalEulerAngles(10, 0, 0);
+      h.elbowR.setLocalEulerAngles(10, 0, 0);
+      const legs = lerp(lerp(10, 150, swing), 60, over) + fall * 20;
+      h.hipL.setLocalEulerAngles(legs, 0, -6);
+      h.hipR.setLocalEulerAngles(legs, 0, 6);
+      h.kneeL.setLocalEulerAngles(lerp(-60, -10, swing) - over * 50, 0, 0);
+      h.kneeR.setLocalEulerAngles(lerp(-60, -10, swing) - over * 50, 0, 0);
+      return;
+    }
     if (a.phase === "aiming") {
       if (event === "longjump") {
         // Penultimate step and drive off the board.

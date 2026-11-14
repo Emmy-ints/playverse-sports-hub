@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as RPointerEvent, type R
 import { StadiumAudio } from "@/game/athletics/audio";
 import type { AthleticsDriver } from "@/game/athletics/driver";
 import type { AthleticsView, Quality } from "@/game/athletics/renderer";
-import { EVENTS, placings, type EventId, type EventState, type Key } from "@/game/athletics/sim";
+import { EVENTS, placings, PV, type EventId, type EventState, type Key } from "@/game/athletics/sim";
 import type { AvatarConfig } from "@/lib/avatar";
 import { cn } from "@/lib/utils";
 import { buzz, useTouchMode } from "@/lib/input-mode";
@@ -208,13 +208,13 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
             break;
           case "land":
             if (s.event === "longjump") audio?.sand();
-            if (s.event === "javelin") audio?.thud();
+            if (s.event === "javelin" || s.event === "polevault") audio?.thud();
             if (mine && e.detail) {
               const m = Number(e.detail);
               const me = s.athletes[v]!;
-              const early = me.takeoffX < -1.5;
+              const early = s.event === "polevault" ? Math.abs(me.takeoffX - PV.idealTakeoff) > 1.5 : me.takeoffX < -1.5;
               const pb = m > 0 && m >= (me.finish ?? 0);
-              setBanner({ text: `${m.toFixed(2)} m`, sub: early ? (s.event === "longjump" ? `Took off ${(-me.takeoffX).toFixed(1)} m before the board` : "Released too far behind the line") : pb ? "Best mark!" : undefined, tone: early ? "info" : "good", id: now });
+              setBanner({ text: `${m.toFixed(2)} m`, sub: early ? (s.event === "polevault" ? `Planted ${(-me.takeoffX).toFixed(1)} m out (aim for about 4 m)` : s.event === "longjump" ? `Took off ${(-me.takeoffX).toFixed(1)} m before the board` : "Released too far behind the line") : pb ? "Best mark!" : undefined, tone: early ? "info" : "good", id: now });
               audio?.say(`${m.toFixed(2)} metres`);
               if (pb) audio?.roar(1.6);
               viewRef.current?.cheer(pb ? 0.8 : 0.4);
@@ -222,7 +222,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
             break;
           case "foul":
             if (mine) {
-              setBanner({ text: "FOUL", sub: s.event === "longjump" ? "Over the board" : "Over the line", tone: "bad", id: now });
+              setBanner({ text: "FOUL", sub: s.event === "longjump" ? "Over the board" : s.event === "polevault" ? "Ran past the box" : "Over the line", tone: "bad", id: now });
               audio?.say("Foul");
               audio?.crowdLevel(0.3, 0.5);
             }
@@ -251,10 +251,10 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
         hudAt = now;
         const me = s.athletes[v]!;
         setHud({
-          toLine: -me.x,
+          toLine: s.event === "polevault" ? PV.idealTakeoff - me.x : -me.x,
           prompt: me.prompt, speed: me.v / 12.2,
           call: s.phase === "ready" ? (race ? (s.goAt - s.t > 1.6 ? "On your marks" : "Set…") : `Attempt ${Math.min(EVENTS[s.event].attempts, me.attempt + 1)} of ${EVENTS[s.event].attempts}`) : "",
-          aiming: me.phase === "aiming", angle: me.phase === "aiming" ? Math.min(s.event === "longjump" ? 50 : 60, (s.t - me.actionAt) * (s.event === "longjump" ? 70 : 75)) : me.angle,
+          aiming: me.phase === "aiming", angle: me.phase === "aiming" ? Math.min(s.event === "longjump" ? 50 : s.event === "polevault" ? PV.maxAngle : 60, (s.t - me.actionAt) * (s.event === "longjump" ? 70 : s.event === "polevault" ? PV.rate : 75)) : me.angle,
           attempt: me.attempt, time: race && s.phase !== "ready" ? (me.finish ?? Math.max(0, s.t - s.goAt)) : 0, best: me.finish, live: s.phase === "live" && me.phase !== "done", flash: 0,
         });
         setStandings(order.map((i) => ({ i, mark: s.athletes[i]!.finish })));
@@ -300,8 +300,8 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
 
   const ev = EVENTS[event];
   const field = ev.kind === "field";
-  const ideal = event === "longjump" ? 45 : 36;
-  const maxA = event === "longjump" ? 50 : 60;
+  const ideal = event === "longjump" ? 45 : event === "polevault" ? PV.idealAngle : 36;
+  const maxA = event === "longjump" ? 50 : event === "polevault" ? PV.maxAngle : 60;
   return (
     <div ref={surfaceRef} style={ctlStyle(settings)} className="game-surface relative h-dvh w-full touch-none select-none overflow-hidden bg-black">
       <RotateHint />
@@ -356,8 +356,8 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
             ))}
           </div>
           {field && hud.toLine > -1 && (
-            <span className={cn("rounded-full px-4 py-1 font-display text-lg font-black uppercase tabular-nums", hud.toLine < 2.5 ? "bg-[#2fbf71] text-white" : "bg-black/55 text-white")}>
-              {event === "longjump" ? "Board" : "Line"} {Math.max(0, hud.toLine).toFixed(1)} m{hud.toLine < 2.5 ? " — NOW!" : ""}
+            <span className={cn("rounded-full px-4 py-1 font-display text-lg font-black uppercase tabular-nums", hud.toLine < (event === "polevault" ? 0.9 : 2.5) ? "bg-[#2fbf71] text-white" : "bg-black/55 text-white")}>
+              {event === "longjump" ? "Board" : event === "polevault" ? "Plant" : "Line"} {Math.max(0, hud.toLine).toFixed(1)} m{hud.toLine < (event === "polevault" ? 0.9 : 2.5) ? " — NOW!" : ""}
             </span>
           )}
           <div className="h-3 w-64 overflow-hidden rounded-full bg-black/50" aria-label={`Speed ${Math.round(hud.speed * 100)}%`}>
@@ -397,7 +397,7 @@ export function AthleticsStage({ event, driver, names, avatars, onEventEnd, topR
           {event !== "sprint100" && (
             <button type="button" {...pad("A")} className={cn("ctl-lg absolute bottom-safe left-1/2 -translate-x-1/2 rounded-full font-display text-base font-black uppercase text-white shadow-lg active:scale-95",
               hud.aiming ? "bg-[#ffd23f] text-black ring-4 ring-white" : "bg-[#8b5cf6]/90")}>
-              {hud.aiming ? "Release!" : event === "hurdles110" ? "Jump" : event === "longjump" ? "Jump" : "Throw"}
+              {hud.aiming ? "Release!" : event === "hurdles110" ? "Jump" : event === "longjump" ? "Jump" : event === "polevault" ? "Vault" : "Throw"}
             </button>
           )}
           {hud.live && rhythm && (

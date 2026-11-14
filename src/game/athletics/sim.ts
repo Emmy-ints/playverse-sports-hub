@@ -7,10 +7,11 @@
  * meter and releasing it commits.
  *
  * Coordinates: athletes run along +x. 100 m: start x=0, finish x=100. Hurdles: 110 m. Long jump:
- * board at x=0 after a 40 m runway. Javelin: foul line at x=0 after a 30 m runway.
+ * board at x=0 after a 40 m runway. Javelin: foul line at x=0 after a 30 m runway. Pole vault: plant box
+ * at x=0 after a 35 m runway; the mark is the height cleared.
  */
 
-export type EventId = "sprint100" | "hurdles110" | "longjump" | "javelin";
+export type EventId = "sprint100" | "hurdles110" | "longjump" | "javelin" | "polevault";
 export type Key = "L" | "R" | "A";
 
 export const EVENTS: Record<EventId, { name: string; short: string; kind: "race" | "field"; attempts: number; runway: number; length: number }> = {
@@ -18,8 +19,12 @@ export const EVENTS: Record<EventId, { name: string; short: string; kind: "race"
   hurdles110: { name: "110m Hurdles", short: "Hurdles", kind: "race", attempts: 1, runway: 0, length: 110 },
   longjump: { name: "Long Jump", short: "Long jump", kind: "field", attempts: 3, runway: 40, length: 0 },
   javelin: { name: "Javelin", short: "Javelin", kind: "field", attempts: 3, runway: 30, length: 0 },
+  polevault: { name: "Pole Vault", short: "Pole vault", kind: "field", attempts: 3, runway: 35, length: 0 },
 };
-export const EVENT_ORDER: EventId[] = ["sprint100", "hurdles110", "longjump", "javelin"];
+export const EVENT_ORDER: EventId[] = ["sprint100", "hurdles110", "longjump", "javelin", "polevault"];
+
+/** Pole vault: plant ~4 m before the box; holding ACTION bends the pole, releasing at ~68° on the meter is ideal. */
+export const PV = { box: 0, idealTakeoff: -4, idealAngle: 68, maxAngle: 80, rate: 100, matX: 1.6 } as const;
 
 export const HURDLES = Array.from({ length: 10 }, (_, k) => 13.72 + 9.14 * k);
 const G = 9.81;
@@ -158,7 +163,9 @@ export function applyEventInput(s: EventState, i: number, e: InputEvent) {
         a.actionAt = t;
         a.takeoffX = a.x;
         a.angle = 0;
-        s.events.push({ t, kind: s.event === "longjump" ? "takeoff" : "throw", a: i, detail: "start" });
+        if (s.event === "polevault" && a.x > PV.box + 0.4) return foul(s, i);
+        if (s.event === "polevault") a.jx = a.v; // speed at the plant drives the vault
+        s.events.push({ t, kind: s.event === "javelin" ? "throw" : "takeoff", a: i, detail: "start" });
       }
     } else if (a.phase === "aiming") {
       release(s, i);
@@ -187,7 +194,7 @@ export function applyEventInput(s: EventState, i: number, e: InputEvent) {
   // Correct tap: speed gain depends on rhythm (too slow wastes it, mashing is capped).
   const gap = a.lastTap < 0 ? 0.2 : t - a.lastTap;
   const rhythm = gap < 0.055 ? 0.35 : gap < 0.075 ? 0.75 : gap > 0.45 ? 0.6 : 1;
-  const ceiling = s.event === "javelin" ? 8.6 : VMAX;
+  const ceiling = s.event === "javelin" ? 8.6 : s.event === "polevault" ? 9.9 : VMAX;
   a.v = Math.min(ceiling, a.v + TAP_GAIN * rhythm * (1 - (a.v / ceiling) ** 2.2) * (a.v < 3 ? 1.7 : 1));
   a.lastTap = t;
   a.steps++;
@@ -201,9 +208,26 @@ export function applyEventInput(s: EventState, i: number, e: InputEvent) {
 function release(s: EventState, i: number) {
   const a = s.athletes[i]!;
   const held = s.t - a.actionAt;
-  const maxAngle = s.event === "longjump" ? 50 : 60;
-  a.angle = Math.min(maxAngle, held * (s.event === "longjump" ? 70 : 75));
+  const maxAngle = s.event === "longjump" ? 50 : s.event === "polevault" ? PV.maxAngle : 60;
+  a.angle = Math.min(maxAngle, held * (s.event === "longjump" ? 70 : s.event === "polevault" ? PV.rate : 75));
   const t = s.t;
+  if (s.event === "polevault") {
+    // Energy from the run-up converts to height; a bad plant spot or bend timing wastes it.
+    const plant = 1 - Math.min(1, Math.abs(a.takeoffX - PV.idealTakeoff) / 3) * 0.55;
+    const bend = Math.max(0, Math.cos((((a.angle - PV.idealAngle) * 1.6) * Math.PI) / 180)) ** 2;
+    const v = Math.max(a.v, a.jx);
+    const h = 1.2 + ((v * v) / (2 * G)) * plant * (0.35 + 0.65 * bend) + 0.5 * bend;
+    a.phase = "flight";
+    a.flightAngle = a.angle;
+    a.flightV = Math.round(h * 100) / 100;
+    // Rise to the bar, then drop onto the mat.
+    a.airDur = Math.sqrt((2 * Math.max(0.3, h - 1)) / G) + Math.sqrt((2 * Math.max(0.3, h - 0.9)) / G) + 0.35;
+    a.airT = 0;
+    a.fvx = (PV.matX - a.x) / a.airDur;
+    a.v = 0;
+    s.events.push({ t, kind: "takeoff", a: i, detail: a.angle.toFixed(0) });
+    return;
+  }
   if (s.event === "longjump") {
     if (a.takeoffX > 0.0) {
       foul(s, i);
@@ -282,6 +306,7 @@ function tick(s: EventState, dt: number) {
       if (s.event === "hurdles110") hurdleCheck(s, a, i);
       if (s.event === "longjump" && a.phase === "running" && a.x > 1.2) foul(s, i); // ran through the board
       if (s.event === "javelin" && a.phase === "running" && a.x > 0.5) foul(s, i);
+      if (s.event === "polevault" && a.phase === "running" && a.x > PV.box + 0.6) foul(s, i); // ran past the box
     } else if (a.phase === "air") {
       a.airT += dt;
       a.x += a.v * dt;
@@ -294,13 +319,28 @@ function tick(s: EventState, dt: number) {
       }
     } else if (a.phase === "aiming") {
       // Long jump: still moving through the take-off; javelin: crossover steps.
-      a.x += a.v * dt * (s.event === "longjump" ? 1 : 0.45);
-      a.v *= 1 - dt * 0.3;
-      if (s.t - a.actionAt > 0.75) release(s, i); // auto-release at the top of the meter
+      a.x += a.v * dt * (s.event === "javelin" ? 0.45 : s.event === "polevault" ? 0.7 : 1);
+      a.v *= 1 - dt * (s.event === "polevault" ? 0.15 : 0.3);
+      if (s.event === "polevault" && a.x > PV.box + 0.4) foul(s, i);
+      else if (s.t - a.actionAt > (s.event === "polevault" ? 0.85 : 0.75)) release(s, i); // auto-release at the top of the meter
     } else if (a.phase === "flight") {
       const vx = a.fvx;
       a.airT += dt;
-      if (s.event === "longjump") {
+      if (s.event === "polevault") {
+        a.x += vx * dt;
+        const h = a.flightV;
+        const up = Math.sqrt((2 * Math.max(0.3, h - 1)) / G);
+        const peakY = h - 1; // hips clear the bar
+        if (a.airT < up) a.y = peakY * Math.sin((a.airT / up) * (Math.PI / 2));
+        else a.y = Math.max(0.8, peakY - 0.5 * G * (a.airT - up) ** 2); // lands on the mat
+        if (a.airT >= a.airDur) {
+          a.marks.push(h);
+          a.phase = "done";
+          a.y = 0.8;
+          s.events.push({ t: s.t, kind: "land", a: i, detail: h.toFixed(2) });
+          attemptOver(s, i);
+        }
+      } else if (s.event === "longjump") {
         a.x += vx * dt;
         const vy0 = (a.airDur * G) / 2;
         a.y = Math.max(0, vy0 * a.airT - 0.5 * G * a.airT * a.airT);
@@ -422,8 +462,8 @@ export function aiEvent(s: EventState, i: number, skill: number, seq: number): I
   if (a.phase === "aiming") {
     if (ai.aimFrom < 0) {
       ai.aimFrom = t;
-      const ideal = s.event === "longjump" ? 42 : 37;
-      ai.target = (ideal + (r - 0.5) * 18 * (1.2 - skill)) / (s.event === "longjump" ? 70 : 75);
+      const ideal = s.event === "longjump" ? 42 : s.event === "polevault" ? PV.idealAngle : 37;
+      ai.target = (ideal + (r - 0.5) * 18 * (1.2 - skill)) / (s.event === "longjump" ? 70 : s.event === "polevault" ? PV.rate : 75);
     }
     if (t - ai.aimFrom >= ai.target) {
       ai.aimFrom = -1;
@@ -439,6 +479,7 @@ export function aiEvent(s: EventState, i: number, skill: number, seq: number): I
   }
   if (s.event === "longjump" && a.phase === "running" && a.x > -0.35 - (1 - skill) * 1.6 * r) return { seq, key: "A", down: true };
   if (s.event === "javelin" && a.phase === "running" && a.x > -4.2 - (1 - skill) * 3 * r) return { seq, key: "A", down: true };
+  if (s.event === "polevault" && a.phase === "running" && a.x > PV.idealTakeoff - 0.4 - (1 - skill) * 2.4 * (r - 0.3)) return { seq, key: "A", down: true };
   if (t < ai.next) return null;
   // Cadence: ~6–11 taps per second with jitter; reaction to the gun.
   if (t < s.goAt + 0.14 + (1 - skill) * 0.12) return null;

@@ -42,11 +42,12 @@ export const MATCH_FORMATS = {
   },
   athletics: {
     modes: [
-      { id: "championship", label: "Championship", hint: "All four events, points for every placing" },
+      { id: "championship", label: "Championship", hint: "All five events, points for every placing" },
       { id: "sprint100", label: "100m Dash", hint: "One flat-out sprint" },
       { id: "hurdles110", label: "110m Hurdles", hint: "Ten hurdles, perfect rhythm" },
       { id: "longjump", label: "Long Jump", hint: "Three attempts, best counts" },
       { id: "javelin", label: "Javelin", hint: "Three throws, best counts" },
+      { id: "polevault", label: "Pole Vault", hint: "Three vaults, highest clearance counts" },
     ],
     lengths: [1],
     unit: () => "",

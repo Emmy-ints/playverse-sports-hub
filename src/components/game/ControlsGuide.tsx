@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 
 export type GuideSport = "tennis" | "racing" | "bowling" | "golf" | "athletics" | "parkour";
-type AthleticsEvent = "sprint100" | "hurdles110" | "longjump" | "javelin";
+type AthleticsEvent = "sprint100" | "hurdles110" | "longjump" | "javelin" | "polevault";
 
 interface Row { keys: string[]; action: string }
 interface Section { title?: string; keyboard: Row[]; touch: Row[] }
@@ -34,6 +34,11 @@ const ATHLETICS: Record<AthleticsEvent, Section> = {
     title: "Javelin",
     keyboard: [RUN_KB, { keys: ["Hold Space"], action: "Before the line: hold to set the throw angle, then release in the green (about 36°)." }],
     touch: [RUN_TOUCH, { keys: ["Hold Throw"], action: "Before the line: hold to set the angle, then release in the green." }],
+  },
+  polevault: {
+    title: "Pole Vault",
+    keyboard: [RUN_KB, { keys: ["Hold Space"], action: "Plant about 4 m before the box (watch the distance), hold to bend the pole, release in the green (about 68°). Speed = height." }],
+    touch: [RUN_TOUCH, { keys: ["Hold Vault"], action: "Plant about 4 m before the box, hold to bend the pole, release in the green." }],
   },
 };
 
@@ -155,7 +160,7 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
         ],
       };
     case "athletics": {
-      const list = (events?.length ? events : ["sprint100", "hurdles110", "longjump", "javelin"]).filter((e): e is AthleticsEvent => e in ATHLETICS);
+      const list = (events?.length ? events : ["sprint100", "hurdles110", "longjump", "javelin", "polevault"]).filter((e): e is AthleticsEvent => e in ATHLETICS);
       return {
         name: "Athletics",
         goal: list.length > 1 ? "Compete in every event. Places earn points (1st: 10, 2nd: 8 …) and the most points takes gold." : "Beat the field: fastest time, or the longest mark over three attempts.",
