@@ -503,9 +503,9 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
           pole.enabled = true;
           if (a.phase === "aiming" || a.phase === "flight") {
             const box = worldOf("polevault", PV.box, i);
-            placePole(pole, box.x, 0.05, p.z, p.x - 0.1, yOff + 2.0, p.z);
+            placePole(pole, box.x, 0.05, p.z, p.x - 0.1, yOff + 2.0, p.z + 0.15);
           } else {
-            placePole(pole, p.x - 1.2, yOff + 1.45, p.z + 0.15, p.x + 3.2, yOff + 0.9, p.z + 0.1);
+            placePole(pole, p.x - 0.9, yOff + 0.95, p.z + 0.32, p.x + 3.4, yOff + 2.7, p.z + 0.32); // carried at the side, tip up
           }
         }
       }
