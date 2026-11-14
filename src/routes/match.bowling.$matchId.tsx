@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MatchReactions } from "@/components/game/MatchReactions";
+import { VoiceChat } from "@/components/game/VoiceChat";
 import { MatchIntro } from "@/components/game/MatchIntro";
 import { ArrowLeft, Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -37,6 +38,7 @@ function Page() {
         <OnlineBowling matchId={matchId} />
       </RequireAccount>
       <MatchReactions matchId={matchId} />
+      <VoiceChat matchId={matchId} />
       <MatchIntro matchId={matchId} />
     </div>
   );

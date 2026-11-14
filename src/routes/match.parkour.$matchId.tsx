@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { MatchReactions } from "@/components/game/MatchReactions";
+import { VoiceChat } from "@/components/game/VoiceChat";
 import { MatchIntro } from "@/components/game/MatchIntro";
 import { Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -36,6 +37,7 @@ function Page() {
         <OnlineParkour matchId={matchId} />
       </RequireAccount>
       <MatchReactions matchId={matchId} />
+      <VoiceChat matchId={matchId} />
       <MatchIntro matchId={matchId} />
     </div>
   );
