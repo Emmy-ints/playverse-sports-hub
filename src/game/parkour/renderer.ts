@@ -7,6 +7,7 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
+import { RealisticRig } from "../character/mirror.ts";
 import { ParkourAnimator } from "./anim.ts";
 import { getGameSettings, camLiveliness } from "@/lib/game-settings";
 import { LANE_W, laneZ, RUN_SPEED, type Course, type RaceState } from "./sim.ts";
@@ -471,20 +472,23 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
   // Runners.
   const humans: Humanoid[] = [];
   const anims: ParkourAnimator[] = [];
+  const rigs: RealisticRig[] = [];
   const blobs: pc.Entity[] = [];
   const trails: pc.Entity[] = [];
   const runnerRoot = new pc.Entity("runners");
   app.root.addChild(runnerRoot);
   let lastList: { avatar: AvatarConfig | null; color: string }[] = [];
   const setupRunners = (n: number) => {
+    rigs.forEach((r) => r.destroy());
     humans.forEach((h) => h.destroy());
     blobs.forEach((b) => b.destroy());
     trails.forEach((b) => b.destroy());
-    humans.length = anims.length = blobs.length = trails.length = 0;
+    humans.length = anims.length = blobs.length = trails.length = rigs.length = 0;
     for (let i = 0; i < n; i++) {
       const h = createHumanoid(runnerRoot, null, { shadows: true, detail: quality === "high" ? "full" : "simple" });
       h.root.setLocalEulerAngles(0, -90, 0); // face +x
       humans.push(h);
+      rigs.push(new RealisticRig(app, h, lastList[i]?.avatar ?? null, { grip: [0.3, 0.3] }));
       anims.push(new ParkourAnimator(h));
       blobs.push(add(runnerRoot, "cylinder", M.shadow, [0, 0.03, 0], [0.6, 0.01, 0.8]));
       const tr = add(runnerRoot, "box", M.trail, [0, 1, 0], [2.4, 1.1, 0.25]);
@@ -579,6 +583,7 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       const z = a.z + vis(i);
       h.root.setPosition(a.x, a.y, z);
       anims[i]!.update(a, dt, celebrate[i] ?? 0, s.phase === "ready" && s.goAt - s.t < 1.2);
+      rigs[i]?.update();
       const gy = groundY(a.x);
       const b = blobs[i]!;
       if (gy !== null && a.state !== "fall" && a.y - gy < 6) {
@@ -662,7 +667,10 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
     setRunners(list) {
       lastList = list;
       if (humans.length !== list.length) setupRunners(list.length);
-      list.forEach((r, i) => humans[i]!.apply(r.avatar));
+      list.forEach((r, i) => {
+        humans[i]!.apply(r.avatar);
+        rigs[i]?.setLook(r.avatar);
+      });
     },
     setState(s, v, c) {
       state = s;
@@ -690,6 +698,7 @@ export async function createParkourView(cv: HTMLCanvasElement, initialQuality: Q
       resize();
     },
     destroy() {
+      rigs.forEach((r) => r.destroy());
       ro.disconnect();
       app.destroy();
     },

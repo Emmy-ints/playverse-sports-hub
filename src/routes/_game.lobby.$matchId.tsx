@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { CheckCircle2, Loader2, LogOut, Wifi, WifiOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AvatarPreview } from "@/components/game/AvatarPreview";
+import { Avatar3D } from "@/components/game/Avatar3D";
 import { ControlsCard } from "@/components/game/ControlsGuide";
 import { EmptyState } from "@/components/game/EmptyState";
 import { GameButton } from "@/components/game/GameButton";
@@ -270,7 +270,7 @@ function Lobby({ matchId }: { matchId: string }) {
           const isMe = player.id === me;
           return (
             <GlassPanel key={player.id} className={cn("flex flex-col items-center text-center transition-shadow", isReady && "shadow-glow ring-2 ring-success/70")}>
-              <div className="h-56 w-40">{player.avatar_config ? <AvatarPreview config={player.avatar_config} /> : null}</div>
+              <div className="h-56 w-40">{player.avatar_config ? <Avatar3D config={player.avatar_config} /> : null}</div>
               <p className="mt-2 font-display text-2xl font-black uppercase">{player.display_name}{isMe && <span className="text-accent"> (you)</span>}</p>
               <p className="text-sm text-muted-foreground">@{player.username} · Level {player.level}</p>
               <p className={cn("mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider",

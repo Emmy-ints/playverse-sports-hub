@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Dices, RotateCcw, Save } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { AvatarPreview } from "@/components/game/AvatarPreview";
+import { Avatar3D } from "@/components/game/Avatar3D";
 import { GameButton } from "@/components/game/GameButton";
 import { GlassPanel } from "@/components/game/GlassPanel";
 import { Logo } from "@/components/game/Logo";
@@ -127,7 +127,7 @@ function CharacterStudio() {
           <GlassPanel className="relative flex h-80 flex-col items-center justify-center overflow-hidden sm:h-[28rem]">
             <div aria-hidden className="absolute inset-x-10 bottom-6 h-10 rounded-full bg-primary/25 blur-2xl" />
             <div className="h-full w-full max-w-64">
-              <AvatarPreview config={draft} />
+              <Avatar3D config={draft} interactive />
             </div>
           </GlassPanel>
           <p className="mt-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -6,7 +6,9 @@
  */
 import * as pc from "playcanvas";
 import type { Humanoid } from "./humanoid.ts";
-import type { Athlete } from "./athlete.ts";
+import { Athlete, athleteBody, loadAthleteAssets, type AthleteAssets } from "./athlete.ts";
+import type { AvatarConfig } from "@/lib/avatar";
+import { getGameSettings } from "@/lib/game-settings";
 
 type JointKey = "hips" | "spine" | "head" | "shoulderL" | "shoulderR" | "elbowL" | "elbowR" | "handL" | "handR" | "hipL" | "hipR" | "kneeL" | "kneeR";
 
@@ -91,7 +93,7 @@ export class HumanoidMirror {
 
   /** Hide the classic meshes (call again after the humanoid is re-styled). */
   hideSource() {
-    for (const r of this.h.root.findComponents("render") as pc.RenderComponent[]) r.enabled = false;
+    this.h.setBodyVisible(false);
   }
 
   update() {
@@ -133,6 +135,7 @@ export class HumanoidMirror {
   }
 
   destroy() {
+    this.h.setBodyVisible(true);
     this.ath.destroy();
   }
 }
@@ -146,4 +149,66 @@ function between(a: pc.Vec3, b: pc.Vec3): pc.Quat {
   }
   const c = new pc.Vec3().cross(a, b);
   return new pc.Quat(c.x, c.y, c.z, 1 + d).normalize();
+}
+
+/**
+ * Convenience wrapper for sports: loads the athlete models (if Settings → Graphics is Realistic)
+ * and mirrors a classic Humanoid onto a realistic athlete with the player's look. Until the models
+ * arrive, or if they fail to load, the classic character simply stays visible.
+ */
+export class RealisticRig {
+  mirror: HumanoidMirror | null = null;
+  private assets: AthleteAssets | null = null;
+  private dead = false;
+
+  constructor(
+    app: pc.AppBase,
+    private h: Humanoid,
+    private look: AvatarConfig | null,
+    private opts: { grip?: [number, number]; shadows?: boolean; onReady?: (rig: RealisticRig) => void } = {},
+  ) {
+    if (getGameSettings().graphics !== "realistic") return;
+    loadAthleteAssets(app)
+      .then((as) => {
+        if (this.dead) return;
+        this.assets = as;
+        this.build();
+        this.opts.onReady?.(this);
+      })
+      .catch((e) => console.warn("[athletes] realistic models unavailable, using classic", e));
+  }
+
+  private build() {
+    if (!this.assets) return;
+    const parent = this.h.root.parent ?? this.h.root;
+    const ath = new Athlete(this.assets, parent, this.look, { shadows: this.opts.shadows ?? true });
+    const [gl, gr] = this.opts.grip ?? [0.35, 0.35];
+    ath.setGrip("L", gl, gl * 0.8);
+    ath.setGrip("R", gr, gr * 0.8);
+    this.mirror = new HumanoidMirror(this.h, ath);
+  }
+
+  setLook(look: AvatarConfig | null) {
+    this.look = look;
+    const m = this.mirror;
+    if (!m) return;
+    if (m.ath.body === athleteBody(look)) {
+      m.ath.apply(look);
+      m.hideSource();
+    } else {
+      m.destroy();
+      this.mirror = null;
+      this.build();
+    }
+  }
+
+  update() {
+    this.mirror?.update();
+  }
+
+  destroy() {
+    this.dead = true;
+    this.mirror?.destroy();
+    this.mirror = null;
+  }
 }

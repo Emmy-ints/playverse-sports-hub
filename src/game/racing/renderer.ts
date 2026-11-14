@@ -9,6 +9,8 @@ import { camLiveliness, getGameSettings } from "@/lib/game-settings";
 import type { RaceState } from "./sim.ts";
 import { RACE_THEMES, type RaceTheme } from "./themes.ts";
 import { buildTrack, nearest, type Track, type TrackDef } from "./track.ts";
+import { loadAthleteAssets } from "../character/athlete.ts";
+import { RealCrowd, bakeCrowdAtlas, type CrowdAtlas } from "../character/real-crowd.ts";
 
 export type Quality = "high" | "low";
 
@@ -248,7 +250,12 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
 
   let world: pc.Entity | null = null;
   const textures: pc.Texture[] = [];
+  let atlas: CrowdAtlas | null = null;
+  let standCrowd: RealCrowd | null = null;
+  let dead = false;
   const build = () => {
+    standCrowd?.destroy();
+    standCrowd = null;
     world?.destroy();
     textures.splice(0).forEach((t) => t.destroy());
     const root = new pc.Entity("world");
@@ -404,8 +411,23 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     }
     // Grandstand by the start straight.
     const standMat = mat({ color: "#1f2a44", gloss: 0.3 });
+    if (atlas) {
+      // Realistic fans: one stand along the start straight, facing the track.
+      const a = L(4, 0), b = L(40, 0);
+      const dx = b[0] - a[0], dz = b[2] - a[2];
+      const len = Math.hypot(dx, dz);
+      const yaw = Math.atan2(dx / len, dz / len);
+      const stand = new pc.Entity("stand");
+      stand.setLocalPosition((a[0] + b[0]) / 2, 0.3, (a[2] + b[2]) / 2);
+      stand.setLocalEulerAngles(0, (yaw * 180) / Math.PI, 0);
+      root.addChild(stand);
+      const lx = Math.cos(yaw), lz = -Math.sin(yaw);
+      const mid = 22;
+      const side = lx * -track.tz[mid]! + lz * track.tx[mid]! > 0 ? 1 : -1;
+      standCrowd = new RealCrowd(stand, atlas, device, { innerX: wall + 3, zFrom: len / 2, zTo: -len / 2, tiers: quality === "high" ? 7 : 5, spacing: quality === "high" ? 0.65 : 0.9, fill: 0.88, sides: [side], seed: 13, seats: standMat });
+    }
     const fanMats = ["#e11d48", "#2f7bff", "#f2c230", "#2fbf71", "#f4f4f4", "#ff7a1a"].map((c) => mat({ color: c, gloss: 0.15, noEnv: true }));
-    for (let i = 4; i < 40; i += 4) {
+    for (let i = 4; i < 40 && !atlas; i += 4) {
       for (let tier = 0; tier < 5; tier++) {
         const [x, , z] = L(i, -(wall + 3 + tier * 1.2));
         add(root, "box", standMat, [x, 0.4 + tier * 0.6, z], [2.2, 0.8 + tier * 1.2, 2.2], false);
@@ -414,6 +436,15 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     }
   };
   build();
+  if (getGameSettings().graphics === "realistic")
+    loadAthleteAssets(app)
+      .then(async (as) => {
+        const a = await bakeCrowdAtlas(app, as, 17);
+        if (dead) return a.destroy();
+        atlas = a;
+        build();
+      })
+      .catch((e) => console.warn("[racing] realistic crowd unavailable", e));
 
   // Cars.
   const tyre = mat({ color: "#121212", gloss: 0.25 });
@@ -493,6 +524,7 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   let elapsed = 0;
 
   app.on("update", (dt: number) => {
+    standCrowd?.update(dt);
     elapsed += dt;
     const s = state;
     if (!s) return;
@@ -638,6 +670,9 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       resize();
     },
     destroy() {
+      dead = true;
+      standCrowd?.destroy();
+      atlas?.destroy();
       ro.disconnect();
       app.destroy();
     },

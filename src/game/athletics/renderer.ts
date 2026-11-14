@@ -9,6 +9,10 @@ import { camLiveliness } from "@/lib/game-settings";
 import type { AvatarConfig } from "@/lib/avatar";
 import { Crowd } from "../bowling/crowd.ts";
 import { createHumanoid, type Humanoid } from "../character/humanoid.ts";
+import { RealisticRig } from "../character/mirror.ts";
+import { loadAthleteAssets } from "../character/athlete.ts";
+import { RealCrowd, bakeCrowdAtlas, type CrowdAtlas } from "../character/real-crowd.ts";
+import { getGameSettings } from "@/lib/game-settings";
 import { AthleteAnimator } from "./anim.ts";
 import { EVENTS, HURDLES, type EventId, type EventState } from "./sim.ts";
 
@@ -218,7 +222,9 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
   };
 
   let world: pc.Entity | null = null;
-  const crowds: Crowd[] = [];
+  const crowds: (Crowd | RealCrowd)[] = [];
+  let atlas: CrowdAtlas | null = null;
+  let dead = false;
   const boardCanvas = document.createElement("canvas");
   boardCanvas.width = 1024;
   boardCanvas.height = 512;
@@ -311,12 +317,15 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
     home.setLocalPosition(0, 1, 0);
     home.setLocalEulerAngles(0, 90, 0);
     root.addChild(home);
-    crowds.push(new Crowd(home, { innerX: W + 3.6, zFrom: STRAIGHT_TO + 8, zTo: STRAIGHT_FROM - 8, tiers, spacing: quality === "high" ? 0.95 : 1.5, fill: 0.88, shadows: false, sides: [-1], seed: 3 }));
+    const seats = mat({ color: "#1b2540", gloss: 0.35 });
+    if (atlas) crowds.push(new RealCrowd(home, atlas, device, { innerX: W + 3.6, zFrom: STRAIGHT_TO + 8, zTo: STRAIGHT_FROM - 8, tiers: tiers + 2, spacing: quality === "high" ? 0.62 : 0.85, fill: 0.9, sides: [-1], seed: 3, seats }));
+    else crowds.push(new Crowd(home, { innerX: W + 3.6, zFrom: STRAIGHT_TO + 8, zTo: STRAIGHT_FROM - 8, tiers, spacing: quality === "high" ? 0.95 : 1.5, fill: 0.88, shadows: false, sides: [-1], seed: 3 }));
     const back = new pc.Entity("back-stand");
     back.setLocalPosition(0, 0.6, 0);
     back.setLocalEulerAngles(0, 90, 0);
     root.addChild(back);
-    crowds.push(new Crowd(back, { innerX: 2 * R0 + W + 4, zFrom: STRAIGHT_TO, zTo: STRAIGHT_FROM, tiers: quality === "high" ? 5 : 3, spacing: quality === "high" ? 1.3 : 2, fill: 0.8, shadows: false, sides: [1], seed: 9 }));
+    if (atlas) crowds.push(new RealCrowd(back, atlas, device, { innerX: 2 * R0 + W + 4, zFrom: STRAIGHT_TO, zTo: STRAIGHT_FROM, tiers: quality === "high" ? 6 : 4, spacing: quality === "high" ? 0.7 : 1, fill: 0.85, sides: [1], seed: 9, seats }));
+    else crowds.push(new Crowd(back, { innerX: 2 * R0 + W + 4, zFrom: STRAIGHT_TO, zTo: STRAIGHT_FROM, tiers: quality === "high" ? 5 : 3, spacing: quality === "high" ? 1.3 : 2, fill: 0.8, shadows: false, sides: [1], seed: 9 }));
     add(root, "box", M.concrete, [standX, 3, -2 * R0 - W - 8 - 3], [standLen, 7, 0.6], false);
     // Floodlight towers.
     for (const [x, z] of [[-40, 25], [140, 25], [-40, -100], [140, -100]] as const) {
@@ -359,10 +368,13 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
 
   let event: EventId = "sprint100";
   let humans: Humanoid[] = [];
+  let rigs: RealisticRig[] = [];
   let anims: AthleteAnimator[] = [];
   let shadows: pc.Entity[] = [];
   let javelins: pc.Entity[] = [];
   const setupAthletes = (count: number) => {
+    rigs.forEach((r) => r.destroy());
+    rigs = [];
     humans.forEach((h) => h.destroy());
     shadows.forEach((s) => s.destroy());
     javelins.forEach((j) => j.destroy());
@@ -374,6 +386,7 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       const h = createHumanoid(app.root, null, { shadows: quality === "high" || i === 0 });
       h.root.setEulerAngles(0, -90, 0); // face +x
       humans.push(h);
+      rigs.push(new RealisticRig(app, h, null, { grip: [0.45, 0.6], shadows: quality === "high" || i === 0 }));
       anims.push(new AthleteAnimator(h, M.javelin, M.tip));
       shadows.push(add(app.root, "cylinder", M.shadow, [0, 0.03, 0], [0.7, 0.002, 0.5], false));
       const jv = new pc.Entity("javelin");
@@ -407,6 +420,16 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
   const want = new pc.Vec3(), wantLook = new pc.Vec3();
   let state: EventState | null = null;
   let viewer = 0;
+  // Realistic crowd: bake the fan atlas once the athlete models are in, then rebuild the stands.
+  if (getGameSettings().graphics === "realistic")
+    loadAthleteAssets(app)
+      .then(async (as) => {
+        const a = await bakeCrowdAtlas(app, as, 5);
+        if (dead) return a.destroy();
+        atlas = a;
+        build();
+      })
+      .catch((e) => console.warn("[athletics] realistic crowd unavailable", e));
   let celebrate: number[] = [];
   let elapsed = 0;
   const landed = new Set<number>();
@@ -435,6 +458,7 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       h.root.setPosition(p.x, yOff, p.z);
       anims[i]!.setJavelinVisible(s.event === "javelin" && a.phase !== "flight" && !(a.phase === "done" && a.marks.length > 0 && a.attempt > 0 && s.phase !== "ready"));
       anims[i]!.update(a, s.event, dt, celebrate[i] ?? 0);
+      rigs[i]?.update();
       shadows[i]!.setPosition(p.x, 0.03, p.z);
       // Knocked hurdles tip over.
       if (s.event === "hurdles110") {
@@ -553,7 +577,10 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
     },
     setAthletes(list) {
       if (humans.length !== list.length) setupAthletes(list.length);
-      list.forEach((a, i) => humans[i]!.apply(a.avatar));
+      list.forEach((a, i) => {
+        humans[i]!.apply(a.avatar);
+        rigs[i]?.setLook(a.avatar);
+      });
     },
     setBoard(title, lines) {
       const ctx = boardCanvas.getContext("2d")!;
@@ -586,6 +613,9 @@ export async function createAthleticsView(canvas: HTMLCanvasElement, initialQual
       resize();
     },
     destroy() {
+      dead = true;
+      rigs.forEach((r) => r.destroy());
+      atlas?.destroy();
       ro.disconnect();
       crowds.forEach((c) => c.destroy());
       app.destroy();

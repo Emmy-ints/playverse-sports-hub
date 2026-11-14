@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Copy } from "lucide-react";
 import { useState } from "react";
-import { AvatarPreview } from "@/components/game/AvatarPreview";
+import { Avatar3D } from "@/components/game/Avatar3D";
 import { GameButton } from "@/components/game/GameButton";
 import { GlassPanel } from "@/components/game/GlassPanel";
 import { PageShell } from "@/components/game/PageShell";
@@ -54,7 +54,7 @@ function Profile() {
     >
       <div className="grid gap-5 md:grid-cols-[18rem_1fr]">
         <GlassPanel className="h-80">
-          {p.avatar ? <AvatarPreview config={p.avatar} /> : <p className="text-muted-foreground">No character yet.</p>}
+          {p.avatar ? <Avatar3D config={p.avatar} interactive /> : <p className="text-muted-foreground">No character yet.</p>}
         </GlassPanel>
         <div className="space-y-5">
           <GlassPanel>

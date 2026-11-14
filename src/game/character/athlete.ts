@@ -11,10 +11,10 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 
-const VERSION = 3;
+const VERSION = 5;
 const BASE = "/assets/athletes";
 
-export type ClipName = "idle" | "run" | "walk" | "fh" | "bh" | "serve" | "cheer" | "sad";
+export type ClipName = "idle" | "run" | "walk" | "fh" | "bh" | "serve" | "cheer" | "sad" | "sit" | "sitHigh" | "stand";
 
 export interface Clip {
   name: string;
@@ -199,7 +199,7 @@ export class Athlete {
   }
 
   apply(cfg: AvatarConfig | null) {
-    const c = cfg ?? { skinTone: "#d39b72", hairstyle: "short", hairColor: "#1b1410", outfitColor: "#2f7bff", shoeColor: "#ff7a1a", accessory: "none", outfit: "tennis" };
+    const c = cfg ?? { skinTone: "#d39b72", hairstyle: "short", hairColor: "#1b1410", outfitColor: "#2f7bff", shoeColor: "#ff7a1a", accessory: "none", outfit: "tennis", shoes: "runner" };
     const set = (name: string, hex: string) => {
       const m = this.mats[name];
       if (!m) return;
@@ -216,20 +216,31 @@ export class Athlete {
     }
     set("hair", c.hairColor);
     set("kit_top", c.outfitColor);
-    // Shorts: white with a light kit, otherwise dark navy for contrast.
-    set("kit_bottom", ["#e8eaf0", "#f2c230"].includes(c.outfitColor) ? "#1d2333" : "#f2f3f5");
+    const light = ["#e8eaf0", "#f2c230"].includes(c.outfitColor);
+    // Shorts: white with a dark kit, navy with a light one; track pants are always dark.
+    set("kit_bottom", c.outfit === "track" ? (c.outfitColor === "#1d2333" ? "#2b2f3a" : "#1d2333") : light ? "#1d2333" : "#f2f3f5");
     set("shoe", c.shoeColor);
+    set("sole", c.shoes === "court" ? "#ffffff" : c.shoes === "high-top" ? "#f4efe2" : "#e9eaee");
     set("accessory", c.outfitColor === "#e8eaf0" ? "#1d2333" : "#f4f4f4");
-    for (const h of HAIR) {
-      const e = this.byName.get(`Hair_${h}`);
-      if (e) e.enabled = h === c.hairstyle && c.accessory !== "cap";
-    }
-    const capHair = this.byName.get("Hair_buzz");
-    if (c.accessory === "cap" && capHair) capHair.enabled = true;
-    for (const a of ["headband", "wristbands", "cap"]) {
-      const e = this.byName.get(`Acc_${a}`);
-      if (e) e.enabled = c.accessory === a;
-    }
+    const show = (name: string, on: boolean) => {
+      const e = this.byName.get(name);
+      if (e) e.enabled = on;
+    };
+    // Outfit: tennis = tee + shorts, jersey = sleeveless + shorts, polo = tee + collar + shorts, track = long sleeves + pants.
+    const outfit = c.outfit;
+    show("Top_tee", outfit === "tennis" || outfit === "polo");
+    show("Top_tank", outfit === "jersey");
+    show("Top_long", outfit === "track");
+    show("Bottom_shorts", outfit !== "track");
+    show("Bottom_pants", outfit === "track");
+    show("Acc_collar", outfit === "polo");
+    show("Shoes", c.shoes !== "high-top");
+    show("Shoes_high", c.shoes === "high-top");
+    // Hair: under a cap only hanging hair (ponytail / long) shows, over a close crop.
+    const cap = c.accessory === "cap";
+    for (const h of HAIR) show(`Hair_${h}`, cap ? h === c.hairstyle && (h === "ponytail" || h === "long") : h === c.hairstyle);
+    if (cap && c.hairstyle !== "ponytail" && c.hairstyle !== "long") show("Hair_buzz", true);
+    for (const a of ["headband", "wristbands", "cap", "glasses"]) show(`Acc_${a}`, c.accessory === a);
   }
 
   /** Recolour one material slot (skin, hair, kit_top, kit_bottom, socks, shoe, sole, accessory). */

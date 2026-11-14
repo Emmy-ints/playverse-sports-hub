@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Ban, Loader2, Medal, UserPlus } from "lucide-react";
-import { AvatarPreview } from "@/components/game/AvatarPreview";
+import { Avatar3D } from "@/components/game/Avatar3D";
 import { ChallengeButton } from "@/components/game/ChallengeDialog";
 import { EmptyState } from "@/components/game/EmptyState";
 import { GameButton } from "@/components/game/GameButton";
@@ -84,7 +84,7 @@ function PlayerProfile({ username }: { username: string }) {
     >
       <div className="grid gap-5 md:grid-cols-[18rem_1fr]">
         <GlassPanel className="flex h-80 flex-col">
-          <div className="min-h-0 flex-1">{p.avatar_config ? <AvatarPreview config={p.avatar_config} /> : <p className="text-muted-foreground">No character yet.</p>}</div>
+          <div className="min-h-0 flex-1">{p.avatar_config ? <Avatar3D config={p.avatar_config} interactive /> : <p className="text-muted-foreground">No character yet.</p>}</div>
           <div className="flex items-center justify-between pt-2">
             <span className="font-display text-xl font-bold">Level {p.level}</span>
             <PresenceDot userId={p.id} withLabel />

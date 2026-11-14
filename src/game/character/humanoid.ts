@@ -32,6 +32,8 @@ export interface Humanoid {
   apply(config: AvatarConfig | null): void;
   /** Reset every joint to the neutral standing pose. */
   neutral(): void;
+  /** Show or hide the body meshes only (props parented to joints stay visible). */
+  setBodyVisible(visible: boolean): void;
   destroy(): void;
 }
 
@@ -109,6 +111,7 @@ export function createHumanoid(parent: pc.Entity, config: AvatarConfig | null, o
 
   let meshes: pc.Entity[] = [];
   let mats: pc.Material[] = [];
+  let bodyVisible = true;
 
   const apply = (cfg: AvatarConfig | null) => {
     meshes.forEach((m) => m.destroy());
@@ -126,6 +129,7 @@ export function createHumanoid(parent: pc.Entity, config: AvatarConfig | null, o
     mats = [skin, shirt, pants, shoe, hair, dark, accent];
     const add = (p: pc.Entity, type: string, m: pc.Material, pos: [number, number, number], scale: [number, number, number], rot?: [number, number, number]) => {
       const e = part(p, type, m, pos, scale, rot, shadows);
+      e.enabled = bodyVisible;
       meshes.push(e);
       return e;
     };
@@ -221,6 +225,10 @@ export function createHumanoid(parent: pc.Entity, config: AvatarConfig | null, o
     root, hips, spine, head, shoulderL, shoulderR, elbowL, elbowR, handL, handR, hipL, hipR, kneeL, kneeR,
     apply,
     neutral,
+    setBodyVisible(v: boolean) {
+      bodyVisible = v;
+      meshes.forEach((m) => (m.enabled = v));
+    },
     destroy() {
       mats.forEach((m) => m.destroy());
       root.destroy();

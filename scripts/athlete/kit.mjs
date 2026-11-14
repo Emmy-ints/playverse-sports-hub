@@ -38,7 +38,7 @@ export function fields(b) {
     for (const i of sel) for (let k = 0; k < 3; k++) c[k] += pos[i][k] / sel.length;
     return c;
   });
-  const F = { top: [], bottom: [], socks: [], shoes: [], scalp: [], sleeve: [], thigh: [], yr: [], az: [] };
+  const F = { top: [], bottom: [], socks: [], shoes: [], scalp: [], sleeve: [], thigh: [], yr: [], az: [], topBase: [], bottomBase: [], armT: [], legT: [] };
   for (let i = 0; i < pos.length; i++) {
     const p = pos[i];
     const d = dom[i];
@@ -49,6 +49,16 @@ export function fields(b) {
     const ankle = J(`foot.${s}`)[1];
     const fz = clamp((p[2] - neck[2]) / 0.09, 0, 1);
     const collar = neck[1] + 0.012 - 0.06 * Math.sin(fz * Math.PI * 0.5) * Math.max(0, 1 - Math.abs(p[0] - neck[0]) / 0.09);
+    const foreT = along(p, J(`lowerarm01.${s}`), J(`wrist.${s}`));
+    const armT = !isArm(d) ? -1 : /^(lowerarm)/.test(d) ? 1 + foreT : /^(wrist|finger|metacarpal)/.test(d) ? 2 + Math.max(0, foreT - 1) : sleeveT;
+    const legT = !isLeg(d) ? -1 : /^lowerleg/.test(d) ? 1 + shinT : /^(foot|toe)/.test(d) ? 2 : thighT;
+    let topBase = Math.min(p[1] - shirtHem, collar - p[1]);
+    if (isHead(d)) topBase = Math.min(topBase, -0.01);
+    let bottomBase = isArm(d) || isHead(d) ? -1 : shortsTop - p[1];
+    F.topBase.push(topBase);
+    F.bottomBase.push(bottomBase);
+    F.armT.push(armT);
+    F.legT.push(legT);
     let top = Math.min(p[1] - shirtHem, collar - p[1]);
     if (isArm(d)) top = Math.min(top, (0.4 - sleeveT) * 0.3);
     if (isHead(d)) top = Math.min(top, -0.01);
@@ -321,10 +331,10 @@ export function skinColors(b, normals, faces, gender) {
 export { vertexNormals };
 
 /** A lofted shoe around the foot (one per side), rigged to foot / toe bones. */
-export function makeShoe(b, F, side) {
+export function makeShoe(b, F, side, high = false) {
   const s = side;
   const pts = [];
-  for (let i = 0; i < b.pos.length; i++) if (F.shoes[i] > -0.035 && (s === "L" ? b.pos[i][0] > 0 : b.pos[i][0] < 0)) pts.push(b.pos[i]);
+  for (let i = 0; i < b.pos.length; i++) if (F.shoes[i] > (high ? -0.09 : -0.035) && (s === "L" ? b.pos[i][0] > 0 : b.pos[i][0] < 0)) pts.push(b.pos[i]);
   const ankle = b.bones[`foot.${s}`].head;
   // forward axis: horizontal from ankle toward the farthest toe point
   let tip = pts[0];
@@ -343,7 +353,7 @@ export function makeShoe(b, F, side) {
     if (band.length) {
       x0 = Math.min(...band.map((p) => p[0]));
       x1 = Math.max(...band.map((p) => p[0]));
-      yTop = Math.min(ankle[1] + 0.02, Math.max(...band.map((p) => p[1])));
+      yTop = Math.min(ankle[1] + (high ? 0.075 : 0.02), Math.max(...band.map((p) => p[1])));
     }
     secs.push({ z, x0: x0 - 0.008, x1: x1 + 0.008, yTop: yTop + 0.01 });
   }

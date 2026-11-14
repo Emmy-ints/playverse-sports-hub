@@ -178,6 +178,56 @@ function accessories(b, N, tris, F) {
     wb.push(ring(b, c, axis, () => r + 0.006, 0.05, [[bi, 1]], 20));
   }
   const wristbands = merge(wb);
+  // sunglasses: two lenses, bridge and arms
+  const gl = [];
+  const eL = b.bones["eye.L"].head, eR = b.bones["eye.R"].head;
+  const lens = (c) => {
+    const pos = [], tris = [], skin = [];
+    const N2 = 16;
+    pos.push([c[0], c[1], c[2]]);
+    skin.push([[hb, 1]]);
+    for (let k = 0; k < N2; k++) {
+      const a = (k / N2) * Math.PI * 2;
+      pos.push([c[0] + Math.cos(a) * 0.024, c[1] + Math.sin(a) * 0.017 - (Math.sin(a) < 0 ? 0.003 : 0), c[2] - Math.abs(Math.cos(a)) * 0.004]);
+      skin.push([[hb, 1]]);
+      tris.push([0, 1 + k, 1 + ((k + 1) % N2)]);
+    }
+    return { pos, tris, skin };
+  };
+  for (const e of [eL, eR]) gl.push(lens([e[0] + (e[0] > 0 ? 0.004 : -0.004), e[1] + 0.002, e[2] + 0.02]));
+  const bar = (a, c, r) => {
+    const d = V.norm(V.sub(c, a));
+    let u = V.norm(V.cross(d, [0, 1, 0]));
+    if (V.len(V.cross(d, [0, 1, 0])) < 0.1) u = [1, 0, 0];
+    const w = V.cross(d, u);
+    const pos = [], tris = [], skin = [];
+    for (const p of [a, c]) for (let k = 0; k < 4; k++) {
+      const ang = (k / 4) * Math.PI * 2;
+      pos.push(V.add(p, V.add(V.mul(u, Math.cos(ang) * r), V.mul(w, Math.sin(ang) * r))));
+      skin.push([[hb, 1]]);
+    }
+    for (let k = 0; k < 4; k++) tris.push([k, (k + 1) % 4, 4 + k], [(k + 1) % 4, 4 + ((k + 1) % 4), 4 + k]);
+    return { pos, tris, skin };
+  };
+  const zf = Math.max(eL[2], eR[2]) + 0.02;
+  gl.push(bar([eR[0] + 0.012, eR[1] + 0.008, zf], [eL[0] - 0.012, eL[1] + 0.008, zf], 0.0025));
+  for (const e of [eL, eR]) {
+    const sx = e[0] > 0 ? 1 : -1;
+    const hr = headRadiusAt(b, (sx * Math.PI) / 2, 0.5);
+    gl.push(bar([e[0] + sx * 0.026, e[1] + 0.006, zf - 0.004], [H0[0] + sx * (hr + 0.004), e[1] + 0.01, H0[2] - 0.01], 0.002));
+  }
+  const glasses = merge(gl);
+  // polo collar: a short band around the base of the neck
+  const nk = b.bones.neck01.head;
+  let nr = 0;
+  for (let i = 0; i < b.pos.length; i++) {
+    const p = b.pos[i];
+    if (Math.abs(p[1] - (nk[1] + 0.02)) > 0.01) continue;
+    const d = Math.hypot(p[0] - nk[0], p[2] - nk[2]);
+    if (d < 0.1 && d > nr) nr = d;
+  }
+  const n1 = b.boneIndex.get("neck01"), s1 = b.boneIndex.get("spine01");
+  const collar = ring(b, [nk[0], nk[1] + 0.012, nk[2] - 0.004], [0, 1, 0.25], () => nr + 0.014, 0.035, [[n1, 0.6], [s1, 0.4]], 28);
   // cap: crown shell + brim
   const capF = F.scalp.map((x, i) => Math.max(x, (F.yr[i] - 0.6) * 0.12));
   const crown = clipShell(b, N, tris, capF, { offsetArr: capF.map(() => 0.016), smooth: 6, minOffset: 0.012 });
@@ -199,7 +249,7 @@ function accessories(b, N, tris, F) {
   }
   void front;
   const cap = merge([{ pos: crown.pos, skin: crown.skin, tris: crown.tris }, { pos: brimPos, skin: brimSkin, tris: brimTris }]);
-  return { headband: band, wristbands, cap };
+  return { headband: band, wristbands, cap, glasses, collar };
 }
 
 function merge(list) {
@@ -253,12 +303,29 @@ function buildVariant(key, params, gltf, textures) {
   const F = fields(b);
   const tris = toTris(b.quads);
   const hipY = b.bones["upperleg01.L"].head[1];
-  const top = clipShell(b, N, tris, F.top, { offsetArr: F.sleeve.map((s, i) => (b.pos[i][1] > b.bones["clavicle.L"].head[1] - 0.04 ? 0.009 : 0.011 + 0.008 * Math.max(0, 1 - s))), smooth: 12, minOffset: 0.007 });
-  const bot = clipShell(b, N, tris, F.bottom, { offsetArr: F.thigh.map((t, i) => (b.pos[i][1] > hipY ? 0.006 : 0.008 + 0.02 * Math.max(0, Math.min(1, t)))), smooth: 8, minOffset: 0.006 });
+  // Garment variants: sleeve / leg length along the limb (armT, legT: 0 = shoulder/hip, 1 = elbow/knee, 2 = wrist/ankle).
+  const topField = (len) => F.topBase.map((t, i) => (F.armT[i] < 0 ? t : Math.min(t, (len - F.armT[i]) * 0.3)));
+  const botField = (len) => F.bottomBase.map((t, i) => (F.legT[i] < 0 ? t : Math.min(t, (len - F.legT[i]) * 0.4)));
+  const clavY = b.bones["clavicle.L"].head[1] - 0.04;
+  const topOff = F.sleeve.map((s, i) => {
+    if (b.pos[i][1] > clavY) return 0.009;
+    const a = F.armT[i];
+    if (a < 0) return 0.011 + 0.008 * Math.max(0, 1 - s);
+    return a <= 1 ? 0.011 + 0.008 * (1 - a) : 0.011 - 0.002 * Math.min(1, a - 1);
+  });
+  const botOff = F.legT.map((t, i) => (b.pos[i][1] > hipY ? 0.006 : t <= 1 ? 0.008 + 0.02 * Math.max(0, t) : 0.028 - 0.012 * Math.min(1, t - 1)));
+  const top = clipShell(b, N, tris, topField(0.4), { offsetArr: topOff, smooth: 12, minOffset: 0.007 });
+  const tank = clipShell(b, N, tris, topField(-0.3), { offsetArr: topOff, smooth: 12, minOffset: 0.007 });
+  const longTop = clipShell(b, N, tris, topField(1.94), { offsetArr: topOff, smooth: 12, minOffset: 0.007 });
+  const bot = clipShell(b, N, tris, botField(0.6), { offsetArr: botOff, smooth: 8, minOffset: 0.006 });
+  const pants = clipShell(b, N, tris, botField(1.93), { offsetArr: botOff, smooth: 8, minOffset: 0.006 });
+  const tankF = topField(-0.3), shortsF = botField(0.6);
   const socksF = F.socks.map((f, i) => Math.min(f, b.pos[i][1] - 0.05));
   const socks = clipShell(b, N, tris, socksF, { offsetArr: F.socks.map(() => 0.003), smooth: 2, minOffset: 0.0025 });
   const shoeL = makeShoe(b, F, "L"), shoeR = makeShoe(b, F, "R");
-  const hide = (tr) => [F.top, F.bottom, F.shoes].some((f) => tr.every((i) => f[i] >= 0)) || tr.every((i) => socksF[i] >= 0);
+  const highL = makeShoe(b, F, "L", true), highR = makeShoe(b, F, "R", true);
+  // Only hide skin that every variant covers (tank top, shorts, low shoes, socks).
+  const hide = (tr) => [tankF, shortsF, F.shoes].some((f) => tr.every((i) => f[i] >= 0)) || tr.every((i) => socksF[i] >= 0);
   const skinT = tris.filter((t) => !hide(t));
   const sc = skinColors(b, N, b.quads, params.gender);
   const ey = eyes(b);
@@ -351,6 +418,7 @@ function buildVariant(key, params, gltf, textures) {
     shoe: mat("shoe", { pbrMetallicRoughness: { baseColorFactor: [0.9, 0.4, 0.1, 1], metallicFactor: 0, roughnessFactor: 0.5 } }),
     sole: mat("sole", { pbrMetallicRoughness: { baseColorFactor: [0.96, 0.96, 0.95, 1], metallicFactor: 0, roughnessFactor: 0.7 } }),
     hair: mat("hair", { pbrMetallicRoughness: { baseColorFactor: [0.1, 0.07, 0.05, 1], baseColorTexture: { index: textures.hair }, metallicFactor: 0, roughnessFactor: 0.6 }, doubleSided: true }),
+    glasses: mat("glasses", { pbrMetallicRoughness: { baseColorFactor: [0.03, 0.03, 0.04, 1], metallicFactor: 0.3, roughnessFactor: 0.15 }, doubleSided: true }),
     acc: mat("accessory", { pbrMetallicRoughness: { baseColorFactor: [0.95, 0.95, 0.95, 1], metallicFactor: 0, roughnessFactor: 0.8 }, doubleSided: true }),
   };
   const children = [armIdx];
@@ -360,21 +428,27 @@ function buildVariant(key, params, gltf, textures) {
       prim({ pos: ey.pos, skin: ey.pos.map(() => [[b.boneIndex.get("head"), 1]]), tris: toTris(ey.quads), uv: ey.uv }, M.eyes),
     ]),
   );
-  children.push(meshNode("Top", [prim(top, M.top)]));
-  children.push(meshNode("Bottom", [prim(bot, M.bottom)]));
+  children.push(meshNode("Top_tee", [prim(top, M.top)]));
+  children.push(meshNode("Top_tank", [prim(tank, M.top)]));
+  children.push(meshNode("Top_long", [prim(longTop, M.top)]));
+  children.push(meshNode("Bottom_shorts", [prim(bot, M.bottom)]));
+  children.push(meshNode("Bottom_pants", [prim(pants, M.bottom)]));
   children.push(meshNode("Socks", [prim(socks, M.socks)]));
   const shoes = merge([shoeL, shoeR]);
   shoes.part = [...shoeL.part, ...shoeR.part];
   const soleT = shoes.tris.filter((t) => t.every((i) => shoes.part[i]));
   const upperT = shoes.tris.filter((t) => !t.every((i) => shoes.part[i]));
   children.push(meshNode("Shoes", [prim({ ...shoes, tris: upperT }, M.shoe), prim({ ...shoes, tris: soleT }, M.sole)]));
+  const highs = merge([highL, highR]);
+  highs.part = [...highL.part, ...highR.part];
+  children.push(meshNode("Shoes_high", [prim({ ...highs, tris: highs.tris.filter((t) => !t.every((i) => highs.part[i])) }, M.shoe), prim({ ...highs, tris: highs.tris.filter((t) => t.every((i) => highs.part[i])) }, M.sole)]));
   const hairUv = (h) => h.pos.map((_, i) => [(h.attrs.az[i] / 180) * 3, h.attrs.yr[i] * 4]);
   for (const [name, h] of Object.entries(hair)) {
     const shellM = { pos: h.pos, skin: h.skin, tris: h.tris, uv: hairUv(h) };
     const m = h.extra ? merge([shellM, h.extra]) : shellM;
     children.push(meshNode(`Hair_${name}`, [prim(m, M.hair)]));
   }
-  for (const [name, a] of Object.entries(acc)) children.push(meshNode(`Acc_${name}`, [prim(a, M.acc)]));
+  for (const [name, a] of Object.entries(acc)) children.push(meshNode(`Acc_${name}`, [prim(a, name === "glasses" ? M.glasses : name === "collar" ? M.top : M.acc)]));
   J.nodes.push({ name: `Athlete_${key}`, children });
   J.scenes[0].nodes.push(J.nodes.length - 1);
   return b;
@@ -473,6 +547,39 @@ function buildAnims(b) {
       rot: Buffer.from(rot.buffer).toString("base64"),
       root: Buffer.from(root.buffer).toString("base64"),
     };
+  }
+  // "stand": a calm, procedurally made standing idle (arms relaxed at the sides, breathing, slight sway)
+  {
+    const n = 72;
+    const rot = new Int16Array(n * animated.length * 4);
+    const root = new Float32Array(n * 3);
+    const rh = b.bones.root.head;
+    for (let i = 0; i < n; i++) {
+      const ph = (i / n) * Math.PI * 2;
+      const local = (name) => {
+        const br = Math.sin(ph) * 0.6, sw = Math.sin(ph) * 0.8;
+        switch (name) {
+          case "root": return Q.euler("Z", sw * 0.6);
+          case "spine05": return Q.euler("X", 2 + br);
+          case "spine03": return Q.euler("X", -1 - br * 0.5);
+          case "spine01": return Q.euler("X", -1 + br * 0.4);
+          case "neck01": return Q.euler("X", 3);
+          case "head": return Q.mul(Q.euler("X", -4 - br * 0.3), Q.euler("Y", Math.sin(ph * 0.5) * 2));
+          case "upperarm01.L": return Q.mul(Q.euler("Z", -38 - br * 0.5), Q.euler("X", 4));
+          case "upperarm01.R": return Q.mul(Q.euler("Z", 38 + br * 0.5), Q.euler("X", 4));
+          case "lowerarm01.L": return Q.mul(Q.euler("X", 28), Q.euler("Z", 8));
+          case "lowerarm01.R": return Q.mul(Q.euler("X", 28), Q.euler("Z", -8));
+          case "upperleg01.L": return Q.euler("Z", -2);
+          case "upperleg01.R": return Q.euler("Z", 2);
+          case "foot.L": return Q.euler("Z", 2);
+          case "foot.R": return Q.euler("Z", -2);
+          default: return Q.id();
+        }
+      };
+      animated.forEach((name, k) => rot.set(local(name).map((x) => Math.round(x * 32767)), (i * animated.length + k) * 4));
+      root.set([rh[0], rh[1] + 0.016 - Math.abs(Math.sin(ph)) * 0.002, rh[2]], i * 3);
+    }
+    out.clips.stand = { frames: n, loop: true, rot: Buffer.from(rot.buffer).toString("base64"), root: Buffer.from(root.buffer).toString("base64") };
   }
   // rig metadata for runtime finger posing and props
   const hand = {};

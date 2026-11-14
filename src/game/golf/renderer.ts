@@ -6,6 +6,7 @@
 import * as pc from "playcanvas";
 import type { AvatarConfig } from "@/lib/avatar";
 import { createHumanoid } from "../character/humanoid.ts";
+import { RealisticRig } from "../character/mirror.ts";
 import { heightAt, normalAt, surfaceAt, waterLevel, type CourseTheme, type Hole } from "./course.ts";
 import { GolferAnimator, IMPACT_T } from "./golfer.ts";
 import type { ClubId, ShotResult } from "./sim.ts";
@@ -200,6 +201,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
   const ball = add(app.root, "sphere", mats.ball, [0, 0, 0], [0.077, 0.077, 0.077], true);
   const golferH = createHumanoid(app.root, null, { shadows: true });
   const golfer = new GolferAnimator(golferH, { shaft: mats.shaft, head: mats.head, grip: mats.grip });
+  const golferReal = new RealisticRig(app, golferH, null, { grip: [0.85, 0.85] });
 
   // Camera.
   const camera = new pc.Entity("camera");
@@ -341,6 +343,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
 
   app.on("update", (dt: number) => {
     golfer.update(dt);
+    golferReal.update();
     if (playback && playback.started) {
       const { result } = playback;
       playback.t += dt;
@@ -440,6 +443,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
     },
     setGolfer(avatar) {
       golferH.apply(avatar);
+      golferReal.setLook(avatar);
     },
     beginSwing(power) {
       preview = null;
@@ -473,6 +477,7 @@ export async function createGolfView(canvas: HTMLCanvasElement, theme: CourseThe
       resize();
     },
     destroy() {
+      golferReal.destroy();
       ro.disconnect();
       app.destroy();
     },
