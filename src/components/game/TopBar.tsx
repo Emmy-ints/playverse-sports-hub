@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Bell, Coins, Users } from "lucide-react";
-import { xpForNextLevel } from "@/lib/guest-profile";
+import { xpForNextLevel, xpIntoLevel } from "@/lib/guest-profile";
 import { usePlayer } from "@/lib/player";
 import { usePresenceMap } from "@/lib/presence";
 import { useFriends, useNotifications } from "@/lib/social";
@@ -21,7 +21,7 @@ export function TopBar() {
         <Link to="/profile" className="flex min-w-0 items-center gap-3 rounded-xl pr-2 transition-colors hover:bg-secondary/60">
           <PlayerBadge avatar={p.avatar} name={p.name} level={p.level} size="sm" />
         </Link>
-        <XPBar xp={p.xp} max={xpForNextLevel(p.level)} className="hidden max-w-40 md:block" />
+        <XPBar xp={xpIntoLevel(p.xp, p.level)} max={xpForNextLevel(p.level)} className="hidden max-w-40 md:block" />
         <div className="ml-auto flex items-center gap-2">
           <StatPill icon={<Coins />} label="Coins" value={p.coins} tone="gold" />
           {p.isGuest && !p.loading && (

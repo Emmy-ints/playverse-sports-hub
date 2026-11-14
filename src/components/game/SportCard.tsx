@@ -20,7 +20,7 @@ export function SportCard({ sport, className }: { sport: Sport; className?: stri
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className={cn("font-display text-sm font-bold uppercase tracking-[0.2em]", toneText[sport.tone])}>{sport.name}</span>
           <span className="inline-flex items-center gap-1 rounded-full bg-background/70 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground" title="Online multiplayer is coming in a later update">
-            <Users className="size-3" aria-hidden /> Up to {sport.maxPlayers} · online soon
+            <Users className="size-3" aria-hidden /> Up to {sport.maxPlayers} · online
           </span>
         </div>
         <h3 className="font-display text-3xl font-black uppercase leading-none">{sport.venue}</h3>

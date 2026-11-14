@@ -47,7 +47,7 @@ export function HeroStage() {
         <Trophy />
       </div>
       <div className="flex min-h-[inherit] flex-col justify-end p-6 sm:p-10" style={layer(10)}>
-        <p className="font-display text-sm font-bold uppercase tracking-[0.35em] text-accent animate-rise">Season 0 · Pre-launch</p>
+        <p className="font-display text-sm font-bold uppercase tracking-[0.35em] text-accent animate-rise">Season 1 · All-Rounder Championship live</p>
         <h1 id="hero-title" className="mt-2 max-w-2xl font-display text-5xl font-black uppercase italic leading-[0.9] animate-rise sm:text-7xl">
           Welcome to <span className="text-gradient-gold">Playverse</span>
         </h1>

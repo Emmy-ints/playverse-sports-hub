@@ -7,7 +7,7 @@ import { GameButton } from "@/components/game/GameButton";
 import { GlassPanel } from "@/components/game/GlassPanel";
 import { PageShell } from "@/components/game/PageShell";
 import { XPBar } from "@/components/game/XPBar";
-import { xpForNextLevel } from "@/lib/guest-profile";
+import { xpForNextLevel, xpIntoLevel } from "@/lib/guest-profile";
 import { usePlayer } from "@/lib/player";
 import { usePlayerStats } from "@/lib/player-stats";
 import { useSession } from "@/lib/session";
@@ -67,7 +67,7 @@ function Profile() {
                 </button>
               )}
             </div>
-            <XPBar xp={p.xp} max={xpForNextLevel(p.level)} className="mt-2" />
+            <XPBar xp={xpIntoLevel(p.xp, p.level)} max={xpForNextLevel(p.level)} className="mt-2" />
             {p.isGuest && (
               <p className="mt-4 text-sm text-muted-foreground">
                 Guest progress stays on this device. Create an account to save it, add friends and play online.

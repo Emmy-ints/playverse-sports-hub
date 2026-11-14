@@ -16,6 +16,13 @@ export function xpForNextLevel(level: number): number {
   return 100 + (level - 1) * 50;
 }
 
+/** XP earned inside the current level. Server profiles store lifetime XP; guest XP may already be per-level. */
+export function xpIntoLevel(xp: number, level: number): number {
+  const before = 100 * (level - 1) + (50 * (level - 1) * (level - 2)) / 2;
+  const into = xp - before;
+  return into >= 0 && into < xpForNextLevel(level) ? into : Math.min(xp, xpForNextLevel(level));
+}
+
 export const guestStore = createLocalStore<GuestProfile>("playverse.guest.v1", NEW_GUEST, (raw) => {
   const r = guestProfileSchema.safeParse(raw);
   return r.success ? r.data : null;
