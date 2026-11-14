@@ -49,6 +49,7 @@ const FATAL: Record<string, string> = {
   UNAUTHORIZED: "Please sign in again to play online.",
   MATCH_UNAVAILABLE: "This match isn't live on the game server (it may have finished).",
   NOT_IN_MATCH: "You're not a player in this match.",
+  CANNOT_WATCH: "You can watch live matches of your friends only, while they're still in play.",
 };
 
 export class OnlineTennisDriver implements TennisDriver {
@@ -76,9 +77,12 @@ export class OnlineTennisDriver implements TennisDriver {
   onEnd: (e: OnlineEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
   private readonly matchId: string;
+  /** Read-only: follow the match from the first player's seat; inputs are never sent. */
+  readonly spectate: boolean;
 
-  constructor(matchId: string) {
+  constructor(matchId: string, opts: { spectate?: boolean } = {}) {
     this.matchId = matchId;
+    this.spectate = !!opts.spectate;
     this.connect();
   }
 
@@ -102,7 +106,7 @@ export class OnlineTennisDriver implements TennisDriver {
     ws.onopen = () => {
       clearTimeout(slow);
       this.retries = 0;
-      ws.send(JSON.stringify({ t: "join", match: this.matchId, token }));
+      ws.send(JSON.stringify({ t: "join", match: this.matchId, token, ...(this.spectate ? { spectate: true } : {}) }));
       this.statusText = "Joining the match…";
       this.pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: "ping", c: performance.now() })), 2000);
     };
@@ -185,6 +189,7 @@ export class OnlineTennisDriver implements TennisDriver {
    * Small differences are smoothed out instead of snapping.
    */
   private reconcile(ack: number, before: { x: number; z: number } | null) {
+    if (this.spectate) return;
     const v = this.viewer;
     const pl = this.s.players[v];
     this.history = this.history.filter((h) => h.seq > ack);
@@ -206,7 +211,7 @@ export class OnlineTennisDriver implements TennisDriver {
     if (this.playing) extrapolate(this.s, dt);
     const now = performance.now();
     const ws = this.ws;
-    if (ws && ws.readyState === WebSocket.OPEN && this.playing && (this.pending.shot || now - this.lastSend > 33)) {
+    if (ws && ws.readyState === WebSocket.OPEN && this.playing && !this.spectate && (this.pending.shot || now - this.lastSend > 33)) {
       this.lastSend = now;
       const seq = ++this.seq;
       ws.send(JSON.stringify({ t: "in", seq, ...this.pending }));

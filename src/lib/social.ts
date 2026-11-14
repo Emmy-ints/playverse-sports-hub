@@ -327,7 +327,7 @@ export function useClaimDaily() {
 
 export interface LiveMatch { id: string; sport: SportId; started_at: string; config: { mode?: string; length?: number }; players: { id: string; username: string | null; display_name: string; country: string | null; level: number }[] }
 
-/** In-progress online matches your friends are playing (you can watch racing and parkour). */
+/** In-progress online matches your friends are playing (all real-time sports can be watched). */
 export function useFriendsLive(enabled = true) {
   const { session } = useSession();
   return useQuery({
@@ -338,4 +338,4 @@ export function useFriendsLive(enabled = true) {
   });
 }
 
-export const WATCHABLE: readonly SportId[] = ["racing", "parkour"];
+export const WATCHABLE: readonly SportId[] = ["racing", "parkour", "tennis", "athletics"];

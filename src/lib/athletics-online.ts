@@ -16,6 +16,7 @@ const FATAL: Record<string, string> = {
   UNAUTHORIZED: "Please sign in again to compete online.",
   MATCH_UNAVAILABLE: "This meeting isn't live on the game server (it may have finished).",
   NOT_IN_MATCH: "You're not an athlete in this meeting.",
+  CANNOT_WATCH: "You can watch live meetings of your friends only, while they're still in play.",
 };
 const LOCAL_KINDS = new Set(["step", "wrong", "takeoff", "throw", "false_start"]);
 const AI_SKILLS = [0.82, 0.7, 0.6, 0.5];
@@ -43,9 +44,12 @@ export class OnlineAthleticsDriver implements AthleticsDriver {
   onEnd: (e: AthleticsEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
   private readonly matchId: string;
+  /** Read-only: follow the match from the first player's seat; inputs are never sent. */
+  readonly spectate: boolean;
 
-  constructor(matchId: string) {
+  constructor(matchId: string, opts: { spectate?: boolean } = {}) {
     this.matchId = matchId;
+    this.spectate = !!opts.spectate;
     void this.connect();
   }
 
@@ -66,7 +70,7 @@ export class OnlineAthleticsDriver implements AthleticsDriver {
     ws.onopen = () => {
       clearTimeout(slow);
       this.retries = 0;
-      ws.send(JSON.stringify({ t: "join", match: this.matchId, token }));
+      ws.send(JSON.stringify({ t: "join", match: this.matchId, token, ...(this.spectate ? { spectate: true } : {}) }));
       this.statusText = "Joining the meeting…";
       this.pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: "ping", c: performance.now() })), 2000);
     };
@@ -172,7 +176,7 @@ export class OnlineAthleticsDriver implements AthleticsDriver {
   }
 
   press(key: Key, down: boolean) {
-    if (!this.s || !this.playing) return;
+    if (!this.s || !this.playing || this.spectate) return;
     const seq = ++this.seq;
     this.ws?.readyState === WebSocket.OPEN && this.ws.send(JSON.stringify({ t: "in", seq, key, down }));
     this.pending.push({ seq, key, down, at: this.s.t });

@@ -15,6 +15,14 @@ import { OnlineParkourDriver, type ParkourEnd } from "@/lib/parkour-online";
 import { OnlineRaceDriver, type RaceEnd, type RaceMeta } from "@/lib/racing-online";
 import { useFriendsLive, WATCHABLE } from "@/lib/social";
 import { cn } from "@/lib/utils";
+import { AthleticsStage } from "@/components/athletics/AthleticsStage";
+import { TennisStage } from "@/components/tennis/TennisStage";
+import { FIELD_SIZE as A_FIELD, HUMANS as A_HUMANS, type AthleticsMeta } from "@/game/athletics/net";
+import { ROSTER } from "@/game/athletics/roster";
+import { EVENTS, placings as athPlacings, type EventId, type EventState } from "@/game/athletics/sim";
+import { COURT_THEMES, type CourtTheme } from "@/game/tennis/themes";
+import { OnlineAthleticsDriver, type AthleticsEnd } from "@/lib/athletics-online";
+import { OnlineTennisDriver, type OnlineEnd, type OnlineMeta } from "@/lib/tennis-online";
 
 export const Route = createFileRoute("/watch/$matchId")({
   head: () => ({
@@ -58,13 +66,15 @@ function Watch({ matchId }: { matchId: string }) {
 
   if (sport === "racing") return <WatchRace matchId={matchId} />;
   if (sport === "parkour") return <WatchParkour matchId={matchId} />;
+  if (sport === "tennis") return <WatchTennis matchId={matchId} />;
+  if (sport === "athletics") return <WatchAthletics matchId={matchId} />;
   if (live.isLoading) return <Shell><Loader2 className="mx-auto size-8 animate-spin" aria-label="Loading" /></Shell>;
   const m = live.data?.find((x) => x.id === matchId);
   return (
     <Shell>
       <p className="font-display text-2xl font-bold uppercase">{m ? "Can't watch this one yet" : "Not live any more"}</p>
       <p className="mt-2 text-sm text-white/75">
-        {m && !WATCHABLE.includes(m.sport) ? "Live spectating is available for racing and parkour." : "You can watch your friends' online races while they're running."}
+        {m && !WATCHABLE.includes(m.sport) ? "Live spectating is available for tennis, racing, athletics and parkour." : "You can watch your friends' online races while they're running."}
       </p>
       <GameButton asChild variant="hot" className="mt-4"><Link to="/friends">Back to friends</Link></GameButton>
     </Shell>
@@ -189,6 +199,90 @@ function WatchParkour({ matchId }: { matchId: string }) {
           note={<p className={cn("mt-3 text-sm", end ? "font-bold" : "text-white/60")}>{end ? `${meta.names[end.winner] ?? ""} wins the 1v1` : "Waiting for the official result…"}</p>}
           actions={<GameButton asChild variant="glass"><Link to="/friends">Back to friends</Link></GameButton>} />
       )}
+    />
+  );
+}
+
+function WatchTennis({ matchId }: { matchId: string }) {
+  const [meta, setMeta] = useState<OnlineMeta | null>(null);
+  const [end, setEnd] = useState<OnlineEnd | null>(null);
+  const { driver, fatal, status } = useDriver(() => {
+    const d = new OnlineTennisDriver(matchId, { spectate: true });
+    d.onMeta = setMeta;
+    d.onEnd = setEnd;
+    return d;
+  }, [matchId]);
+  const theme: CourtTheme = useMemo(() => COURT_THEMES[(meta?.theme ?? "hard") as CourtTheme["id"]] ?? COURT_THEMES.hard, [meta?.theme]);
+  if (fatal) return <Fatal msg={fatal} />;
+  if (!driver || !meta) return <Waiting status={status} />;
+  return (
+    <TennisStage
+      key={meta.theme}
+      theme={theme}
+      driver={driver}
+      names={meta.names}
+      avatars={meta.avatars}
+      topRight={badge}
+      renderEnd={({ winner, score }) => (
+        <div className="glass w-full max-w-md rounded-3xl p-6 text-center text-white animate-rise">
+          <Trophy className="mx-auto size-10 text-[#ffd23f]" aria-hidden />
+          <h2 className="mt-2 font-display text-3xl font-black uppercase">{meta.names[winner]} wins</h2>
+          <p className="mt-1 font-display text-2xl">{score.history.map((h) => `${h[winner]}–${h[winner === 0 ? 1 : 0]}`).join("  ")}</p>
+          {end?.saved && <p className="mt-3 text-xs text-white/60">Official result, verified by the game server.</p>}
+          <GameButton asChild variant="glass" className="mt-4"><Link to="/friends">Back to friends</Link></GameButton>
+        </div>
+      )}
+    />
+  );
+}
+
+type AMeta = AthleticsMeta & { avatars: (AvatarConfig | null)[] };
+
+function WatchAthletics({ matchId }: { matchId: string }) {
+  const [meta, setMeta] = useState<AMeta | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [ready, setReady] = useState(false);
+  const [end, setEnd] = useState<AthleticsEnd | null>(null);
+  const [between, setBetween] = useState<{ event: EventId; order: number[] } | null>(null);
+  const { driver, fatal, status } = useDriver(() => {
+    const d = new OnlineAthleticsDriver(matchId, { spectate: true });
+    d.onMeta = setMeta;
+    d.onEventChange = (i) => {
+      setIdx(i);
+      setReady(true);
+      setBetween(null);
+    };
+    d.onEnd = setEnd;
+    return d;
+  }, [matchId]);
+  const names = useMemo(() => (meta ? [...meta.names, ...ROSTER.slice(0, A_FIELD - A_HUMANS).map((r) => r.name)] : []), [meta]);
+  const avatars = useMemo(() => (meta ? [...meta.avatars, ...ROSTER.slice(0, A_FIELD - A_HUMANS).map((r) => r.avatar)] : []), [meta]);
+  if (fatal) return <Fatal msg={fatal} />;
+  if (!driver || !meta || !ready || !driver.state()) return <Waiting status={status} />;
+  const event = (meta.events[idx] ?? "sprint100") as EventId;
+  const card = (title: string, body: ReactNode) => (
+    <div className="absolute inset-0 flex items-center justify-center bg-black/50 p-4">
+      <div className="glass w-full max-w-md rounded-3xl p-6 text-center text-white animate-rise">
+        <p className="font-display text-2xl font-black uppercase">{title}</p>
+        {body}
+      </div>
+    </div>
+  );
+  const overlay = end
+    ? card(`${meta.names[end.winner] ?? ""} wins`, <><p className="mt-1 text-sm text-white/70">{end.saved ? "Official result, verified by the game server." : "Saving the result…"}</p><GameButton asChild variant="glass" className="mt-4"><Link to="/friends">Back to friends</Link></GameButton></>)
+    : between
+      ? card(`${EVENTS[between.event].name} result`, <ol className="mt-2 space-y-1 text-left text-sm">{between.order.map((i, k) => <li key={i} className={cn("rounded-lg px-3 py-1", i < A_HUMANS ? "bg-white/15 font-bold" : "bg-white/5")}>{k + 1}. {names[i]}</li>)}</ol>)
+      : null;
+  return (
+    <AthleticsStage
+      key={idx}
+      event={event}
+      driver={driver}
+      names={names}
+      avatars={avatars}
+      overlay={overlay}
+      onEventEnd={(s: EventState) => setBetween({ event: s.event, order: athPlacings(s) })}
+      topRight={badge}
     />
   );
 }
