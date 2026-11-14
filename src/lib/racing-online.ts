@@ -17,6 +17,7 @@ const FATAL: Record<string, string> = {
   UNAUTHORIZED: "Please sign in again to race online.",
   MATCH_UNAVAILABLE: "This race isn't live on the game server (it may have finished).",
   NOT_IN_MATCH: "You're not a driver in this race.",
+  CANNOT_WATCH: "You can watch live races of your friends only, while they're still running.",
 };
 
 export class OnlineRaceDriver implements RaceDriver {
@@ -44,9 +45,12 @@ export class OnlineRaceDriver implements RaceDriver {
   onEnd: (e: RaceEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
   private readonly matchId: string;
+  /** Read-only: receive the race from the first driver's seat; inputs are never sent. */
+  readonly spectate: boolean;
 
-  constructor(matchId: string) {
+  constructor(matchId: string, opts: { spectate?: boolean } = {}) {
     this.matchId = matchId;
+    this.spectate = !!opts.spectate;
     void this.connect();
   }
 
@@ -68,8 +72,8 @@ export class OnlineRaceDriver implements RaceDriver {
     ws.onopen = () => {
       clearTimeout(slow);
       this.retries = 0;
-      ws.send(JSON.stringify({ t: "join", match: this.matchId, token }));
-      this.statusText = "Joining the race…";
+      ws.send(JSON.stringify({ t: "join", match: this.matchId, token, ...(this.spectate ? { spectate: true } : {}) }));
+      this.statusText = this.spectate ? "Joining as a spectator…" : "Joining the race…";
       this.pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: "ping", c: performance.now() })), 2000);
     };
     ws.onmessage = (e) => this.message(String(e.data));
@@ -161,7 +165,7 @@ export class OnlineRaceDriver implements RaceDriver {
 
   private reconcile(ack: number, prev: { x: number; z: number; h: number } | null) {
     const me = this.s.cars[this.viewer];
-    if (!me || this.s.phase !== "racing" || me.finished) return;
+    if (this.spectate || !me || this.s.phase !== "racing" || me.finished) return;
     this.history = this.history.filter((h) => h.seq > ack);
     const sc = this.scratchFor(me);
     let seq = 0;
@@ -202,7 +206,7 @@ export class OnlineRaceDriver implements RaceDriver {
     }
     const now = performance.now();
     const ws = this.ws;
-    if (ws && ws.readyState === WebSocket.OPEN && this.playing) {
+    if (ws && ws.readyState === WebSocket.OPEN && this.playing && !this.spectate) {
       if (this.resetWanted) {
         this.resetWanted = false;
         ws.send(JSON.stringify({ t: "reset" }));

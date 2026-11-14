@@ -9,6 +9,8 @@ export interface MatchInfo { id: string; sport: string; status: string; config: 
 
 export interface Backend {
   userFromToken(token: string): Promise<string | null>;
+  /** Friends of a participant may watch a live match (checked with the viewer's own token). */
+  canSpectate?(token: string, matchId: string): Promise<boolean>;
   matchInfo(matchId: string): Promise<MatchInfo | null>;
   settleTennis(matchId: string, winner: string, score: unknown, stats: unknown, forfeit: boolean): Promise<void>;
   settleRacing(matchId: string, winner: string, results: unknown, forfeit: boolean): Promise<void>;
@@ -36,6 +38,15 @@ export function supabaseBackend(env: { url: string; anonKey: string; secret: str
       cache.set(token, { id: u.id, until: Date.now() + 5 * 60_000 });
       if (cache.size > 500) cache.delete(cache.keys().next().value as string);
       return u.id;
+    },
+    async canSpectate(token, matchId) {
+      const r = await fetch(`${env.url}/rest/v1/rpc/can_spectate`, {
+        method: "POST",
+        headers: { ...headers, Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ p_match: matchId }),
+        signal: AbortSignal.timeout(8000),
+      });
+      return r.ok && (await r.json()) === true;
     },
     async matchInfo(matchId) {
       return (await rpc("realtime_match_info", { p_secret: env.secret, p_match: matchId })) as MatchInfo | null;

@@ -19,6 +19,48 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
   const rooms = new Map<string, Room>();
   const opening = new Map<string, Promise<Room | null>>();
   const perIp = new Map<string, number>();
+  /**
+   * Spectators: read-only sockets that receive a copy of everything the room sends to seat 0
+   * (welcome, snapshots, events, end). Their messages are ignored apart from ping.
+   */
+  const watchers = new Map<string, { sockets: Set<Socket>; welcome: string | null; status: string | null }>();
+  const watchFor = (id: string) => {
+    let w = watchers.get(id);
+    if (!w) watchers.set(id, (w = { sockets: new Set(), welcome: null, status: null }));
+    return w;
+  };
+  const teeSeat0 = (matchId: string, socket: Socket) => {
+    const w = watchFor(matchId);
+    const send = socket.send.bind(socket);
+    socket.send = (text: string) => {
+      send(text);
+      if (text.startsWith('{"t":"pong"')) return;
+      if (text.startsWith('{"t":"welcome"')) w.welcome = text.replace('"you":0', '"you":0,"spectator":true');
+      else if (text.startsWith('{"t":"wait"') || text.startsWith('{"t":"go"') || text.startsWith('{"t":"end"')) w.status = text;
+      for (const v of w.sockets) v.send(text.startsWith('{"t":"welcome"') ? w.welcome! : text);
+    };
+  };
+  const watch = (matchId: string, socket: Socket) => {
+    const w = watchFor(matchId);
+    if (w.sockets.size >= 20) {
+      socket.send(JSON.stringify({ t: "err", code: "TOO_MANY_SPECTATORS" }));
+      return socket.close(4429, "too many spectators");
+    }
+    w.sockets.add(socket);
+    if (w.welcome) socket.send(w.welcome);
+    socket.send(w.status ?? JSON.stringify({ t: "wait", msg: "Waiting for the players…" }));
+    socket.onMessage = (raw) => {
+      try {
+        const m = JSON.parse(raw) as Record<string, unknown>;
+        if (m["t"] === "ping") socket.send(JSON.stringify({ t: "pong", c: m["c"] }));
+      } catch {
+        /* ignore */
+      }
+    };
+    socket.onClose = () => {
+      w.sockets.delete(socket);
+    };
+  };
 
   const allowOrigin = (origin: string | undefined) => {
     if (!origin) return false;
@@ -39,7 +81,14 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
         const info = await opts.backend.matchInfo(matchId);
         if (!info || !["tennis", "racing", "athletics", "parkour"].includes(info.sport) || info.status !== "in_progress" || info.players.length !== 2) return null;
         const room: Room = info.sport === "tennis" ? new TennisRoom(info, opts.backend) : info.sport === "racing" ? new RaceRoom(info, opts.backend) : info.sport === "parkour" ? new ParkourRoom(info, opts.backend) : new AthleticsRoom(info, opts.backend);
-        room.onDispose = () => rooms.delete(matchId);
+        room.onDispose = () => {
+          rooms.delete(matchId);
+          const w = watchers.get(matchId);
+          if (w) setTimeout(() => {
+            for (const v of w.sockets) v.close(1000, "match over");
+            watchers.delete(matchId);
+          }, 15_000);
+        };
         rooms.set(matchId, room);
         return room;
       })().finally(() => opening.delete(matchId));
@@ -63,6 +112,14 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
       socket.send(JSON.stringify({ t: "err", code: "UNAUTHORIZED" }));
       return socket.close(4401, "unauthorized");
     }
+    if (m["spectate"] === true) {
+      const ok = rooms.has(m["match"]) && (await opts.backend.canSpectate?.(m["token"], m["match"]).catch(() => false));
+      if (!ok || socket.closed) {
+        socket.send(JSON.stringify({ t: "err", code: "CANNOT_WATCH" }));
+        return socket.close(4403, "cannot watch");
+      }
+      return watch(m["match"], socket);
+    }
     const room = await roomFor(m["match"]).catch((e) => {
       console.error("[server] match lookup failed", e);
       return null;
@@ -77,6 +134,7 @@ export function startServer(opts: { port: number; backend: Backend; allowedOrigi
       return socket.close(4403, "not in match");
     }
     if (socket.closed) return;
+    if (seat === 0) teeSeat0(m["match"], socket);
     if (room instanceof TennisRoom) room.join(seat as 0 | 1, socket);
     else room.join(seat, socket);
   };

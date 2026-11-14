@@ -324,3 +324,18 @@ export function useClaimDaily() {
     },
   });
 }
+
+export interface LiveMatch { id: string; sport: SportId; started_at: string; config: { mode?: string; length?: number }; players: { id: string; username: string | null; display_name: string; country: string | null; level: number }[] }
+
+/** In-progress online matches your friends are playing (you can watch racing and parkour). */
+export function useFriendsLive(enabled = true) {
+  const { session } = useSession();
+  return useQuery({
+    queryKey: ["friends-live", session?.user.id],
+    enabled: enabled && !!session,
+    refetchInterval: 20_000,
+    queryFn: () => rpc<LiveMatch[]>("friends_live_matches", {}),
+  });
+}
+
+export const WATCHABLE: readonly SportId[] = ["racing", "parkour"];

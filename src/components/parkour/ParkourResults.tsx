@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 export const RUNNER_COLORS = ["#ff7a1a", "#3ef0ff", "#ff3fb4", "#7cff6b", "#ffd23f", "#a78bfa"];
 
 export function ParkourResults({ s, names, colors, viewer, actions, note }: { s: RaceState; names: string[]; colors: string[]; viewer: number; actions: ReactNode; note?: ReactNode }) {
+  if (!s.runners[viewer]) return <Spectated s={s} names={names} colors={colors} actions={actions} note={note} />;
   const order = placings(s);
   const mine = order.indexOf(viewer) + 1;
   const me = s.runners[viewer]!;
@@ -18,6 +19,29 @@ export function ParkourResults({ s, names, colors, viewer, actions, note }: { s:
       <ol className="mt-4 space-y-1 text-left text-sm">
         {order.map((i, k) => (
           <li key={i} className={cn("flex items-center gap-2 rounded-lg px-3 py-1.5", i === viewer ? "bg-white/15 font-bold" : "bg-white/5")}>
+            <span className="w-6 font-display">{k + 1}</span>
+            <span className="size-3 rounded-full" style={{ background: colors[i] }} />
+            <span className="flex-1 truncate">{names[i]}</span>
+            <span className="tabular-nums">{s.runners[i]!.finish !== null ? `${formatRaceTime(s.runners[i]!.finish!)} s` : "DNF"}</span>
+          </li>
+        ))}
+      </ol>
+      {note}
+      <div className="mt-5 flex flex-wrap justify-center gap-2">{actions}</div>
+    </div>
+  );
+}
+
+/** Results for a spectator (no "you"). */
+function Spectated({ s, names, colors, actions, note }: { s: RaceState; names: string[]; colors: string[]; actions: ReactNode; note?: ReactNode }) {
+  const order = placings(s);
+  return (
+    <div className="glass w-full max-w-md rounded-3xl p-6 text-center text-white animate-rise">
+      <Trophy className="mx-auto size-10 text-[#ffd23f]" aria-hidden />
+      <h2 className="mt-2 font-display text-3xl font-black uppercase">{names[order[0] ?? 0]} wins</h2>
+      <ol className="mt-4 space-y-1 text-left text-sm">
+        {order.map((i, k) => (
+          <li key={i} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5">
             <span className="w-6 font-display">{k + 1}</span>
             <span className="size-3 rounded-full" style={{ background: colors[i] }} />
             <span className="flex-1 truncate">{names[i]}</span>

@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Check, Loader2, Search, ShieldOff, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Check, Eye, Loader2, Search, ShieldOff, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ChallengeButton } from "@/components/game/ChallengeDialog";
 import { EmptyState } from "@/components/game/EmptyState";
@@ -21,6 +21,8 @@ import {
   useSendFriendRequest,
   useUnblockPlayer,
   useRecentPlayers,
+  useFriendsLive,
+  WATCHABLE,
   type PlayerSummary,
 } from "@/lib/social";
 import { cn } from "@/lib/utils";
@@ -62,6 +64,7 @@ function FriendsPage() {
             </button>
           ))}
         </div>
+        <LiveNow />
         <div role="tabpanel">
           {tab === "Friends" && <FriendList onFind={() => setTab("Find players")} />}
           {tab === "Recent" && <RecentPlayers />}
@@ -72,6 +75,30 @@ function FriendsPage() {
         </div>
       </RequireAccount>
     </PageShell>
+  );
+}
+
+/** Friends' matches in progress right now, with a Watch button where spectating is supported. */
+function LiveNow() {
+  const live = useFriendsLive();
+  if (!live.data?.length) return null;
+  return (
+    <section aria-label="Live now" className="glass mb-5 rounded-2xl p-3">
+      <p className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#ff3b5c]"><span className="size-2 animate-pulse rounded-full bg-[#ff3b5c]" /> Live now</p>
+      <ul className="space-y-2">
+        {live.data.map((m) => (
+          <li key={m.id} className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2">
+            <span className="font-display text-sm font-bold uppercase">{getSport(m.sport)?.name ?? m.sport}</span>
+            <span className="min-w-0 flex-1 truncate text-sm">{m.players.map((p) => p.display_name).join(" vs ")}</span>
+            {WATCHABLE.includes(m.sport) ? (
+              <GameButton asChild size="sm" variant="hot"><Link to="/watch/$matchId" params={{ matchId: m.id }}><Eye aria-hidden /> Watch</Link></GameButton>
+            ) : (
+              <span className="text-xs text-muted-foreground">In play</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

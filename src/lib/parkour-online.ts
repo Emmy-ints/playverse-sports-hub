@@ -16,6 +16,7 @@ const FATAL: Record<string, string> = {
   UNAUTHORIZED: "Please sign in again to race online.",
   MATCH_UNAVAILABLE: "This race isn't live on the game server (it may have finished).",
   NOT_IN_MATCH: "You're not a runner in this race.",
+  CANNOT_WATCH: "You can watch live races of your friends only, while they're still running.",
 };
 /** Pure feedback for your own runner, played locally without waiting for the server. */
 const LOCAL_KINDS = new Set(["step", "jump", "vault", "slide", "land", "climb", "lane", "grab"]);
@@ -43,9 +44,12 @@ export class OnlineParkourDriver implements ParkourDriver {
   onEnd: (e: ParkourEnd) => void = () => {};
   onFatal: (msg: string) => void = () => {};
   private readonly matchId: string;
+  /** Read-only: follow the race from the first runner's seat; inputs are never sent. */
+  readonly spectate: boolean;
 
-  constructor(matchId: string) {
+  constructor(matchId: string, opts: { spectate?: boolean } = {}) {
     this.matchId = matchId;
+    this.spectate = !!opts.spectate;
     void this.connect();
   }
 
@@ -66,7 +70,7 @@ export class OnlineParkourDriver implements ParkourDriver {
     ws.onopen = () => {
       clearTimeout(slow);
       this.retries = 0;
-      ws.send(JSON.stringify({ t: "join", match: this.matchId, token }));
+      ws.send(JSON.stringify({ t: "join", match: this.matchId, token, ...(this.spectate ? { spectate: true } : {}) }));
       this.statusText = "Joining the race…";
       this.pingTimer = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ t: "ping", c: performance.now() })), 2000);
     };
@@ -174,7 +178,7 @@ export class OnlineParkourDriver implements ParkourDriver {
   }
 
   press(key: Key, down: boolean) {
-    if (!this.s || !this.playing || this.ended) return;
+    if (!this.s || !this.playing || this.ended || this.spectate) return;
     const seq = ++this.seq;
     this.ws?.readyState === WebSocket.OPEN && this.ws.send(JSON.stringify({ t: "in", seq, key, down }));
     this.pending.push({ seq, key, down, at: this.s.t });
