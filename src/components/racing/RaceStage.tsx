@@ -1,16 +1,16 @@
-import { ChevronLeft, ChevronRight, Loader2, Monitor, RotateCcw, Smartphone, Video, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, Gamepad2, Loader2, Monitor, RotateCcw, Smartphone, Video, Volume2, VolumeX } from "lucide-react";
 import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { RaceAudio } from "@/game/racing/audio";
 import type { RaceDriver } from "@/game/racing/driver";
 import type { Quality, RaceView } from "@/game/racing/renderer";
-import { standings, type RaceState } from "@/game/racing/sim";
+import { aiDrive, standings, type RaceState } from "@/game/racing/sim";
 import { buildTrack, type TrackDef } from "@/game/racing/track";
 import { cn } from "@/lib/utils";
 import { useTouchMode } from "@/lib/input-mode";
 import { FullscreenButton } from "@/components/game/FullscreenButton";
 import { ctlStyle, GameSettingsButton, RotateHint, useGameSurface } from "@/components/game/GameSurface";
-import { getGameSettings, setGameSettings, useGameSettings } from "@/lib/game-settings";
+import { getGameSettings, RACE_VIEWS, setGameSettings, useGameSettings } from "@/lib/game-settings";
 
 export interface RaceResultRow { car: number; name: string; time: number | null; best: number; color: string }
 
@@ -34,6 +34,13 @@ function rowsOf(s: RaceState, names: string[], colors: string[]): RaceResultRow[
   return standings(s).map((i) => ({ car: i, name: names[i] ?? `Car ${i + 1}`, time: s.cars[i]!.finished ? s.cars[i]!.finishTime : null, best: s.cars[i]!.bestLap, color: colors[i] ?? "#fff" }));
 }
 
+/** Cycle the racing camera forward (1) or back (-1). */
+function nextView(dir: number) {
+  const cur = getGameSettings().raceView;
+  const i = RACE_VIEWS.findIndex((v) => v.id === cur);
+  setGameSettings({ raceView: RACE_VIEWS[(i + dir + RACE_VIEWS.length) % RACE_VIEWS.length]!.id });
+}
+
 export function RaceStage({ track: trackId, driver, names, colors, helmets, renderEnd, topRight }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
@@ -53,6 +60,10 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   const [dots, setDots] = useState<{ x: number; y: number; me: boolean; color: string }[]>([]);
 
   const keys = useRef(new Set<string>());
+  const lookBackTouch = useRef(false);
+  const pad = useRef<{ connected: boolean; prevY: boolean; prevX: boolean; prevB: boolean }>({ connected: false, prevY: false, prevX: false, prevB: false });
+  const [padName, setPadName] = useState<string | null>(null);
+  const [camMenu, setCamMenu] = useState(false);
   const touchIn = useRef({ left: false, right: false, gas: false, brake: false, drift: false });
   const steer = useRef(0);
   /** Analog steering from the wheel or tilt (-1..1), null when not in use. */
@@ -131,13 +142,13 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       keys.current.add(norm(e));
       audioRef.current?.unlock();
       if (norm(e) === "r" && !e.repeat) driver.reset();
-      if (norm(e) === "c" && !e.repeat) {
-        const order = ["chase", "close", "bonnet", "cockpit"] as const;
-        const cur = getGameSettings().raceView;
-        setGameSettings({ raceView: order[(order.indexOf(cur) + 1) % order.length]! });
-      }
+      if (norm(e) === "c" && !e.repeat) nextView(e.shiftKey ? -1 : 1);
+      if (norm(e) === "v") viewRef.current?.setLookBehind(true);
     };
-    const up = (e: KeyboardEvent) => keys.current.delete(norm(e));
+    const up = (e: KeyboardEvent) => {
+      keys.current.delete(norm(e));
+      if (norm(e) === "v") viewRef.current?.setLookBehind(lookBackTouch.current);
+    };
     const blur = () => keys.current.clear();
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -171,9 +182,50 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         steer.current += Math.max(-rate * dt, Math.min(rate * dt, target - steer.current));
       }
       if (wheelEl.current) wheelEl.current.style.transform = `rotate(${steer.current * 110}deg)`;
-      const brake = K.has("ArrowDown") || K.has("s") || T.brake ? 1 : 0;
-      const gas = K.has("ArrowUp") || K.has("w") || T.gas || (autoGasRef.current && !brake) ? 1 : 0;
-      driver.input({ steer: steer.current, throttle: gas, brake, handbrake: K.has(" ") || T.drift });
+      // Game controller (standard mapping): left stick steers, RT gas, LT brake, A drift, B look back, X reset, Y camera.
+      let padSteer = 0, padGas = 0, padBrake = 0, padDrift = false;
+      const gp = typeof navigator !== "undefined" && navigator.getGamepads ? Array.from(navigator.getGamepads()).find((g) => g && g.connected) : null;
+      if (gp) {
+        if (!pad.current.connected) {
+          pad.current.connected = true;
+          setPadName(gp.id.replace(/\(.*\)/, "").trim().slice(0, 32) || "Controller");
+        }
+        const ax = gp.axes[0] ?? 0;
+        padSteer = Math.abs(ax) < 0.12 ? 0 : Math.sign(ax) * ((Math.abs(ax) - 0.12) / 0.88);
+        padGas = gp.buttons[7]?.value ?? 0;
+        padBrake = gp.buttons[6]?.value ?? 0;
+        padDrift = !!gp.buttons[0]?.pressed;
+        const y = !!gp.buttons[3]?.pressed, x = !!gp.buttons[2]?.pressed, b = !!gp.buttons[1]?.pressed;
+        if (y && !pad.current.prevY) nextView(1);
+        if (x && !pad.current.prevX) driver.reset();
+        if (b !== pad.current.prevB) viewRef.current?.setLookBehind(b || lookBackTouch.current);
+        pad.current.prevY = y;
+        pad.current.prevX = x;
+        pad.current.prevB = b;
+      } else if (pad.current.connected) {
+        pad.current.connected = false;
+        setPadName(null);
+      }
+      if (padSteer !== 0) steer.current += (padSteer - steer.current) * (1 - Math.exp(-dt * 16));
+      const st = getGameSettings();
+      let brake = Math.max(K.has("ArrowDown") || K.has("s") || T.brake ? 1 : 0, padBrake);
+      let gas = Math.max(K.has("ArrowUp") || K.has("w") || T.gas || (autoGasRef.current && !brake) ? 1 : 0, padGas);
+      let steerOut = steer.current;
+      // Driving assists: follow the AI's racing line / corner speeds, blended with what the player is doing.
+      const pre = driver.state();
+      if ((st.steerAssist !== "off" || st.brakeAssist !== "off") && pre.phase === "racing" && !pre.cars[driver.viewer]?.finished) {
+        const ai = aiDrive(pre, driver.viewer, 0.85);
+        if (st.steerAssist !== "off") {
+          const w = (st.steerAssist === "high" ? 0.8 : 0.4) * (1 - Math.min(1, Math.abs(steerOut) * 1.3));
+          steerOut += (ai.steer - steerOut) * w;
+        }
+        if (st.brakeAssist !== "off" && ai.brake > 0.05) {
+          const w = st.brakeAssist === "high" ? 1 : 0.55;
+          brake = Math.max(brake, ai.brake * w);
+          gas = Math.min(gas, 1 - w);
+        }
+      }
+      driver.input({ steer: steerOut, throttle: gas, brake, handbrake: K.has(" ") || T.drift || padDrift });
       const events = driver.update(dt);
       const s = driver.state();
       viewRef.current?.setState(s);
@@ -195,6 +247,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           setBanner({ text: "GO!", id: now });
         } else if (e.kind === "impact" && (e.car === v || s.t - me.hit < 0.05)) {
           audio?.impact(Number(e.detail ?? 5));
+          const rumble = getGameSettings().padRumble;
+          if (gp && rumble > 0) (gp as Gamepad & { vibrationActuator?: { playEffect?: (t: string, p: object) => Promise<unknown> } }).vibrationActuator?.playEffect?.("dual-rumble", { duration: 160, strongMagnitude: Math.min(1, Number(e.detail ?? 5) / 15) * rumble, weakMagnitude: 0.5 * rumble })?.catch(() => {});
         } else if (e.kind === "lap" && e.car === v) {
           const [n, time, best] = (e.detail ?? "").split(":");
           lastLap.current = Number(time);
@@ -308,9 +362,10 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       if (!wheelTouch.current && settings.steering === "wheel") analog.current = null;
     }, 250);
   };
-  const cycleView = () => {
-    const order = ["chase", "close", "bonnet", "cockpit"] as const;
-    setGameSettings({ raceView: order[(order.indexOf(settings.raceView) + 1) % order.length]! });
+  const viewName = RACE_VIEWS.find((v) => v.id === settings.raceView)?.name ?? "Camera";
+  const lookBehind = (on: boolean) => {
+    lookBackTouch.current = on;
+    viewRef.current?.setLookBehind(on);
   };
   const leftHand = settings.hand === "left";
 
@@ -347,7 +402,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           <button type="button" onClick={() => setSound((v) => !v)} className="glass rounded-full p-2 text-white" aria-label={sound ? "Mute sound" : "Unmute sound"}>{sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}</button>
           <button type="button" onClick={() => { const q = quality === "high" ? "low" : "high"; setQuality(q); viewRef.current?.setQuality(q); }} className="glass rounded-full p-2 text-white" aria-label={`Graphics: ${quality}. Switch.`}>{quality === "high" ? <Monitor className="size-5" /> : <Smartphone className="size-5" />}</button>
           <button type="button" onClick={() => setAutoGas((v) => !v)} aria-pressed={autoGas} className={cn("glass rounded-full px-3 py-2 text-xs font-bold text-white", autoGas && "ring-2 ring-[#3dff9a]")}>Auto-gas {autoGas ? "on" : "off"}</button>
-          <button type="button" onClick={cycleView} className="glass flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold capitalize text-white" aria-label={`Camera: ${settings.raceView}. Switch view.`}><Video className="size-4" aria-hidden />{settings.raceView === "close" ? "Close" : settings.raceView}</button>
+          <button type="button" onClick={() => setCamMenu((v) => !v)} aria-expanded={camMenu} className="glass flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold text-white" aria-label={`Camera: ${viewName}. Choose a view.`}><Video className="size-4" aria-hidden />{viewName}</button>
+          {padName && <span className="glass flex items-center gap-1 rounded-full px-3 py-2 text-xs font-bold text-white" title={padName}><Gamepad2 className="size-4" aria-hidden />Controller</span>}
           <GameSettingsButton racing />
           <ControlsHelpButton sport="racing" />
           <FullscreenButton landscape />
@@ -360,6 +416,18 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         </svg>
       </div>
 
+      {camMenu && (
+        <div className="absolute right-3 top-28 z-30 w-64 rounded-2xl border border-white/15 bg-black/80 p-2 text-white backdrop-blur" role="menu" aria-label="Choose camera">
+          {RACE_VIEWS.map((v) => (
+            <button key={v.id} type="button" role="menuitemradio" aria-checked={settings.raceView === v.id} onClick={() => { setGameSettings({ raceView: v.id }); setCamMenu(false); }}
+              className={cn("flex w-full flex-col items-start rounded-xl px-3 py-1.5 text-left", settings.raceView === v.id ? "bg-white text-black" : "hover:bg-white/10")}>
+              <span className="text-sm font-bold">{v.name}</span>
+              <span className={cn("text-[11px]", settings.raceView === v.id ? "text-black/60" : "text-white/55")}>{v.hint}</span>
+            </button>
+          ))}
+          <p className="px-3 pt-1 text-[11px] text-white/50">C / gamepad Y cycles · hold V / B to look back · tune FOV and height in ⚙</p>
+        </div>
+      )}
       {hud.count > 0 && hud.phase === "countdown" && (
         <div className="pointer-events-none absolute inset-x-0 top-[28%] flex justify-center gap-3" aria-live="assertive">
           {[3, 2, 1].map((n) => <span key={n} className={cn("size-10 rounded-full border-2 border-white/40 sm:size-14", hud.count <= n ? "bg-[#ff2d2d] shadow-[0_0_24px_#ff2d2d]" : "bg-black/50")} />)}
@@ -375,6 +443,14 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
 
       {phase === "ready" && !hud.finished && (touch ? (
         <>
+          {settings.steering === "tap" && (
+            <div className={cn("absolute bottom-0 top-24 flex w-1/2", leftHand ? "right-0" : "left-0")} aria-hidden>
+              <div {...hold("left")} className="flex flex-1 items-end justify-center pb-6 active:bg-white/10"><ChevronLeft className="size-10 text-white/40" /></div>
+              <div {...hold("right")} className="flex flex-1 items-end justify-center pb-6 active:bg-white/10"><ChevronRight className="size-10 text-white/40" /></div>
+            </div>
+          )}
+          <button type="button" onPointerDown={(e) => { e.preventDefault(); lookBehind(true); }} onPointerUp={() => lookBehind(false)} onPointerCancel={() => lookBehind(false)} onPointerLeave={() => lookBehind(false)}
+            className="absolute left-1/2 top-[18%] -translate-x-1/2 rounded-full bg-black/40 p-2.5 text-white active:bg-white/30" aria-label="Hold to look behind"><Eye className="size-5" /></button>
           {/* Steering (left thumb; right for left-handers). */}
           <div className={cn("absolute bottom-safe flex items-end gap-3", leftHand ? "right-safe" : "left-safe")}>
             {settings.steering === "wheel" && (
@@ -417,7 +493,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         </>
       ) : (
         <div className="pointer-events-none absolute bottom-4 left-safe rounded-xl bg-black/50 px-3 py-2 text-xs text-white/80">
-          Drive: W / ↑ · Brake & reverse: S / ↓ · Steer: A D / ← → · Drift: Space · Back on track: R · Camera: C
+          Drive: W / ↑ · Brake & reverse: S / ↓ · Steer: A D / ← → · Drift: Space · Back on track: R · Camera: C (menu: 🎥) · Look back: hold V · Controllers supported
         </div>
       ))}
 

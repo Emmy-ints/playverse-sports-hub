@@ -1,7 +1,7 @@
 import { RotateCw, Settings2, X } from "lucide-react";
 import { useEffect, useState, type CSSProperties, type RefObject } from "react";
 import { GameButton } from "@/components/game/GameButton";
-import { DEFAULT_SETTINGS, useGameSettings, type GameSettings } from "@/lib/game-settings";
+import { DEFAULT_SETTINGS, RACE_VIEWS, useGameSettings, type GameSettings } from "@/lib/game-settings";
 import { useTouchMode } from "@/lib/input-mode";
 import { cn } from "@/lib/utils";
 
@@ -141,16 +141,37 @@ export function GameSettingsPanel({ racing = true, haptics = true }: { racing?: 
         { id: "left", name: "Left-handed", hint: "Actions on the left, movement and aim on the right." },
       ]} />
       {racing && (
-        <>
-          <Seg label="Racing steering" value={s.steering} onChange={(v) => set({ steering: v })} options={[
-            { id: "wheel", name: "Wheel", hint: "Drag the steering wheel left and right with your thumb." },
+        <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+          <p className="font-display text-sm font-black uppercase tracking-wider text-[#ff7a1a]">Racing · driving experience</p>
+          <Seg label="Steering (touch)" value={s.steering} onChange={(v) => set({ steering: v })} options={[
+            { id: "wheel", name: "Wheel", hint: "Drag the on-screen steering wheel left and right." },
             { id: "buttons", name: "Buttons", hint: "Hold the left/right arrows." },
-            { id: "tilt", name: "Tilt", hint: "Tilt your phone like a steering wheel (asks for motion access on iPhone)." },
+            { id: "tilt", name: "Tilt", hint: "Tilt your phone like a steering wheel. Re-centre any time; sensitivity follows the slider above." },
+            { id: "tap", name: "Tap", hint: "Tap or hold the left or right side of the screen to steer." },
           ]} />
-          <Seg label="Racing camera" value={s.raceView} onChange={(v) => set({ raceView: v })} options={[
-            { id: "chase", name: "Chase" }, { id: "close", name: "Close chase" }, { id: "bonnet", name: "Bonnet" }, { id: "cockpit", name: "Cockpit" },
+          <p className="text-xs text-white/55">Keyboard (WASD / arrows) and game controllers (left stick, RT gas, LT brake, A drift, B look back, Y camera) always work alongside your touch choice.</p>
+          <Seg label="Steering assist" value={s.steerAssist} onChange={(v) => set({ steerAssist: v })} options={[
+            { id: "off", name: "Off", hint: "You steer everything." },
+            { id: "low", name: "Low", hint: "Gentle help toward the racing line when you aren't steering hard." },
+            { id: "high", name: "High", hint: "Follows the racing line for you; you can still override." },
           ]} />
-        </>
+          <Seg label="Braking assist" value={s.brakeAssist} onChange={(v) => set({ brakeAssist: v })} options={[
+            { id: "off", name: "Off" }, { id: "low", name: "Low", hint: "Lifts off and brakes a little before sharp corners." }, { id: "high", name: "High", hint: "Brakes for every corner automatically." },
+          ]} />
+          <Seg label="Racing line" value={s.racingLine} onChange={(v) => set({ racingLine: v })} options={[
+            { id: "off", name: "Off" }, { id: "corners", name: "Corners", hint: "Shown only into corners: red = brake, green = power." }, { id: "full", name: "Full", hint: "The whole lap." },
+          ]} />
+          <Seg label="Racing camera" value={s.raceView} onChange={(v) => set({ raceView: v })} options={RACE_VIEWS} />
+          <Slider label="Field of view" value={s.camFov} min={-10} max={20} step={1} format={(v) => `${v > 0 ? "+" : ""}${v}°`} onChange={(v) => set({ camFov: v })} />
+          <Slider label="Camera height" value={s.camHeight} min={-0.6} max={1.5} step={0.1} format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(1)} m`} onChange={(v) => set({ camHeight: v })} />
+          <Slider label="Chase distance" value={s.camDistance} min={-2} max={5} step={0.25} format={(v) => `${v > 0 ? "+" : ""}${v.toFixed(2)} m`} onChange={(v) => set({ camDistance: v })} />
+          <Slider label="Camera shake" value={s.camShake} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => set({ camShake: v })} />
+          <label className="flex items-center justify-between gap-3">
+            <span className="text-sm font-bold">Look into corners</span>
+            <input type="checkbox" className="size-5 accent-[#ff7a1a]" checked={s.lookApex} onChange={(e) => set({ lookApex: e.target.checked })} />
+          </label>
+          <Slider label="Controller rumble" value={s.padRumble} min={0} max={1} step={0.05} format={(v) => `${Math.round(v * 100)}%`} onChange={(v) => set({ padRumble: v })} />
+        </div>
       )}
       {haptics && <label className="flex items-center justify-between gap-3">
         <span className="text-sm font-bold">Vibration (haptic feedback)</span>

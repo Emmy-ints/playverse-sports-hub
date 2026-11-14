@@ -6,8 +6,23 @@ import { useSyncExternalStore } from "react";
  */
 export type CamMode = "dynamic" | "steady" | "manual";
 export type Hand = "right" | "left";
-export type Steering = "wheel" | "buttons" | "tilt";
-export type RaceView = "chase" | "close" | "bonnet" | "cockpit";
+export type Steering = "wheel" | "buttons" | "tilt" | "tap";
+export type RaceView = "cockpit" | "driver" | "bonnet" | "bumper" | "close" | "chase" | "far" | "rear" | "side" | "tv";
+export type Assist = "off" | "low" | "high";
+export type RacingLine = "off" | "corners" | "full";
+/** Cameras in cycling order (C key / gamepad Y / camera button). */
+export const RACE_VIEWS: { id: RaceView; name: string; hint: string }[] = [
+  { id: "cockpit", name: "Cockpit", hint: "Driver's seat: dashboard, wheel and pillars" },
+  { id: "driver", name: "Driver", hint: "Helmet view with head movement into corners" },
+  { id: "bonnet", name: "Hood", hint: "On the bonnet, road straight ahead" },
+  { id: "bumper", name: "Bumper", hint: "Low at the nose: biggest sense of speed" },
+  { id: "close", name: "Chase near", hint: "Close behind the car" },
+  { id: "chase", name: "Chase", hint: "Classic follow camera" },
+  { id: "far", name: "Chase far", hint: "High and wide: best traffic awareness" },
+  { id: "rear", name: "Rear", hint: "Looking back at the cars behind" },
+  { id: "side", name: "Side", hint: "Beside the wheels: cinematic" },
+  { id: "tv", name: "Broadcast", hint: "Trackside TV cameras that follow you" },
+];
 
 export interface GameSettings {
   /** Touch control size multiplier (0.8–1.4). */
@@ -26,6 +41,18 @@ export interface GameSettings {
   tiltInvert: boolean;
   /** Realistic motion-captured athletes (arenas that support them) or the classic characters. */
   graphics: Graphics;
+  // --- Racing: driving experience ---
+  steerAssist: Assist;
+  brakeAssist: Assist;
+  racingLine: RacingLine;
+  /** Camera customisation: field-of-view offset (°), height and distance offsets (m), shake (0–1), look into corners. */
+  camFov: number;
+  camHeight: number;
+  camDistance: number;
+  camShake: number;
+  lookApex: boolean;
+  /** Gamepad rumble strength (0–1). */
+  padRumble: number;
 }
 export type Graphics = "realistic" | "classic";
 
@@ -40,6 +67,15 @@ export const DEFAULT_SETTINGS: GameSettings = {
   landscapeHint: true,
   tiltInvert: false,
   graphics: "realistic",
+  steerAssist: "off",
+  brakeAssist: "off",
+  racingLine: "corners",
+  camFov: 0,
+  camHeight: 0,
+  camDistance: 0,
+  camShake: 0.4,
+  lookApex: true,
+  padRumble: 0.7,
 };
 
 const KEY = "pv.gameSettings.v1";
@@ -60,8 +96,17 @@ function load(): GameSettings {
   s.camSensitivity = Math.min(1, Math.max(0, Number(s.camSensitivity) || 0.55));
   if (!["dynamic", "steady", "manual"].includes(s.camMode)) s.camMode = "dynamic";
   if (!["right", "left"].includes(s.hand)) s.hand = "right";
-  if (!["wheel", "buttons", "tilt"].includes(s.steering)) s.steering = "wheel";
-  if (!["chase", "close", "bonnet", "cockpit"].includes(s.raceView)) s.raceView = "chase";
+  if (!["wheel", "buttons", "tilt", "tap"].includes(s.steering)) s.steering = "wheel";
+  if (!RACE_VIEWS.some((v) => v.id === s.raceView)) s.raceView = "chase";
+  for (const k of ["steerAssist", "brakeAssist"] as const) if (!["off", "low", "high"].includes(s[k])) s[k] = "off";
+  if (!["off", "corners", "full"].includes(s.racingLine)) s.racingLine = "corners";
+  const num = (v: unknown, lo: number, hi: number, d: number) => (typeof v === "number" && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
+  s.camFov = num(s.camFov, -10, 20, 0);
+  s.camHeight = num(s.camHeight, -0.6, 1.5, 0);
+  s.camDistance = num(s.camDistance, -2, 5, 0);
+  s.camShake = num(s.camShake, 0, 1, 0.4);
+  s.padRumble = num(s.padRumble, 0, 1, 0.7);
+  s.lookApex = s.lookApex !== false;
   if (!["realistic", "classic"].includes(s.graphics)) s.graphics = "realistic";
   current = s;
   return s;

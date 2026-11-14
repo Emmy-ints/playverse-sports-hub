@@ -75,17 +75,20 @@ function guideFor(sport: GuideSport, events?: string[]): Guide {
             { keys: ["A D", "← →"], action: "Steer" },
             { keys: ["Space"], action: "Drift: hold through tight corners" },
             { keys: ["R"], action: "Back on track if you're stuck or facing the wrong way" },
-            { keys: ["C"], action: "Switch camera: Chase, Close, Bonnet, Cockpit" },
+            { keys: ["C"], action: "Cycle cameras: Cockpit, Driver, Hood, Bumper, Chase near/standard/far, Rear, Side, Broadcast (Shift+C goes back)" },
+            { keys: ["V"], action: "Hold to look behind" },
+            { keys: ["Pad"], action: "Controllers: left stick steer, RT gas, LT brake, A drift, B look back, X back on track, Y camera" },
           ],
           touch: [
-            { keys: ["Wheel"], action: "Drag the steering wheel left/right (left thumb). In Settings you can switch to arrow buttons or tilting your phone." },
+            { keys: ["Wheel"], action: "Drag the steering wheel left/right (left thumb). In ⚙ you can switch to arrow buttons, tilting your phone or tapping the left/right of the screen." },
             { keys: ["Gas"], action: "Hold to accelerate. With Auto-gas on (the default on phones) the car accelerates for you." },
             { keys: ["Brake"], action: "Hold to slow down; hold when stopped to reverse" },
             { keys: ["Drift"], action: "Hold through tight corners" },
-            { keys: ["Camera"], action: "Switch between Chase, Close, Bonnet and Cockpit views" },
+            { keys: ["Camera"], action: "Open the camera menu and pick any of the ten views" },
+            { keys: ["👁"], action: "Hold the eye button to look behind" },
           ],
         }],
-        tips: ["Brake before a corner, not in it.", "The mini-map (top right) shows every car's position."],
+        tips: ["Brake before a corner, not in it: the racing line turns red where you should brake.", "New to racing? Turn on Steering and Braking assist in ⚙.", "The mini-map (top right) shows every car's position."],
       };
     case "bowling":
       return {
