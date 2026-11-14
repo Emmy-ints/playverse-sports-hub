@@ -40,6 +40,7 @@ interface LobbyData {
   id: string;
   sport: SportId;
   config: { mode?: string; length?: number; public?: boolean; rules?: string | null };
+  roomCode: string | null;
   status: string;
   players: { slot: number; left: boolean; player: PlayerSummary }[];
 }
@@ -59,7 +60,7 @@ function useLobbyData(matchId: string) {
     queryFn: async (): Promise<LobbyData | null> => {
       const sb = getSupabase();
       if (!sb) return null;
-      const { data: match, error } = await sb.from("matches").select("id, sport, config, status").eq("id", matchId).maybeSingle();
+      const { data: match, error } = await sb.from("matches").select("id, sport, config, status, room_code").eq("id", matchId).maybeSingle();
       if (error) throw error;
       if (!match) return null; // not found or not allowed (RLS)
       const { data: parts, error: pErr } = await sb.from("match_participants").select("player_id, slot, left_at").eq("match_id", matchId).order("slot");
@@ -72,6 +73,7 @@ function useLobbyData(matchId: string) {
         id: match.id as string,
         sport: match.sport as SportId,
         config: (match.config ?? {}) as LobbyData["config"],
+        roomCode: ((match as { room_code?: string | null }).room_code ?? null),
         status: match.status as string,
         players: (parts ?? []).flatMap((p) => {
           const pr = byId.get(p.player_id as string);
@@ -173,6 +175,13 @@ function Lobby({ matchId }: { matchId: string }) {
   }, [matchId, qc]);
 
   const players = data?.players ?? [];
+  // Someone joined with the room code: refresh the player list when an unknown player shows up.
+  useEffect(() => {
+    if (!data) return;
+    const known = new Set(data.players.map((p) => p.player.id));
+    if ([...peers.keys()].some((id) => !known.has(id))) void qc.invalidateQueries({ queryKey: ["lobby", matchId] });
+  }, [peers, data, qc, matchId]);
+  const [copied, setCopied] = useState(false);
   const allConnected = players.length >= 2 && players.every((p) => peers.has(p.player.id));
   const allReady = allConnected && players.every((p) => peers.get(p.player.id) === true);
 
@@ -255,6 +264,20 @@ function Lobby({ matchId }: { matchId: string }) {
     >
       {leaveError && <p role="alert" className="mb-4 text-sm text-destructive">{leaveError}</p>}
       {data.config.rules && <p className="mb-4 text-sm italic text-muted-foreground">Agreed rules: “{data.config.rules}”</p>}
+      {data.roomCode && isLive && players.filter((p) => !p.left).length < 2 && (
+        <div className="glass mb-4 flex flex-wrap items-center gap-3 rounded-2xl p-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Room code — share it with your opponent</p>
+            <p className="font-display text-4xl font-black tracking-[0.35em]" aria-live="polite">{data.roomCode}</p>
+          </div>
+          <div className="ml-auto flex gap-2">
+            <GameButton size="sm" variant="glass" onClick={() => { void navigator.clipboard?.writeText(data.roomCode!).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }}>{copied ? "Copied" : "Copy"}</GameButton>
+            {typeof navigator !== "undefined" && "share" in navigator && (
+              <GameButton size="sm" variant="primary" onClick={() => void navigator.share({ title: "PLAYVERSE room", text: `Join my ${sport?.name ?? ""} room on PLAYVERSE with code ${data.roomCode}`, url: `${location.origin}/friends` }).catch(() => {})}>Share</GameButton>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center gap-2 text-sm">
         {conn === "connected" ? <Wifi className="size-4 text-success" aria-hidden /> : <WifiOff className="size-4 text-destructive" aria-hidden />}

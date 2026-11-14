@@ -4,6 +4,7 @@ import { ComingSoon } from "@/components/game/ComingSoon";
 import { GameButton } from "@/components/game/GameButton";
 import { PageShell } from "@/components/game/PageShell";
 import { getSport } from "@/lib/sports";
+import { PrivateRoomCard } from "@/components/game/PrivateRoom";
 
 export const Route = createFileRoute("/_game/sports/$sport")({
   loader: ({ params }) => { const s = getSport(params.sport); if (!s) throw notFound(); return s; },
@@ -33,6 +34,7 @@ function SportPage() {
             <p className="mt-1 text-sm text-muted-foreground">Challenge a friend. {s.id === "tennis" || s.id === "racing" || s.id === "athletics" || s.id === "parkour" ? "Live 1v1 on the PLAYVERSE real-time game server." : `Every ${s.id === "bowling" ? "throw" : "shot"} is simulated and scored on the server.`}</p>
             <GameButton asChild variant="primary" className="mt-4"><Link to="/friends">Challenge a friend</Link></GameButton>
           </div>
+          <div className="sm:col-span-2"><PrivateRoomCard sport={s.id} /></div>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">

@@ -38,6 +38,11 @@ const ERRORS: Record<string, string> = {
   INVITATION_CLOSED: "That challenge was already answered.",
   INVITATION_EXPIRED: "That challenge has expired.",
   NOT_IN_MATCH: "You're not in this match.",
+  ROOM_NOT_FOUND: "No open room with that code. Check the code or ask your friend for a new one.",
+  ROOM_FULL: "That room is already full.",
+  ROOM_LEFT: "You left that room. Ask for a new code.",
+  CHALLENGE_NOT_DONE: "Finish today's challenge first.",
+  ALREADY_CLAIMED: "You already claimed today's reward.",
 };
 
 export class SocialError extends Error {}
@@ -265,3 +270,57 @@ export const useCancelInvitation = () => useSocialMutation((id: string) => rpc("
 export const useMarkNotificationsRead = () =>
   useSocialMutation((ids: string[] | null) => rpc("mark_notifications_read", { ids }), [qk.notifications]);
 export const leaveLobby = (match: string) => rpc("leave_lobby", { match });
+
+// ---------- Private rooms, recent players, daily challenge ----------
+export interface RecentPlayer extends PlayerSummary {
+  country: string | null;
+  last_played: string;
+  games: number;
+  last_sport: SportId;
+  my_wins: number;
+  their_wins: number;
+  is_friend: boolean;
+}
+export function useRecentPlayers() {
+  const me = useMe();
+  return useQuery({
+    queryKey: ["recent-players", me],
+    enabled: !!me,
+    queryFn: async () => (await rpc<RecentPlayer[]>("recent_players", { lim: 20 })) ?? [],
+  });
+}
+
+export const createRoom = (sport: SportId, cfg: MatchConfig) => rpc<{ match_id: string; code: string }>("create_room", { s: sport, cfg });
+export const joinRoom = (code: string) => rpc<string>("join_room", { p_code: code.trim().toUpperCase() });
+
+export interface DailyChallenge {
+  day: string;
+  sport: SportId;
+  kind: "play" | "win";
+  title: string;
+  goal: number;
+  progress: number;
+  done: boolean;
+  claimed: boolean;
+  reward_xp: number;
+  resets_at: string;
+}
+export function useDailyChallenge() {
+  const me = useMe();
+  return useQuery({
+    queryKey: ["daily-challenge", me],
+    enabled: !!me,
+    refetchInterval: 60_000,
+    queryFn: () => rpc<DailyChallenge>("daily_challenge", {}),
+  });
+}
+export function useClaimDaily() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => rpc<{ xp: number; total_xp: number }>("claim_daily_challenge", {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["daily-challenge"] });
+      void qc.invalidateQueries({ queryKey: ["my-profile"] });
+    },
+  });
+}

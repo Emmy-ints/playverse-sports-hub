@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { MatchReactions } from "@/components/game/MatchReactions";
+import { MatchIntro } from "@/components/game/MatchIntro";
 import { ArrowLeft, Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BowlingStage, type StageReplay } from "@/components/bowling/BowlingStage";
@@ -34,6 +36,8 @@ function Page() {
       <RequireAccount feature="Online matches">
         <OnlineBowling matchId={matchId} />
       </RequireAccount>
+      <MatchReactions matchId={matchId} />
+      <MatchIntro matchId={matchId} />
     </div>
   );
 }

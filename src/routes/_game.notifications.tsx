@@ -99,6 +99,13 @@ function describe(n: NotificationView): { text: string; action?: React.ReactNode
         action: matchId ? <GameButton asChild size="sm" variant="hot"><Link to="/lobby/$matchId" params={{ matchId }}>Go to lobby</Link></GameButton> : undefined,
       };
     }
+    case "room_joined": {
+      const matchId = n.payload["match_id"] as string | undefined;
+      return {
+        text: `${from(n)} joined your ${sportName} room.`,
+        action: matchId ? <GameButton asChild size="sm" variant="hot"><Link to="/lobby/$matchId" params={{ matchId }}>Go to lobby</Link></GameButton> : undefined,
+      };
+    }
     case "match_declined":
       return { text: `${from(n)} declined your ${sportName} challenge.` };
     case "match_result": {

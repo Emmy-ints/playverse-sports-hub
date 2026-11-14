@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { MatchReactions } from "@/components/game/MatchReactions";
+import { MatchIntro } from "@/components/game/MatchIntro";
 import { Loader2, RotateCcw, Trophy } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AthleticsStage } from "@/components/athletics/AthleticsStage";
@@ -33,6 +35,8 @@ function Page() {
       <RequireAccount feature="Online athletics">
         <OnlineAthletics matchId={matchId} />
       </RequireAccount>
+      <MatchReactions matchId={matchId} />
+      <MatchIntro matchId={matchId} />
     </div>
   );
 }

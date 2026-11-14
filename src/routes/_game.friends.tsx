@@ -7,6 +7,8 @@ import { GameButton } from "@/components/game/GameButton";
 import { PageShell } from "@/components/game/PageShell";
 import { PlayerRow } from "@/components/game/PlayerRow";
 import { RequireAccount } from "@/components/game/RequireAccount";
+import { PrivateRoomCard } from "@/components/game/PrivateRoom";
+import { getSport } from "@/lib/sports";
 import { usePresenceMap } from "@/lib/presence";
 import {
   useBlocks,
@@ -18,6 +20,7 @@ import {
   useSearchPlayers,
   useSendFriendRequest,
   useUnblockPlayer,
+  useRecentPlayers,
   type PlayerSummary,
 } from "@/lib/social";
 import { cn } from "@/lib/utils";
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/_game/friends")({
   component: FriendsPage,
 });
 
-const TABS = ["Friends", "Requests", "Find players", "Blocked"] as const;
+const TABS = ["Friends", "Recent", "Rooms", "Requests", "Find players", "Blocked"] as const;
 type Tab = (typeof TABS)[number];
 
 function FriendsPage() {
@@ -61,6 +64,8 @@ function FriendsPage() {
         </div>
         <div role="tabpanel">
           {tab === "Friends" && <FriendList onFind={() => setTab("Find players")} />}
+          {tab === "Recent" && <RecentPlayers />}
+          {tab === "Rooms" && <PrivateRoomCard />}
           {tab === "Requests" && <Requests />}
           {tab === "Find players" && <FindPlayers />}
           {tab === "Blocked" && <Blocked />}
@@ -285,6 +290,34 @@ function Blocked() {
             </GameButton>
           }
         />
+      ))}
+    </ul>
+  );
+}
+
+/** Opponents from finished online matches: rematch them, add them as friends or view their profile. */
+function RecentPlayers() {
+  const list = useRecentPlayers();
+  const send = useSendFriendRequest();
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  if (list.isLoading) return <Loader2 className="mx-auto size-6 animate-spin text-muted-foreground" aria-label="Loading" />;
+  if (list.isError) return <p role="alert" className="text-sm text-destructive">Couldn't load recent players.</p>;
+  if (!list.data?.length) return <EmptyState icon={<Users />} title="No recent opponents yet" description="Players you meet in online matches and private rooms show up here, so you can find them again." />;
+  return (
+    <ul className="space-y-2">
+      {list.data.map((p) => (
+        <PlayerRow key={p.id} player={p} actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {p.games} {p.games === 1 ? "match" : "matches"} · last: {getSport(p.last_sport)?.name ?? p.last_sport} · you {p.my_wins}–{p.their_wins}
+            </span>
+            {p.is_friend ? <ChallengeButton player={p} /> : sent.has(p.id) ? <span className="text-xs font-bold text-primary">Request sent</span> : (
+              <GameButton size="sm" variant="primary" disabled={send.isPending} onClick={() => send.mutate(p.id, { onSuccess: () => setSent((x) => new Set(x).add(p.id)) })}>
+                <UserPlus aria-hidden /> Add friend
+              </GameButton>
+            )}
+          </div>
+        } />
       ))}
     </ul>
   );
