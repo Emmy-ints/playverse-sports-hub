@@ -46,7 +46,8 @@ function nextView(dir: number) {
 }
 
 export function RaceStage({ track: trackId, driver, names, colors, helmets, renderEnd, topRight, ghost: ghostOn = false }: Props) {
-  const [pb, setPb] = useState<number | null>(() => (ghostOn ? loadGhost(trackId)?.time ?? null : null));
+  const ghostKey = driver.state().car === "formula" ? `${trackId}.formula` : trackId;
+  const [pb, setPb] = useState<number | null>(() => (ghostOn ? loadGhost(ghostKey)?.time ?? null : null));
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
@@ -111,7 +112,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
         const { createRaceView, detectQuality } = await import("@/game/racing/renderer");
         const q = detectQuality();
         if (!canvasRef.current || disposed) return;
-        const view = await createRaceView(canvasRef.current, trackId, driver.state().cars.length, q);
+        const view = await createRaceView(canvasRef.current, trackId, driver.state().cars.length, q, driver.state().car ?? "gt");
         if (disposed) return view.destroy();
         view.setViewer(driver.viewer);
         view.setWeather(driver.state().wet ?? 0);
@@ -173,7 +174,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   useEffect(() => {
     if (phase !== "ready") return;
     let raf = 0, last = performance.now(), hudAt = 0, lastCount = -1;
-    let ghostLap: GhostLap | null = ghostOn ? loadGhost(trackId) : null;
+    let ghostLap: GhostLap | null = ghostOn ? loadGhost(ghostKey) : null;
     let lastPos = 0, fastest = 0;
     const talk = (t: string, priority = false) => { if (soundRef.current) commentate(t, { priority }); };
     const rec = new GhostRecorder();
@@ -268,7 +269,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           if (g && t > 5 && (!ghostLap || t < ghostLap.time)) {
             const first = !ghostLap;
             ghostLap = g;
-            saveGhost(trackId, g);
+            saveGhost(ghostKey, g);
             setPb(t);
             if (!first) setTimeout(() => setBanner({ text: `New personal best! ${formatTime(t)}`, id: performance.now() }), 1400);
           }
@@ -322,7 +323,7 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       cancelAnimationFrame(raf);
       stopCommentary();
     };
-  }, [phase, driver, track, map, names, colors, ghostOn, trackId]);
+  }, [phase, driver, track, map, names, colors, ghostOn, ghostKey]);
 
   useEffect(() => {
     if (!banner) return;

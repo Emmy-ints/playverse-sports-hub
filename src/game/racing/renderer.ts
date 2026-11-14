@@ -195,7 +195,7 @@ interface CarView {
   spin: number;
 }
 
-export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDef["id"], cars: number, initialQuality: Quality = detectQuality()): Promise<RaceView> {
+export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDef["id"], cars: number, initialQuality: Quality = detectQuality(), carKind: "gt" | "formula" = "gt"): Promise<RaceView> {
   let quality = initialQuality;
   const theme = RACE_THEMES[trackId];
   const track = buildTrack(trackId);
@@ -567,7 +567,54 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
     [[-0.62, 0.7, 0.66, 0.7], [-0.45, 0.72, 0.68, 0.86], [-0.2, 0.72, 0.68, 1.0], [0.15, 0.71, 0.68, 1.06], [0.5, 0.7, 0.7, 1.05], [0.85, 0.7, 0.72, 0.98], [1.15, 0.68, 0.74, 0.86], [1.32, 0.66, 0.75, 0.78]].map(([z, w, y0, y1]) => ({ z: z!, w: w!, y0: y0!, y1: y1!, topW: w! * 0.78 })),
     24,
   );
+  /** Open-wheel single-seater: monocoque, nose, wings, halo, exposed wheels (faces −Z). */
+  const makeFormula = (color: string, helmet: string): CarView => {
+    const root = new pc.Entity("formula");
+    app.root.addChild(root);
+    const body = mat({ color, metal: 0.3, gloss: 0.8, clearCoat: 1 });
+    const brake = mat({ color: "#3a0000", emissive: "#3a0000" });
+    const helmetMat = mat({ color: helmet, gloss: 0.8, clearCoat: 0.6 });
+    add(root, "box", body, [0, 0.42, 0.2], [0.62, 0.42, 2.6], true); // monocoque
+    add(root, "box", body, [0, 0.33, -1.55], [0.34, 0.2, 1.3], true, [-4, 0, 0]); // nose
+    add(root, "box", black, [0, 0.12, -2.3], [1.85, 0.03, 0.42], false); // front wing
+    for (const x of [-0.92, 0.92]) add(root, "box", body, [x, 0.2, -2.3], [0.03, 0.2, 0.46], false); // endplates
+    for (const x of [-0.5, 0.5]) add(root, "box", body, [x, 0.38, 0.45], [0.42, 0.34, 1.5], true); // sidepods
+    add(root, "box", body, [0, 0.82, 0.75], [0.36, 0.5, 0.9], true); // airbox / engine cover
+    add(root, "box", black, [0, 1.0, 1.95], [1.0, 0.04, 0.32], false); // rear wing
+    add(root, "box", black, [0, 1.12, 1.97], [1.0, 0.03, 0.22], false, [-12, 0, 0]);
+    for (const x of [-0.5, 0.5]) add(root, "box", body, [x, 0.75, 1.95], [0.03, 0.55, 0.5], false);
+    add(root, "box", black, [0, 0.92, -0.25], [0.05, 0.05, 0.75], false, [-18, 0, 0]); // halo centre
+    for (const x of [-0.3, 0.3]) add(root, "box", black, [x, 0.84, 0.0], [0.04, 0.04, 0.55], false);
+    const helmetE = add(root, "sphere", helmetMat, [0, 0.82, 0.1], [0.28, 0.28, 0.3], false);
+    const interior = new pc.Entity("interior");
+    interior.enabled = false;
+    root.addChild(interior);
+    const wheel = new pc.Entity();
+    wheel.setLocalPosition(0, 0.68, -0.25);
+    wheel.setLocalEulerAngles(-70, 0, 0);
+    root.addChild(wheel);
+    add(wheel, "box", black, [0, 0, 0], [0.3, 0.03, 0.16], false);
+    add(root, "box", brake, [0, 0.5, 2.15], [0.12, 0.1, 0.04], false); // rain light
+    const wheels: pc.Entity[] = [], fronts: pc.Entity[] = [];
+    for (const [x, z, r, w] of [[-0.95, -1.55, 0.64, 0.34], [0.95, -1.55, 0.64, 0.34], [-0.92, 1.45, 0.72, 0.44], [0.92, 1.45, 0.72, 0.44]] as const) {
+      const steerPivot = new pc.Entity();
+      steerPivot.setLocalPosition(x, r / 2, z);
+      root.addChild(steerPivot);
+      const spin = new pc.Entity();
+      steerPivot.addChild(spin);
+      add(spin, "cylinder", tyre, [0, 0, 0], [r, w, r], true, [0, 0, 90]);
+      add(spin, "box", rim, [x > 0 ? w / 2 + 0.005 : -w / 2 - 0.005, 0, 0], [0.02, r * 0.55, 0.1]);
+      wheels.push(spin);
+      if (z < 0) fronts.push(steerPivot);
+    }
+    for (const x of [-1, 1]) {
+      add(root, "box", black, [x * 0.55, 0.36, -1.55], [0.5, 0.03, 0.04], false); // suspension arms
+      add(root, "box", black, [x * 0.55, 0.4, 1.45], [0.45, 0.03, 0.04], false);
+    }
+    return { root, wheels, fronts, brake, body, helmet: helmetMat, helmetE, interior, wheel, spin: 0 };
+  };
   const makeCar = (color: string, helmet: string): CarView => {
+    if (carKind === "formula") return makeFormula(color, helmet);
     const root = new pc.Entity("car");
     app.root.addChild(root);
     const body = mat({ color, metal: 0.35, gloss: 0.75, clearCoat: 1 });

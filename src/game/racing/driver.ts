@@ -21,9 +21,10 @@ export class PracticeRaceDriver implements RaceDriver {
   private pending: LocalCarInput = { steer: 0, throttle: 0, brake: 0, handbrake: false };
   private skills: number[];
 
-  constructor(track: TrackDef["id"], opponents: number, laps: number, level: number, wet = 0) {
+  constructor(track: TrackDef["id"], opponents: number, laps: number, level: number, wet = 0, car: "gt" | "formula" = "gt") {
     this.s = createRace(track, opponents + 1, laps);
     if (wet > 0) this.s.wet = wet;
+    if (car === "formula") this.s.car = car;
     // Opponents spread around the chosen level so there's a race through the field.
     this.skills = Array.from({ length: opponents }, (_, i) => Math.max(0.3, Math.min(1, level + 0.12 - (i / Math.max(1, opponents - 1)) * 0.3)));
   }

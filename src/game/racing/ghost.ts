@@ -1,8 +1,8 @@
+/** Keys are `<track>` for GT or `<track>.formula` for the formula car. */
 /**
  * Ghost laps: your best lap on each circuit is recorded on this device and replayed as a translucent
  * car you can race against in practice. Samples at 20 Hz (~2 KB per lap).
  */
-import type { TrackDef } from "./track";
 
 export interface GhostLap {
   v: 1;
@@ -13,9 +13,9 @@ export interface GhostLap {
   at: string;
 }
 
-const KEY = (t: TrackDef["id"]) => `pv.ghost.racing.${t}`;
+const KEY = (t: string) => `pv.ghost.racing.${t}`;
 
-export function loadGhost(track: TrackDef["id"]): GhostLap | null {
+export function loadGhost(track: string): GhostLap | null {
   try {
     const g = JSON.parse(localStorage.getItem(KEY(track)) ?? "null") as GhostLap | null;
     return g && g.v === 1 && Array.isArray(g.p) && g.p.length >= 6 ? g : null;
@@ -24,7 +24,7 @@ export function loadGhost(track: TrackDef["id"]): GhostLap | null {
   }
 }
 
-export function saveGhost(track: TrackDef["id"], g: GhostLap) {
+export function saveGhost(track: string, g: GhostLap) {
   try {
     localStorage.setItem(KEY(track), JSON.stringify(g));
   } catch {
@@ -32,7 +32,7 @@ export function saveGhost(track: TrackDef["id"], g: GhostLap) {
   }
 }
 
-export function clearGhost(track: TrackDef["id"]) {
+export function clearGhost(track: string) {
   try {
     localStorage.removeItem(KEY(track));
   } catch {
