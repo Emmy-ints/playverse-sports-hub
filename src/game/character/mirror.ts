@@ -116,11 +116,58 @@ export class HumanoidMirror {
       this.q2.mul2(this.q, x.c);
       x.e.setRotation(this.q2);
     }
+    // Two-bone IK: put each athlete wrist exactly where the classic rig's hand is, bending the elbow
+    // toward the classic elbow, so props held by the classic hands (clubs, javelins) sit in the grip.
+    for (const s of ["L", "R"] as const) this.armIK(s);
     // Feet stay flat, pointing where the body points.
     const rr = h.root.getRotation();
     this.q.mul2(rr, Y180);
     for (const f of this.feet) f.setRotation(this.q);
     void this.v2;
+  }
+
+  private ik = { sh: new pc.Vec3(), el: new pc.Vec3(), wr: new pc.Vec3(), t: new pc.Vec3(), pole: new pc.Vec3(), e: new pc.Vec3(), d1: new pc.Vec3(), d2: new pc.Vec3(), q: new pc.Quat(), wq: new pc.Quat() };
+  private armIK(side: "L" | "R") {
+    const a = this.ath;
+    const up = a.bone(`upperarm01.${side}`), lo = a.bone(`lowerarm01.${side}`), wr = a.bone(`wrist.${side}`);
+    if (!up || !lo || !wr) return;
+    const k = this.ik;
+    const hand = side === "L" ? this.h.handL : this.h.handR;
+    const elbow = side === "L" ? this.h.elbowL : this.h.elbowR;
+    k.wq.copy(wr.getRotation());
+    k.sh.copy(up.getPosition());
+    k.el.copy(lo.getPosition());
+    k.wr.copy(wr.getPosition());
+    const la = k.el.distance(k.sh), lb = k.wr.distance(k.el);
+    k.t.copy(hand.getPosition());
+    // reach: clamp the target onto what the arm can reach
+    k.d1.sub2(k.t, k.sh);
+    let dist = k.d1.length();
+    if (dist < 1e-4) return;
+    const maxR = (la + lb) * 0.999, minR = Math.abs(la - lb) + 1e-3;
+    if (dist > maxR) dist = maxR;
+    if (dist < minR) dist = minR;
+    k.d1.normalize();
+    // bend plane from the classic elbow
+    k.pole.sub2(elbow.getPosition(), k.sh);
+    k.pole.sub(k.d2.copy(k.d1).mulScalar(k.pole.dot(k.d1)));
+    if (k.pole.lengthSq() < 1e-6) k.pole.sub2(k.el, k.sh).sub(k.d2.copy(k.d1).mulScalar(k.d2.sub2(k.el, k.sh).dot(k.d1)));
+    k.pole.normalize();
+    const cosA = Math.max(-1, Math.min(1, (la * la + dist * dist - lb * lb) / (2 * la * dist)));
+    const sinA = Math.sqrt(1 - cosA * cosA);
+    k.e.copy(k.sh).add(k.d2.copy(k.d1).mulScalar(cosA * la)).add(k.pole.clone().mulScalar(sinA * la));
+    // rotate the upper arm onto the new elbow, then the forearm onto the target
+    const aim = (bone: pc.Entity, from: pc.Vec3, to: pc.Vec3, want: pc.Vec3) => {
+      const cur = new pc.Vec3().sub2(to, from).normalize();
+      const dst = new pc.Vec3().sub2(want, from).normalize();
+      k.q.copy(between(cur, dst)).mul(bone.getRotation());
+      bone.setRotation(k.q);
+    };
+    aim(up, k.sh, k.el, k.e);
+    const elNow = lo.getPosition().clone();
+    const tgt = k.sh.clone().add(k.d1.clone().mulScalar(dist));
+    aim(lo, elNow, wr.getPosition().clone(), tgt);
+    wr.setRotation(k.wq);
   }
 
   /** World-space point in the right palm (e.g. for a held ball): `out` = palm + offset along the palm normal. */
