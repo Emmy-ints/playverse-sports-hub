@@ -14,9 +14,9 @@ export const Route = createFileRoute("/play/racing")({
   head: () => ({
     meta: [
       { title: "Racing practice — PLAYVERSE" },
-      { name: "description", content: "Race 3D cars against AI drivers on three circuits." },
+      { name: "description", content: "Race 3D cars against AI drivers on four circuits." },
       { property: "og:title", content: "Racing practice — PLAYVERSE" },
-      { property: "og:description", content: "Race 3D cars against AI drivers on three circuits." },
+      { property: "og:description", content: "Race 3D cars against AI drivers on four circuits." },
     ],
   }),
   component: RacingPractice,
@@ -66,7 +66,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
       <div className="glass w-full max-w-xl rounded-3xl p-6">
         <Link to="/sports/$sport" params={{ sport: "racing" }} className="mb-3 inline-flex items-center gap-1 text-sm text-white/70 hover:text-white"><ArrowLeft className="size-4" aria-hidden /> Racing World</Link>
         <h1 className="font-display text-4xl font-black uppercase">Practice race</h1>
-        <p className="text-sm text-white/70">Real car handling, three circuits, AI drivers. Not ranked.</p>
+        <p className="text-sm text-white/70">Real car handling, four circuits, AI drivers. Not ranked.</p>
         <Pick label="Circuit" value={track} onChange={setTrack} options={Object.values(TRACKS).map((t) => ({ id: t.id, name: t.name, hint: t.blurb }))} />
         <Pick label="Laps" value={laps} onChange={setLaps} cols={1} options={[1, 3, 5].map((n) => ({ id: n, name: `${n} lap${n > 1 ? "s" : ""}` }))} />
         <Pick label="Opponents" value={opponents} onChange={setOpponents} cols={1} options={[1, 3, 5].map((n) => ({ id: n, name: `${n} AI` }))} />

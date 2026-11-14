@@ -216,3 +216,11 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - **Racing: Formula car (practice)**: open-wheel single-seater model (monocoque, nose, front/rear wings, halo, exposed wheels, suspension arms). Sim class `car: "formula"` (absent online → GT): top speed +16%, acceleration +30%, braking +25%, grip +30%; AI uses the extra grip. AI lap times (skill 0.9): City 36.1→31.6 s, Coast 41.1→35.9 s, Valley 31.9→28.0 s. Ghost laps are kept separately per car class.
 - **New circuit: Sunset Speedway** (4th track, also in the online rotation): fast 1.47 km bowl with a chicane, dusk lighting (low orange sun) over the countryside scenery. Geometry checked: max curvature 0.026 (same as the other tracks), minimum separation between track sections 74 m, AI laps 32.5–34.2 s.
 - **Racing HUD**: automatic gear + 10-segment rev bar under the speedometer.
+
+### Still open after this wave (honest list)
+- Tennis doubles (needs a 4-player sim, server room and UI) and a full multi-season career mode (the Practice Cup is the career-lite version).
+- Instant replays (bowling already replays every throw; no tennis/racing replay buffer yet).
+- Facial expressions on the realistic 3D athletes (the generated head has no face rig/morph targets yet).
+- Racing: manual gearbox/clutch, car damage, steering-wheel force feedback (browsers expose rumble only), friend ghost challenges (ghosts are device-local).
+- TURN server for voice chat on strict networks.
+- Real-device cross-platform tests (iOS Safari, Android Chrome, desktop) for voice, spectating and controllers; two-player tests of spectating and voice.
