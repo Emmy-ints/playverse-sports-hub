@@ -673,16 +673,16 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
   let tvCam = -1;
 
   // Rain: streaks drawn around the camera each frame.
-  const RAIN_N = 260;
+  const RAIN_N = 700;
   const rain = new Float32Array(RAIN_N * 3);
   for (let i = 0; i < RAIN_N; i++) {
-    rain[i * 3] = (Math.random() - 0.5) * 40;
+    rain[i * 3] = (Math.random() - 0.5) * 30;
     rain[i * 3 + 1] = Math.random() * 16;
-    rain[i * 3 + 2] = (Math.random() - 0.5) * 40;
+    rain[i * 3 + 2] = (Math.random() - 0.5) * 30;
   }
   const rainPos: pc.Vec3[] = [];
   const rainCol: pc.Color[] = [];
-  const rainColor = new pc.Color(0.75, 0.8, 0.9, 0.35);
+  const rainColor = new pc.Color(0.82, 0.86, 0.95, 0.6);
   for (let i = 0; i < RAIN_N * 2; i++) {
     rainPos.push(new pc.Vec3());
     rainCol.push(rainColor);
@@ -693,12 +693,12 @@ export async function createRaceView(canvas: HTMLCanvasElement, trackId: TrackDe
       const cp = camera.getPosition();
       const n = Math.round(RAIN_N * wet);
       for (let i = 0; i < n; i++) {
-        let y = rain[i * 3 + 1]! - dt * 22;
+        let y = rain[i * 3 + 1]! - dt * 26;
         if (y < 0) y += 16;
         rain[i * 3 + 1] = y;
         const x = cp.x + rain[i * 3]!, z = cp.z + rain[i * 3 + 2]!, yy = cp.y - 6 + y;
         rainPos[i * 2]!.set(x, yy, z);
-        rainPos[i * 2 + 1]!.set(x + 0.05, yy - 0.7, z);
+        rainPos[i * 2 + 1]!.set(x + 0.08, yy - 1.1, z);
       }
       app.drawLines(rainPos.slice(0, n * 2), rainCol.slice(0, n * 2), true);
     }
