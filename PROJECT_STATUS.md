@@ -118,6 +118,20 @@ _Last updated: 2026-11-12 · Current milestone: **7 — Golf** (playable: practi
 - Avatar (done): 3D realistic character viewer (`Avatar3D`, drag to turn, tap to celebrate) on Character studio, Profile, Player pages and the match lobby; 2D preview stays for small badges and as the fallback. Outfit variants now render on the 3D athletes everywhere: tennis (tee + shorts), jersey (cap-sleeve top), polo (tee + collar), track (long sleeves + pants); runner/court/high-top shoes; cap, headband, wristbands, sunglasses.
 - Not yet: facial expression choice (focused/smile/fierce) is not shown on the 3D face; racing drivers are helmets only; a racing car can be nudged forward at the start by neighbouring AI cars (seen once, not yet investigated).
 
+### Racing driving experience (controls & cameras spec)
+- Ten cameras, switchable any time without interrupting the race (C / Shift+C, gamepad Y, in-race camera menu, Settings): Cockpit (interior: roof liner, A-pillars, mirror, dash, live steering wheel), Driver (helmet cam, leans and looks to the apex), Hood, Bumper, Chase near / Chase / Chase far, Rear, Side, Broadcast (trackside TV cameras that cut and zoom). 0.35 s blends between views. Hold V / gamepad B / touch eye button to look behind.
+- Camera customisation: FOV offset, height, chase distance, shake, look-into-corners. Saved per device.
+- Controls: keyboard, touch (wheel / buttons / tilt / new tap-to-steer), standard game controllers (left stick, RT/LT analog throttle and brake, A drift, B look back, X reset, Y camera) with rumble on impacts. All work together; each player's camera is local only.
+- Assists (independent of control type): steering assist Off/Low/High and braking assist Off/Low/High (from the AI's racing line and corner speeds), racing line overlay Off/Corners/Full (red brake, yellow lift, green power; `src/game/racing/line.ts`).
+- AI no longer rams a slower car directly ahead (idle player was being shoved down the grid). Shared sim change; Render redeployed (b50c6ea live).
+
+### Social, progression and match journey (phase 1)
+- Private rooms with 6-character codes: create (sport + format) / join by code from Friends → Rooms and every sport page; the lobby shows the code with Copy/Share; the host gets a notification when someone joins. RPCs `create_room`, `join_room` (2 players, blocked players refused).
+- Recent players (Friends → Recent): opponents from finished matches with head-to-head, add friend / challenge. RPC `recent_players`.
+- Daily challenge on the Hub: one featured goal per UTC day (play / win an online match in a rotating sport), progress only from server-settled results, XP claim once per day (`daily_challenge`, `claim_daily_challenge`, table `daily_claims`).
+- In-match quick reactions in all online matches (8 preset reactions, rate-limited, realtime broadcast) and an online match introduction (venue, format, both players with level and record; auto-skips, tap to skip).
+- Achievements page is real now: every badge with earned/locked state and per-sport personal records. New server-granted milestones via trigger on player statistics: 10-win champion per sport, Regular (25 matches), Social Butterfly (10 opponents), Multiplayer Legend (beat 50 players).
+
 ## In progress
 - Bowling: planar lane reflections. Golf: green-reading grid, more terrain detail (rough grass blades), ambient sound.
 
