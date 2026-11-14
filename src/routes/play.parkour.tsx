@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ParkourMissions } from "@/components/parkour/ParkourMissions";
 import { dailySeed } from "@/game/parkour/ghost";
 import { PersonalBest } from "@/components/game/PersonalBest";
 import { formatRaceTime } from "@/components/parkour/ParkourStage";
@@ -99,7 +100,7 @@ function Run({ setup, onRestart, onExit }: { setup: Setup; onRestart: () => void
       colors={colors}
       {...(ghostId ? { ghostId } : {})}
       topRight={<button type="button" onClick={onExit} className="glass rounded-full px-3 py-2 text-xs font-bold text-white">Leave</button>}
-      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} note={<PersonalBest id={ghostId ? `parkour.daily.${ghostId}` : `parkour.${setup.length}`} label={ghostId ? "Today's best" : "Best run"} value={s.runners[0]!.finish} lowerIsBetter format={(v) => `${formatRaceTime(v)} s`} />} actions={
+      renderEnd={(s) => <Results s={s} names={names} colors={colors} viewer={0} note={<><ParkourMissions s={s} viewer={0} length={setup.length} /><PersonalBest id={ghostId ? `parkour.daily.${ghostId}` : `parkour.${setup.length}`} label={ghostId ? "Today's best" : "Best run"} value={s.runners[0]!.finish} lowerIsBetter format={(v) => `${formatRaceTime(v)} s`} /></>} actions={
         <>
           <GameButton variant="hot" onClick={onRestart}><RotateCcw aria-hidden /> Run again</GameButton>
           <GameButton variant="glass" onClick={onExit}>Change setup</GameButton>
