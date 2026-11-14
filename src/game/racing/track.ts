@@ -4,7 +4,7 @@
  */
 
 export interface TrackDef {
-  id: "city" | "coast" | "valley";
+  id: "city" | "coast" | "valley" | "speedway";
   name: string;
   blurb: string;
   width: number;
@@ -27,6 +27,11 @@ export const TRACKS: Record<TrackDef["id"], TrackDef> = {
     id: "valley", name: "Valley Ring", blurb: "Countryside circuit with a hairpin and esses.", width: 13,
     points: [[0, 0], [0, -150], [-30, -230], [-110, -260], [-180, -220], [-170, -150], [-100, -120], [-90, -60], [-160, -10], [-230, 40],
       [-230, 140], [-160, 200], [-70, 190], [-40, 120], [0, 70]],
+  },
+  speedway: {
+    id: "speedway", name: "Sunset Speedway", blurb: "Flat-out banked bowl at dusk with one tight chicane.", width: 15,
+    points: [[0, 0], [0, -220], [30, -300], [110, -340], [200, -330], [260, -270], [268, -200], [248, -145], [268, -90], [280, -20],
+      [270, 120], [220, 200], [130, 230], [50, 200], [10, 120]],
   },
 };
 

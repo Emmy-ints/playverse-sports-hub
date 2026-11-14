@@ -30,6 +30,10 @@ export const RACE_THEMES: Record<TrackDef["id"], RaceTheme> = {
     track: "valley", hdr: "/assets/env/countryside.hdr", skyIntensity: 1, sunDir: [0.45, -0.8, -0.35], sunColor: [1, 0.96, 0.88], sunIntensity: 1.5,
     ambient: [0.2, 0.22, 0.22], ground: "#4f7d34", runoff: "#5e8a3c", asphalt: "#383a3f", barrier: ["#2f7bff", "#f4f4f4"], scenery: "valley", night: false,
   },
+  speedway: {
+    track: "speedway", hdr: "/assets/env/countryside.hdr", skyIntensity: 0.65, sunDir: [-0.85, -0.3, 0.2], sunColor: [1, 0.62, 0.36], sunIntensity: 1.25,
+    ambient: [0.24, 0.17, 0.16], ground: "#6b6a3a", runoff: "#7a6f48", asphalt: "#34353a", barrier: ["#ff7a1a", "#f4f4f4"], scenery: "valley", night: false,
+  },
 };
 
 export const CAR_COLORS = ["#e11d48", "#2f7bff", "#f2c230", "#2fbf71", "#ff7a1a", "#e8eaf0", "#8b5cf6", "#1d2333"] as const;
