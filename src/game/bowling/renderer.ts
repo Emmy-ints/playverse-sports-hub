@@ -3,6 +3,7 @@
  * frames (from the browser in practice, or from the server in online matches). It never decides scores.
  */
 import * as pc from "playcanvas";
+import { VENUES, type VenueId } from "./venues.ts";
 import { getGameSettings } from "@/lib/game-settings";
 import { BALL, GUTTER_OUTER, HALF_LANE, HEAD_PIN_Z, LANE, PIN_PROFILE, PIN_SPOTS, PIT_EDGE_Z, type ThrowInput } from "./constants.ts";
 import type { SimResult } from "./sim.ts";
@@ -167,7 +168,9 @@ const hex = (h: string) => {
 };
 
 // ---------- scene ----------
-export async function createBowlingView(canvas: HTMLCanvasElement, initialQuality: Quality = detectQuality()): Promise<BowlingView> {
+
+export async function createBowlingView(canvas: HTMLCanvasElement, initialQuality: Quality = detectQuality(), venueId: VenueId = "neon"): Promise<BowlingView> {
+  const venue = VENUES[venueId] ?? VENUES.neon;
   let quality = initialQuality;
   const app = new pc.Application(canvas, {
     mouse: new pc.Mouse(canvas),
@@ -178,7 +181,7 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   device.maxPixelRatio = quality === "high" ? Math.min(window.devicePixelRatio, 2) : Math.min(window.devicePixelRatio, 1.25);
   app.setCanvasFillMode(pc.FILLMODE_NONE);
   app.setCanvasResolution(pc.RESOLUTION_AUTO);
-  app.scene.ambientLight = new pc.Color(0.09, 0.09, 0.12);
+  app.scene.ambientLight = new pc.Color(...venue.ambient);
 
   const root = new pc.Entity("alley");
   app.root.addChild(root);
@@ -206,16 +209,16 @@ export async function createBowlingView(canvas: HTMLCanvasElement, initialQualit
   const approachMat = std({ diffuseMap: laneTex, tiling: [1, 1.5], gloss: 0.6, clearCoat: 0.6, clearCoatGloss: 0.85 });
   const deckMat = std({ diffuseMap: deckTex, tiling: [1, 0.5], gloss: 0.7, clearCoat: 0.8 });
   const gutterMat = std({ diffuse: hex("#1a1d26"), metalness: 0.6, gloss: 0.45 });
-  const wallMat = std({ noEnv: true, diffuse: hex("#0d1120"), gloss: 0.3 });
+  const wallMat = std({ noEnv: true, diffuse: hex(venue.wall), gloss: 0.3 });
   const darkMat = std({ noEnv: true, diffuse: hex("#06070c"), gloss: 0.2 });
   const carpetMat = std({ noEnv: true, diffuseMap: canvasTexture(device, carpet(), true), tiling: [6, 3], gloss: 0.05 });
   const pinMat = std({ diffuseMap: canvasTexture(device, pinDecal()), gloss: 0.88, clearCoat: 1, clearCoatGloss: 0.95 });
   const ballMat = std({ diffuseMap: canvasTexture(device, ballSwirl()), gloss: 0.9, metalness: 0.1, clearCoat: 1, clearCoatGloss: 0.97 });
   const holeMat = std({ noEnv: true, diffuse: hex("#020203"), gloss: 0.2 });
   const arrowMat = std({ diffuse: hex("#3b1d0c"), gloss: 0.7, clearCoat: 1 });
-  const neonBlue = std({ diffuse: hex("#000000"), emissive: hex("#2f8bff"), emissiveIntensity: 3 });
-  const neonOrange = std({ diffuse: hex("#000000"), emissive: hex("#ff7a1a"), emissiveIntensity: 3 });
-  const ceilingLight = std({ diffuse: hex("#000000"), emissive: hex("#fff3dd"), emissiveIntensity: 2.2 });
+  const neonBlue = std({ diffuse: hex("#000000"), emissive: hex(venue.a), emissiveIntensity: 3 });
+  const neonOrange = std({ diffuse: hex("#000000"), emissive: hex(venue.b), emissiveIntensity: 3 });
+  const ceilingLight = std({ diffuse: hex("#000000"), emissive: hex(venue.light), emissiveIntensity: 2.2 });
   const signMat = std({ diffuseMap: canvasTexture(device, maskingSign()), emissiveMap: canvasTexture(device, maskingSignEmissive()), emissive: hex("#ffffff"), emissiveIntensity: 2.5, gloss: 0.4 });
 
   const pinMesh = latheMesh(device, PIN_PROFILE, 28);

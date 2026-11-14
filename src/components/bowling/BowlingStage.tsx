@@ -5,6 +5,7 @@ import { AlleyAudio } from "@/game/bowling/audio";
 import { THROW_LIMITS, type ThrowInput } from "@/game/bowling/constants";
 import { clamp, powerAt, powerToSpeed, swipeToThrow, type SwipeSample } from "@/game/bowling/controls";
 import type { BowlingView, Quality } from "@/game/bowling/renderer";
+import type { VenueId } from "@/game/bowling/venues";
 import type { SimResult } from "@/game/bowling/sim";
 import type { Reaction } from "@/game/bowling/bowler";
 import type { AvatarConfig } from "@/lib/avatar";
@@ -39,6 +40,8 @@ interface Props {
   /** An external replay to show (the opponent's throw). Played once per id. */
   replay?: StageReplay | null;
   onReplayShown?: (id: string) => void;
+  /** Practice venue colour scheme. */
+  venue?: VenueId;
   /** Character of whoever is bowling now (shown on the approach). */
   avatar?: AvatarConfig | null;
   /** Status line shown when the player can't throw. */
@@ -49,7 +52,7 @@ interface Props {
 
 type Phase = "loading" | "error" | "ready" | "charging" | "rolling";
 
-export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, onReplayShown, avatar, waitingLabel, children }: Props) {
+export function BowlingStage({ venue = "neon", rack, canThrow, onThrow, onThrowShown, replay, onReplayShown, avatar, waitingLabel, children }: Props) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   useGameSurface(surfaceRef);
   const [settings] = useGameSettings();
@@ -84,7 +87,7 @@ export function BowlingStage({ rack, canThrow, onThrow, onThrowShown, replay, on
         const { createBowlingView, detectQuality } = await import("@/game/bowling/renderer");
         const q = detectQuality();
         if (!canvasRef.current || disposed) return;
-        const view = await createBowlingView(canvasRef.current, q);
+        const view = await createBowlingView(canvasRef.current, q, venue);
         if (disposed) return view.destroy();
         viewRef.current = view;
         audioRef.current = new AlleyAudio();

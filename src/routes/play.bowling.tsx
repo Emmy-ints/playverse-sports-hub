@@ -8,6 +8,7 @@ import { Scoreboard } from "@/components/bowling/Scoreboard";
 import { GameButton } from "@/components/game/GameButton";
 import type { ThrowInput } from "@/game/bowling/constants";
 import { countSpares, countStrikes, scoreGame } from "@/game/bowling/scoring";
+import { VENUES, type VenueId } from "@/game/bowling/venues";
 import { BALLS, OILS, type BallId, type OilId, type SimResult } from "@/game/bowling/sim";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/lib/player";
@@ -25,7 +26,7 @@ export const Route = createFileRoute("/play/bowling")({
 });
 
 type Mode = "game" | "spares";
-interface Setup { mode: Mode; ball: BallId; oil: OilId; key: number }
+interface Setup { mode: Mode; ball: BallId; oil: OilId; venue: VenueId; key: number }
 
 /** Classic spare leaves, easiest to hardest. */
 const LEAVES: { pins: number[]; name: string }[] = [
@@ -48,6 +49,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
   const [mode, setMode] = useState<Mode>("game");
   const [ball, setBall] = useState<BallId>("reactive");
   const [oil, setOil] = useState<OilId>("house");
+  const [venue, setVenue] = useState<VenueId>("neon");
   const opt = (on: boolean) => cn("rounded-xl px-3 py-2.5 text-left", on ? "bg-gradient-primary text-primary-foreground" : "bg-secondary hover:bg-muted");
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(circle_at_top,#2a1b3a,#0b1020)] p-4 pt-safe pb-safe">
@@ -78,7 +80,17 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
             ))}
           </div>
         </fieldset>
-        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ mode, ball, oil, key: Date.now() })}><Play aria-hidden /> Start bowling</GameButton>
+        <fieldset className="mt-4">
+          <legend className="mb-2 text-xs font-bold uppercase tracking-wider text-white/70">Venue</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {(Object.keys(VENUES) as VenueId[]).map((v) => (
+              <button key={v} type="button" aria-pressed={venue === v} onClick={() => setVenue(v)} className={opt(venue === v)}>
+                <span className="flex items-center gap-2 font-semibold"><span className="size-3 rounded-full" style={{ background: VENUES[v].a }} /><span className="size-3 rounded-full" style={{ background: VENUES[v].b }} />{VENUES[v].name}</span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+        <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({ mode, ball, oil, venue, key: Date.now() })}><Play aria-hidden /> Start bowling</GameButton>
       </div>
     </div>
   );
@@ -146,7 +158,7 @@ function BowlingPractice({ setup, onSetup }: { setup: Setup; onSetup: () => void
 
   return (
     <div className="fixed inset-0 bg-black">
-      <BowlingStage rack={rack} canThrow={!game.complete} onThrow={onThrow} onThrowShown={onThrowShown} avatar={player.avatar} waitingLabel="Game over">
+      <BowlingStage venue={setup.venue} rack={rack} canThrow={!game.complete} onThrow={onThrow} onThrowShown={onThrowShown} avatar={player.avatar} waitingLabel="Game over">
         <div className="flex items-start gap-2 px-2 pt-2">
           <Link to="/hub" className="pointer-events-auto glass flex size-10 shrink-0 items-center justify-center rounded-full" aria-label="Leave practice">
             <ArrowLeft className="size-5" aria-hidden />
@@ -213,7 +225,7 @@ function SpareChallenge({ setup, onSetup }: { setup: Setup; onSetup: () => void 
 
   return (
     <div className="fixed inset-0 bg-black">
-      <BowlingStage rack={done ? [] : leave.pins} canThrow={!done && made.length === idx} onThrow={onThrow} onThrowShown={onThrowShown} avatar={player.avatar} waitingLabel={done ? "Challenge over" : "Resetting pins…"}>
+      <BowlingStage venue={setup.venue} rack={done ? [] : leave.pins} canThrow={!done && made.length === idx} onThrow={onThrow} onThrowShown={onThrowShown} avatar={player.avatar} waitingLabel={done ? "Challenge over" : "Resetting pins…"}>
         <div className="flex items-start gap-2 px-2 pt-2">
           <Link to="/hub" className="pointer-events-auto glass flex size-10 shrink-0 items-center justify-center rounded-full" aria-label="Leave practice"><ArrowLeft className="size-5" aria-hidden /></Link>
           <div className="glass min-w-0 flex-1 rounded-2xl px-3 py-2 text-white">
