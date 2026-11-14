@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Eye, Gamepad2, Loader2, Monitor, RotateCcw, 
 import { ControlsHelpButton } from "@/components/game/ControlsGuide";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { RaceAudio } from "@/game/racing/audio";
+import { commentate, stopCommentary } from "@/lib/commentary";
 import { ghostAt, GhostRecorder, loadGhost, saveGhost, type GhostLap } from "@/game/racing/ghost";
 import type { RaceDriver } from "@/game/racing/driver";
 import type { Quality, RaceView } from "@/game/racing/renderer";
@@ -55,6 +56,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading");
   const [quality, setQuality] = useState<Quality>("high");
   const [sound, setSound] = useState(true);
+  const soundRef = useRef(true);
+  soundRef.current = sound;
   const touch = useTouchMode();
   const [autoGas, setAutoGas] = useState(false);
   const [hud, setHud] = useState({ pos: 1, of: names.length, lap: 0, laps: 0, time: 0, speed: 0, best: 0, last: 0, count: -1, wrong: false, stuck: false, finished: false, phase: "countdown" as RaceState["phase"] });
@@ -171,6 +174,8 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
     if (phase !== "ready") return;
     let raf = 0, last = performance.now(), hudAt = 0, lastCount = -1;
     let ghostLap: GhostLap | null = ghostOn ? loadGhost(trackId) : null;
+    let lastPos = 0, fastest = 0;
+    const talk = (t: string, priority = false) => { if (soundRef.current) commentate(t, { priority }); };
     const rec = new GhostRecorder();
     const loop = (now: number) => {
       raf = requestAnimationFrame(loop);
@@ -268,7 +273,16 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
             if (!first) setTimeout(() => setBanner({ text: `New personal best! ${formatTime(t)}`, id: performance.now() }), 1400);
           }
         }
+        if (e.kind === "lap") {
+          const t = Number((e.detail ?? "").split(":")[1]);
+          if (t > 5 && (!fastest || t < fastest)) {
+            const first = !fastest;
+            fastest = t;
+            if (!first) talk(e.car === v ? "Fastest lap of the race!" : `Fastest lap for ${names[e.car ?? 0] ?? "a rival"}`);
+          }
+        }
         if (e.kind === "start") {
+          talk("And they're away!", true);
           audio?.beep(true);
           setBanner({ text: "GO!", id: now });
         } else if (e.kind === "impact" && (e.car === v || s.t - me.hit < 0.05)) {
@@ -279,14 +293,19 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
           const [n, time, best] = (e.detail ?? "").split(":");
           lastLap.current = Number(time);
           const lapNo = Number(n);
+          if (lapNo + 1 === s.laps && s.laps > 1) talk("Final lap!", true);
           if (lapNo < s.laps) setBanner({ text: `${lapNo + 1 === s.laps ? "Final lap" : `Lap ${lapNo + 1}`} · ${formatTime(Number(time))}${best ? " · best" : ""}`, id: now });
         } else if (e.kind === "finish" && e.car === v) {
           setBanner({ text: `Finished P${e.detail}!`, id: now });
+          talk(e.detail === "1" ? "Chequered flag, and it's a win!" : `Across the line in P${e.detail}`, true);
         }
       }
       if (now - hudAt > 100) {
         hudAt = now;
         const order = standings(s);
+        const pos = order.indexOf(v) + 1;
+        if (s.phase === "racing" && !me.finished && lastPos && pos !== lastPos && s.t - s.startAt > 4) talk(pos < lastPos ? (pos === 1 ? "Into the lead!" : `Up to P${pos}`) : `Down to P${pos}`);
+        lastPos = pos;
         const fwd = Math.sin(me.h) * track.tx[me.idx]! - Math.cos(me.h) * track.tz[me.idx]!;
         setHud({
           pos: order.indexOf(v) + 1, of: s.cars.length, lap: Math.max(0, Math.min(s.laps, me.lap + 1)), laps: s.laps,
@@ -299,7 +318,10 @@ export function RaceStage({ track: trackId, driver, names, colors, helmets, rend
       }
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      stopCommentary();
+    };
   }, [phase, driver, track, map, names, colors, ghostOn, trackId]);
 
   useEffect(() => {
