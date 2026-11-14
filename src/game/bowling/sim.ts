@@ -31,6 +31,25 @@ const SETTLE_SECONDS = 1.6;
 export const FRICTION = { oil: 0.012, dry: 0.16, deck: 0.3, pin: 0.32, gutter: 0.2 } as const;
 const MAX_SPIN_RAD_S = 26;
 
+/** Practice equipment. "reactive" + "house" is the standard setup used online. */
+export const BALLS = {
+  reactive: { name: "Reactive 15 lb", note: "Strong hook, the standard ball", spin: 1, mass: BALL.mass },
+  urethane: { name: "Urethane 14 lb", note: "Smoother, more controlled arc", spin: 0.72, mass: 6.35 },
+  plastic: { name: "Plastic spare ball", note: "Goes dead straight: built for spares", spin: 0.18, mass: 6.35 },
+  heavy: { name: "Pro 16 lb", note: "Maximum hook and pin carry", spin: 1.18, mass: 7.26 },
+} as const;
+export type BallId = keyof typeof BALLS;
+
+export const OILS = {
+  house: { name: "House shot", note: "40 ft, forgiving", length: LANE.oilLength },
+  short: { name: "Short pattern", note: "34 ft: the ball hooks early", length: 34 * 12 * 0.0254 },
+  long: { name: "Long pattern", note: "46 ft: late, sharp break", length: 46 * 12 * 0.0254 },
+  dry: { name: "Burnt lane", note: "22 ft: hooks hard, play straighter", length: 22 * 12 * 0.0254 },
+} as const;
+export type OilId = keyof typeof OILS;
+
+export interface LaneOptions { ball?: BallId; oil?: OilId }
+
 export interface SimResult {
   /** Pins (1..10) that were standing before the throw, in the order they appear in each frame. */
   pins: number[];
@@ -74,12 +93,12 @@ function addStaticBox(R: Rapier, world: Rapier, body: Rapier, hx: number, hy: nu
   );
 }
 
-function buildAlley(R: Rapier, world: Rapier) {
+function buildAlley(R: Rapier, world: Rapier, oilLength: number = LANE.oilLength) {
   const ground = world.createRigidBody(R.RigidBodyDesc.fixed());
   const t = 0.05; // half thickness of slabs
   const deckStart = HEAD_PIN_Z + 0.25;
   // Approach + oiled front of the lane.
-  const oilEnd = -LANE.oilLength;
+  const oilEnd = -oilLength;
   addStaticBox(R, world, ground, HALF_LANE, t, (2 - oilEnd) / 2, 0, -t, (2 + oilEnd) / 2, FRICTION.oil);
   // Dry back end.
   addStaticBox(R, world, ground, HALF_LANE, t, (oilEnd - deckStart) / 2, 0, -t, (oilEnd + deckStart) / 2, FRICTION.dry);
@@ -119,11 +138,12 @@ export function isPinStanding(pos: { x: number; y: number; z: number }, rot: { x
  * Simulate one ball against the given standing pins (1..10). Standing pins are placed on their spots,
  * as a pinsetter does before the next ball.
  */
-export function simulateThrow(R: Rapier, input: ThrowInput, standingPins: readonly number[]): SimResult {
+export function simulateThrow(R: Rapier, input: ThrowInput, standingPins: readonly number[], opts: LaneOptions = {}): SimResult {
+  const kit = BALLS[opts.ball ?? "reactive"];
   const world = new R.World({ x: 0, y: -9.81, z: 0 });
   world.timestep = 1 / STEP_HZ;
   try {
-    buildAlley(R, world);
+    buildAlley(R, world, OILS[opts.oil ?? "house"].length);
 
     const hull = pinHullPoints();
     const pinBodies: { id: number; body: Rapier }[] = [];
@@ -146,12 +166,12 @@ export function simulateThrow(R: Rapier, input: ThrowInput, standingPins: readon
         .setTranslation(input.x, r + 0.001, -0.25)
         .setLinvel(vx, 0, vz)
         // Partial forward roll (the ball skids first) plus side rotation, which creates the hook.
-        .setAngvel({ x: (0.35 * vz) / r, y: 0, z: input.spin * MAX_SPIN_RAD_S })
+        .setAngvel({ x: (0.35 * vz) / r, y: 0, z: input.spin * MAX_SPIN_RAD_S * kit.spin })
         .setCcdEnabled(true)
         .setAngularDamping(0.05),
     );
     world.createCollider(
-      R.ColliderDesc.ball(r).setMass(BALL.mass).setFriction(1).setFrictionCombineRule(R.CoefficientCombineRule.Min).setRestitution(0.05),
+      R.ColliderDesc.ball(r).setMass(kit.mass).setFriction(1).setFrictionCombineRule(R.CoefficientCombineRule.Min).setRestitution(0.05),
       ball,
     );
 
