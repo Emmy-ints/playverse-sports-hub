@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { GameButton } from "@/components/game/GameButton";
 import { TennisStage } from "@/components/tennis/TennisStage";
 import { PracticeDriver } from "@/game/tennis/driver";
+import type { AiStyle } from "@/game/tennis/sim";
 import { COURT_THEMES, type CourtTheme } from "@/game/tennis/themes";
 import type { AvatarConfig } from "@/lib/avatar";
 import { usePlayer } from "@/lib/player";
@@ -33,7 +34,14 @@ const AI_AVATAR: AvatarConfig = {
   hairColor: "#1b1410", outfit: "tennis", outfitColor: "#e8eaf0", shoes: "court", shoeColor: "#e8eaf0", accessory: "headband",
 };
 
-interface Setup { theme: CourtTheme; level: (typeof LEVELS)[number]; bestOf: 1 | 3; games: 4 | 6; key: number }
+const RIVALS: { id: AiStyle; name: string; hint: string; avatar: AvatarConfig }[] = [
+  { id: "allcourt", name: "Ace", hint: "All-court: a bit of everything", avatar: AI_AVATAR },
+  { id: "baseliner", name: "Rhea Stone", hint: "Baseliner: deep, heavy topspin, never misses", avatar: { ...AI_AVATAR, nickname: "Rhea", genderPresentation: "feminine", skinTone: "#d39b72", hairstyle: "ponytail", hairColor: "#2a1a10", outfitColor: "#2f6fed", accessory: "cap" } },
+  { id: "power", name: "Dax Kova", hint: "Power hitter: big serves, flat and fast", avatar: { ...AI_AVATAR, nickname: "Dax", genderPresentation: "masculine", skinTone: "#f6d7c3", hairstyle: "short", hairColor: "#c9a36a", outfitColor: "#d7263d", accessory: "wristbands" } },
+  { id: "counter", name: "Mila Reyes", hint: "Counter-puncher: lobs, drop shots, retrieves everything", avatar: { ...AI_AVATAR, nickname: "Mila", genderPresentation: "feminine", skinTone: "#a8714b", hairstyle: "curly", hairColor: "#140c08", outfitColor: "#18b56b", accessory: "headband" } },
+];
+
+interface Setup { theme: CourtTheme; level: (typeof LEVELS)[number]; rival: (typeof RIVALS)[number]; bestOf: 1 | 3; games: 4 | 6; key: number }
 
 function TennisPractice() {
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -62,6 +70,7 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
   const [theme, setTheme] = useState<CourtTheme["id"]>("hard");
   const [level, setLevel] = useState<(typeof LEVELS)[number]["id"]>("pro");
   const [length, setLength] = useState<"quick" | "one" | "three">("quick");
+  const [rival, setRival] = useState<AiStyle>("allcourt");
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(circle_at_top,#1d3d6b,#0b1020)] p-4 pt-safe pb-safe">
       <div className="glass w-full max-w-xl rounded-3xl p-6">
@@ -71,14 +80,15 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
         <h1 className="font-display text-4xl font-black uppercase">Practice match</h1>
         <p className="text-sm text-white/70">Real ball physics, five venues, an AI opponent. Not ranked.</p>
         <Choice label="Venue" value={theme} onChange={setTheme} options={Object.values(COURT_THEMES).map((t) => ({ id: t.id, name: t.name, hint: t.blurb }))} />
-        <Choice label="Opponent" value={level} onChange={setLevel} options={LEVELS.map((l) => ({ id: l.id, name: l.name }))} />
+        <Choice label="Rival" value={rival} onChange={setRival} options={RIVALS.map((r) => ({ id: r.id, name: r.name, hint: r.hint }))} />
+        <Choice label="Rival level" value={level} onChange={setLevel} options={LEVELS.map((l) => ({ id: l.id, name: l.name }))} />
         <Choice label="Length" value={length} onChange={setLength} options={[
           { id: "quick", name: "Quick set", hint: "First to 4 games" },
           { id: "one", name: "Full set", hint: "First to 6 games, tiebreak at 6–6" },
           { id: "three", name: "Best of 3", hint: "Sets to 4 games" },
         ]} />
         <GameButton variant="hot" size="lg" className="mt-6 w-full" onClick={() => onStart({
-          theme: COURT_THEMES[theme], level: LEVELS.find((l) => l.id === level)!, bestOf: length === "three" ? 3 : 1, games: length === "one" ? 6 : 4, key: Date.now(),
+          theme: COURT_THEMES[theme], level: LEVELS.find((l) => l.id === level)!, rival: RIVALS.find((r) => r.id === rival)!, bestOf: length === "three" ? 3 : 1, games: length === "one" ? 6 : 4, key: Date.now(),
         })}>
           Walk on court
         </GameButton>
@@ -89,9 +99,9 @@ function SetupScreen({ onStart }: { onStart: (s: Setup) => void }) {
 
 function Match({ setup, onRematch, onExit }: { setup: Setup; onRematch: () => void; onExit: () => void }) {
   const player = usePlayer();
-  const driver = useMemo(() => new PracticeDriver({ bestOf: setup.bestOf, gamesPerSet: setup.games }, setup.theme.surface, setup.level.level), [setup]);
-  const names: [string, string] = [player.name, `${setup.level.name} Bot`];
-  const avatars = useMemo<[AvatarConfig | null, AvatarConfig | null]>(() => [player.avatar, AI_AVATAR], [player.avatar]);
+  const driver = useMemo(() => new PracticeDriver({ bestOf: setup.bestOf, gamesPerSet: setup.games }, setup.theme.surface, setup.level.level, undefined, setup.rival.id), [setup]);
+  const names: [string, string] = [player.name, setup.rival.name];
+  const avatars = useMemo<[AvatarConfig | null, AvatarConfig | null]>(() => [player.avatar, setup.rival.avatar], [player.avatar, setup.rival]);
   return (
     <TennisStage
       theme={setup.theme}

@@ -3,7 +3,7 @@
  * input and returns events each frame. Practice runs the simulation locally against the AI; online
  * play uses a driver that talks to the authoritative game server instead.
  */
-import { aiInput, applyInput, createMatch, step, takeEvents, type PlayerInput, type ShotType, type Surface, type TennisEvent, type TennisState } from "./sim.ts";
+import { aiInput, applyInput, createMatch, step, takeEvents, type AiStyle, type PlayerInput, type ShotType, type Surface, type TennisEvent, type TennisState } from "./sim.ts";
 import type { MatchFormat } from "./scoring.ts";
 import type { ViewFrame } from "./renderer.ts";
 import { currentServer } from "./scoring.ts";
@@ -37,8 +37,10 @@ export class PracticeDriver implements TennisDriver {
   private pending: LocalInput = { mx: 0, mz: 0, sprint: false, shot: null };
   paused = false;
 
-  constructor(format: MatchFormat, surface: Surface, private level: number, seed = Math.floor(Math.random() * 1e9)) {
+  private style: AiStyle;
+  constructor(format: MatchFormat, surface: Surface, private level: number, seed = Math.floor(Math.random() * 1e9), style: AiStyle = "allcourt") {
     this.s = createMatch(format, surface, Math.random() < 0.5 ? 0 : 1, seed);
+    this.style = style;
   }
 
   state() {
@@ -55,7 +57,7 @@ export class PracticeDriver implements TennisDriver {
     const seq = ++this.seq;
     applyInput(this.s, 0, { ...this.pending, seq });
     this.pending = { ...this.pending, shot: null };
-    applyInput(this.s, 1, aiInput(this.s, 1, this.level, seq));
+    applyInput(this.s, 1, aiInput(this.s, 1, this.level, seq, this.style));
     step(this.s, Math.min(dt, 1 / 20));
     return takeEvents(this.s);
   }

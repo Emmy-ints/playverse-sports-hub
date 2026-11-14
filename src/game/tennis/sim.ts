@@ -484,14 +484,17 @@ export function predictLanding(s: TennisState): { x: number; z: number; t: numbe
 }
 
 /** Simple AI opponent for practice: chase the ball, arm a shot early, aim away from the opponent. */
-export function aiInput(s: TennisState, p: 0 | 1, level = 0.6, seq = 0): PlayerInput {
+/** Practice AI personalities; undefined = the balanced all-court player used everywhere else. */
+export type AiStyle = "allcourt" | "baseliner" | "power" | "counter";
+
+export function aiInput(s: TennisState, p: 0 | 1, level = 0.6, seq = 0, style: AiStyle = "allcourt"): PlayerInput {
   const me = s.players[p];
   const opp = s.players[p === 0 ? 1 : 0];
   const b = s.ball;
   let tx = 0, tz = SIDE[p] * (COURT.halfLength + 0.5);
   let shot: PlayerInput["shot"] = null;
   if (s.phase === "serve") {
-    if (currentServer(s.score) === p && Math.floor(s.t * 10) % 15 === 0) shot = { type: "flat", aim: 0.3, power: 0.45 + 0.3 * level };
+    if (currentServer(s.score) === p && Math.floor(s.t * 10) % 15 === 0) shot = { type: "flat", aim: style === "power" ? 0.55 : 0.3, power: 0.45 + 0.3 * level + (style === "power" ? 0.15 : 0) };
     return { seq, mx: 0, mz: 0, sprint: false, shot };
   }
   const comingToMe = sideOf(b.z) === p || b.vz * SIDE[p] > 0;
@@ -506,11 +509,19 @@ export function aiInput(s: TennisState, p: 0 | 1, level = 0.6, seq = 0): PlayerI
       // Imperfect read of the bounce, worse for weaker AI.
       const misread = Math.sin(b.hitAt * 7.3 + p) * (1 - level) * 1.4;
       tx = land.x + misread - 0.4 * (land.x > me.x ? 1 : -1);
-      tz = land.z + SIDE[p] * (1.6 + (1 - level) * 0.8);
+      tz = land.z + SIDE[p] * (1.6 + (1 - level) * 0.8 + (style === "baseliner" ? 0.9 : style === "counter" ? 0.5 : 0));
     }
     const aimAway = opp.x > 0 ? -0.75 : 0.75;
     const wobble = Math.sin(s.t * 1.7 + p * 2) * 0.35;
     shot = { type: level > 0.7 && Math.abs(opp.z) < 6 ? "lob" : Math.sin(s.t * 0.9) > 0.6 ? "flat" : "topspin", aim: clamp(aimAway * level + wobble, -1, 1), power: 0.4 + 0.45 * level };
+    if (style === "baseliner") {
+      shot = { type: Math.abs(opp.z) < 6 ? "lob" : "topspin", aim: clamp(aimAway * 0.6 * level + wobble * 0.6, -1, 1), power: 0.45 + 0.35 * level };
+    } else if (style === "power") {
+      shot = { type: Math.sin(s.t * 1.3) > -0.3 ? "flat" : "topspin", aim: clamp(aimAway * (0.6 + 0.4 * level) + wobble, -1, 1), power: Math.min(1, 0.55 + 0.45 * level) };
+    } else if (style === "counter") {
+      const oppDeep = Math.abs(opp.z) > COURT.halfLength - 0.5;
+      shot = { type: Math.abs(opp.z) < 6 ? "lob" : oppDeep && Math.sin(s.t * 2.1) > 0.55 ? "drop" : "topspin", aim: clamp(aimAway * level + wobble * 0.8, -1, 1), power: 0.35 + 0.35 * level };
+    }
   } else {
     tx = -b.x * 0.2;
   }
